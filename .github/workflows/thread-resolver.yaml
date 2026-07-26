@@ -1,0 +1,41 @@
+name: Thread Resolver
+
+on:
+    pull_request:
+        types: [synchronize]
+
+permissions:
+    contents: read
+    pull-requests: write
+
+jobs:
+    resolve:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            # Fix commits name the finding threads they answer with
+            # Resolves-Thread: trailers; resolution then carries an audit
+            # trail per finding instead of a bulk sweep at the end.
+            - name: Resolve threads named by pushed commits
+              uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+              with:
+                  script: |
+                      const { data: commits } = await github.rest.pulls.listCommits({
+                          ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100 });
+                      const ids = new Set();
+                      for (const c of commits) {
+                          for (const m of c.commit.message.matchAll(/^Resolves-Thread:\s*(\S+)$/gm)) {
+                              ids.add(m[1]);
+                          }
+                      }
+                      if (ids.size === 0) return;
+                      for (const id of ids) {
+                          try {
+                              await github.graphql(
+                                  `mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }`,
+                                  { id });
+                              core.info(`resolved ${id}`);
+                          } catch (e) {
+                              core.warning(`could not resolve ${id}: ${e.message}`);
+                          }
+                      }
