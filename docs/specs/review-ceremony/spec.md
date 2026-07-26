@@ -129,6 +129,43 @@ A pull request touching protected paths SHALL either carry a specification chang
 - **WHEN** a pull request touches only files outside the protected paths
 - **THEN** the specification check passes without requiring a specification change
 
+### Requirement: Earned Approval
+
+A clean correctness verdict on the owner's pull request SHALL become the reviewer identity's approving review, and any later push SHALL dismiss it until a clean re-review re-grants it.
+
+#### Scenario: Clean verdict approves
+
+- **WHEN** `review/correctness` posts a verdict of clean on the owner's pull request
+- **THEN** the reviewer identity submits an approving review satisfying the required approval
+
+#### Scenario: Push dismisses
+
+- **WHEN** any commit lands after the approval
+- **THEN** the approval is dismissed and returns only after a clean re-review
+
+### Requirement: Owner Seal
+
+Merging SHALL require the branch head to be an owner seal: an empty, signature-verified commit by the owner with a `seal:` subject. A push after the seal SHALL unseal the branch, and a valid seal SHALL restore the earned approval its own push dismissed.
+
+#### Scenario: Sealed branch merges
+
+- **WHEN** the head commit is an empty verified owner commit with a `seal:` subject
+- **THEN** the `owner-seal` check passes and the merge may proceed
+
+#### Scenario: Push unseals
+
+- **WHEN** any commit lands after a seal
+- **THEN** the `owner-seal` check fails until the owner seals again
+
+### Requirement: Release Notes Attestation
+
+Every pull request body SHALL carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow SHALL compile the sections of merged pull requests into the release body the owner signs over.
+
+#### Scenario: Missing section
+
+- **WHEN** a pull request body has no Release Notes section
+- **THEN** the quality check fails naming the requirement
+
 ### Requirement: Merge and Release Ceremony
 
 Approved work SHALL enter `main` as a GitHub merge commit, and release tags SHALL be annotated, signed by the owner, and verified before any release publishes.
