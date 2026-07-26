@@ -27,3 +27,30 @@ jobs:
                   subjectPattern: ^(?![A-Z]).+$
                   subjectPatternError: >
                       The subject "{subject}" must start lowercase.
+
+    label:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/labeler@b8dd2d9be0f68b860e7dae5dae7d772984eacd6d # v6
+              with:
+                  sync-labels: true
+
+    size:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+              with:
+                  script: |
+                      const pr = context.payload.pull_request;
+                      const changed = pr.additions + pr.deletions;
+                      const size = changed < 50 ? "size/S" : changed < 300 ? "size/M" : changed < 1000 ? "size/L" : "size/XL";
+                      const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                          ...context.repo, issue_number: pr.number });
+                      for (const label of labels) {
+                          if (label.name.startsWith("size/") && label.name !== size) {
+                              await github.rest.issues.removeLabel({
+                                  ...context.repo, issue_number: pr.number, name: label.name });
+                          }
+                      }
+                      await github.rest.issues.addLabels({
+                          ...context.repo, issue_number: pr.number, labels: [size] });

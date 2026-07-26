@@ -1,0 +1,15 @@
+docs:
+    - changed-files:
+          - any-glob-to-any-file: ["docs/**", "README.md", "*.md"]
+
+workflows:
+    - changed-files:
+          - any-glob-to-any-file: ".github/workflows/**"
+
+hooks:
+    - changed-files:
+          - any-glob-to-any-file: ".githooks/**"
+
+schemas:
+    - changed-files:
+          - any-glob-to-any-file: ["schemas/**", "**/.mdschema"]
