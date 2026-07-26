@@ -43,6 +43,24 @@ jobs:
                       echo "seal=false" >> "$GITHUB_OUTPUT"
                   fi
 
+            # The subscription lane goes last: wait for the free lanes'
+            # verdicts on this head so Claude reviews a stabilized tree once
+            # and skips what they already found. New pushes cancel the wait
+            # via the concurrency group.
+            - name: Wait for the other lanes
+              if: steps.seal-head.outputs.seal == 'false'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  for _ in $(seq 1 60); do
+                      pending=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/check-runs" \
+                          --jq '[.check_runs[] | select(.app.slug == "macroscopeapp" or .app.slug == "cursor") | select(.status != "completed")] | length')
+                      [ "$pending" = "0" ] && { echo "other lanes settled"; exit 0; }
+                      sleep 20
+                  done
+                  echo "other lanes still running after 20m; reviewing anyway"
+
             - id: runeseer
               if: steps.seal-head.outputs.seal == 'false'
               uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
@@ -58,21 +76,29 @@ jobs:
                   allowed_bots: "runewright"
                   track_progress: true
                   claude_args: |
-                      --allowedTools "Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+                      --allowedTools "Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*)"
                   prompt: >
-                      Review this pull request for correctness defects only:
-                      logic errors, broken invariants, silent failure modes,
-                      security problems, and claims the diff does not uphold.
-                      Read the full diff and enough surrounding context to
-                      judge it. Post genuine findings as inline review
-                      comments on the pull request; do not comment on style,
-                      naming, or conventions, which other lanes own. You MUST
-                      end by posting exactly one summary comment with
-                      `gh pr comment`. Its first line MUST be exactly
-                      `review/correctness: clean` when nothing qualified, or
-                      `review/correctness: N findings` with the count of
-                      findings you posted. A review that posts nothing is a
-                      failed review.
+                      You are the adjudicating reviewer; the other lanes have
+                      already spoken. First fetch their output: the inline
+                      review comments (gh api
+                      repos/OWNER/REPO/pulls/N/comments) and issue comments
+                      from macroscopeapp[bot] and cursor[bot]. Judge each of
+                      their findings against the actual code: confirmed,
+                      disputed (say why), or already addressed by a later
+                      commit. Then review the full diff yourself for
+                      correctness defects they missed: logic errors, broken
+                      invariants, silent failure modes, security problems,
+                      claims the diff does not uphold. Post only NET-NEW
+                      findings as inline comments; never duplicate another
+                      lane. Skip style and conventions. You MUST end with
+                      exactly one summary comment via gh pr comment: after
+                      the first line, list your per-finding judgments of the
+                      other lanes. The first line MUST be exactly
+                      `review/correctness: clean` when no unresolved genuine
+                      finding remains from any lane, or
+                      `review/correctness: N findings` counting all
+                      unresolved genuine findings, yours and theirs. A
+                      review that posts nothing is a failed review.
 
             # Earned approval: a clean verdict on the owner's pull request
             # becomes runeseer's approving review. The ruleset dismisses it
