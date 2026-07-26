@@ -1,0 +1,41 @@
+name: Congrats
+
+on:
+    push:
+        branches: [main]
+
+permissions:
+    contents: read
+
+jobs:
+    congrats:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - id: runewright
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
+                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+                  owner: runedeck
+
+            - name: Greet a first merged contribution
+              env:
+                  GH_TOKEN: ${{ steps.runewright.outputs.token }}
+              run: |
+                  pr=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+                      --jq '[.[] | select(.merged_at != null)] | first')
+                  [ -n "$pr" ] && [ "$pr" != "null" ] || { echo "no merged PR for this push"; exit 0; }
+                  author=$(printf '%s' "$pr" | jq -r '.user.login')
+                  author_type=$(printf '%s' "$pr" | jq -r '.user.type')
+                  number=$(printf '%s' "$pr" | jq -r '.number')
+                  [ "$author_type" = "Bot" ] && { echo "bot author, no greeting"; exit 0; }
+                  [ "$author" = "N4M3Z" ] && { echo "owner, no greeting"; exit 0; }
+                  merged_count=$(gh api "search/issues?q=org:runedeck+is:pr+is:merged+author:$author" --jq '.total_count')
+                  if [ "$merged_count" = "1" ]; then
+                      gh api -X POST "repos/${{ github.repository }}/issues/$number/comments" \
+                          -f body="Your first merged contribution to runedeck — welcome, @$author, and thank you. Every rune in this deck was reviewed the same way yours just was; may it be the first of many." >/dev/null
+                      echo "greeted $author on #$number"
+                  else
+                      echo "$author has $merged_count merged PRs, no greeting"
+                  fi
