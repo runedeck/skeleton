@@ -17,7 +17,7 @@ jobs:
     quality:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   fetch-depth: 0
 
@@ -27,3 +27,17 @@ jobs:
               run: |
                   sudo apt-get install -y shellcheck
                   shellcheck -S warning templates/base/.githooks/*
+
+            - name: Release notes attestation
+              if: github.event_name == 'pull_request'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  body=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq '.body // ""')
+                  if printf '%s\n' "$body" | grep -q '^## Release Notes$' \
+                      && printf '%s\n' "$body" | sed -n '/^## Release Notes$/,/^## /p' | grep -q '^- '; then
+                      echo "Release Notes section present."
+                  else
+                      echo "The pull request body needs a '## Release Notes' section with at least one entry ('- N/A' for non-user-facing work)."
+                      exit 1
+                  fi
