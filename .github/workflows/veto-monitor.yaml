@@ -1,0 +1,61 @@
+name: Veto Monitor
+
+on:
+    schedule:
+        - cron: "30 6,16 * * *"
+    workflow_dispatch: {}
+
+permissions:
+    contents: read
+
+jobs:
+    monitor:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - id: runewright
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
+                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+                  owner: runedeck
+
+            - name: Sweep for green pull requests awaiting the owner's review
+              env:
+                  GH_TOKEN: ${{ steps.runewright.outputs.token }}
+              run: |
+                  waiting=""
+                  for repo in $(gh api orgs/runedeck/repos --jq '.[].name'); do
+                      numbers=$(gh api "repos/runedeck/$repo/pulls?state=open" \
+                          --jq '.[] | select(.draft == false and .user.login != "N4M3Z") | .number' 2>/dev/null || true)
+                      for n in $numbers; do
+                          pr=$(gh api graphql -f query="query { repository(owner: \"runedeck\", name: \"$repo\") { pullRequest(number: $n) { reviewDecision updatedAt mergeable commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }")
+                          decision=$(printf '%s' "$pr" | jq -r '.data.repository.pullRequest.reviewDecision // "NONE"')
+                          rollup=$(printf '%s' "$pr" | jq -r '.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.state // "NONE"')
+                          updated=$(printf '%s' "$pr" | jq -r '.data.repository.pullRequest.updatedAt')
+                          age_hours=$(( ( $(date +%s) - $(date -d "$updated" +%s) ) / 3600 ))
+                          if [ "$decision" != "APPROVED" ] && { [ "$rollup" = "SUCCESS" ] || [ "$rollup" = "NONE" ]; } && [ "$age_hours" -ge 20 ]; then
+                              waiting="$waiting runedeck/$repo#$n(${age_hours}h)"
+                              last_bump=$(gh api "repos/runedeck/$repo/issues/$n/comments" \
+                                  --jq '[.[] | select(.user.login == "runewright[bot]" and (.body | startswith("Awaiting the owner")))] | last | .created_at // empty')
+                              if [ -z "$last_bump" ] || [ $(( ( $(date +%s) - $(date -d "$last_bump" +%s) ) / 3600 )) -ge 20 ]; then
+                                  gh api -X POST "repos/runedeck/$repo/issues/$n/comments" \
+                                      -f body="Awaiting the owner's review: this pull request has been green and idle for ${age_hours}h. The merge waits only on @N4M3Z." >/dev/null
+                              fi
+                          fi
+                      done
+                  done
+                  echo "waiting:${waiting:- none}"
+
+                  dashboard=$(gh api "repos/runedeck/skeleton/issues?state=open&creator=runewright[bot]" \
+                      --jq '[.[] | select(.title == "Awaiting owner review")] | first | .number // empty')
+                  if [ -n "$waiting" ]; then
+                      body="Green pull requests blocked only on the owner's review, oldest first:$(printf '\n')$(printf '%s' "$waiting" | tr ' ' '\n' | grep -v '^$' | sed 's/^/- /')"
+                      if [ -n "$dashboard" ]; then
+                          gh api -X PATCH "repos/runedeck/skeleton/issues/$dashboard" -f body="$body" >/dev/null
+                      else
+                          gh api -X POST "repos/runedeck/skeleton/issues" -f title="Awaiting owner review" -f body="$body" >/dev/null
+                      fi
+                  elif [ -n "$dashboard" ]; then
+                      gh api -X PATCH "repos/runedeck/skeleton/issues/$dashboard" -f state=closed >/dev/null
+                  fi
