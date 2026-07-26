@@ -1,0 +1,64 @@
+name: Issue Dedup
+
+on:
+    issues:
+        types: [opened]
+
+permissions:
+    contents: read
+    issues: write
+    models: read
+
+jobs:
+    dedup:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - id: gather
+              uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+              with:
+                  script: |
+                      const { data: issues } = await github.rest.issues.listForRepo({
+                          ...context.repo, state: "open", per_page: 100 });
+                      const current = context.payload.issue.number;
+                      const others = issues
+                          .filter(i => i.number !== current && !i.pull_request)
+                          .map(i => `#${i.number}: ${i.title}`);
+                      core.setOutput("count", others.length);
+                      core.setOutput("list", others.join("\n"));
+
+            - id: judge
+              if: steps.gather.outputs.count != '0'
+              uses: actions/ai-inference@a7805884c80886efc241e94a5351df715968a0ad # v2
+              with:
+                  model: openai/gpt-4o-mini
+                  system-prompt: >
+                      You deduplicate GitHub issues. Answer with ONLY a JSON
+                      array of issue numbers from the existing list that are
+                      probably duplicates of the new issue, at most 3, or []
+                      when none plausibly match. No prose.
+                  prompt: |
+                      New issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+
+                      ${{ github.event.issue.body }}
+
+                      Existing open issues:
+                      ${{ steps.gather.outputs.list }}
+
+            - if: steps.gather.outputs.count != '0'
+              uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+              env:
+                  RESPONSE: ${{ steps.judge.outputs.response }}
+              with:
+                  script: |
+                      let numbers = [];
+                      try {
+                          numbers = JSON.parse((process.env.RESPONSE.match(/\[[^\]]*\]/) || ["[]"])[0]);
+                      } catch { return; }
+                      if (!Array.isArray(numbers) || numbers.length === 0) return;
+                      const refs = numbers.slice(0, 3).map(n => `#${n}`).join(", ");
+                      await github.rest.issues.createComment({
+                          ...context.repo,
+                          issue_number: context.payload.issue.number,
+                          body: `Possible duplicate of ${refs} — worth a look before this one proceeds. (Automated triage on GitHub Models; wrong guesses cost nothing, just say so.)`
+                      });
