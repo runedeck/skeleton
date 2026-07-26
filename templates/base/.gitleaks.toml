@@ -4,9 +4,12 @@
 [extend]
 useDefault = true
 
+# The SpecStory allowlist covers only the untracked output directories; the
+# tracked project binding and configuration stay inside the scan.
 [allowlist]
 paths = [
     "\\.entire/.*",
-    "\\.specstory/.*",
+    "\\.specstory/history/.*",
+    "\\.specstory/debug/.*",
     "\\.jj/.*",
 ]
