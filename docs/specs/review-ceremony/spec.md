@@ -8,7 +8,7 @@ Nothing reaches `main` on one opinion. An application opens every pull request s
 
 ### Requirement: Owner-Opened Pull Requests
 
-The owner SHALL author every ceremony pull request, ghostwritten by the orchestrating agent with a short summary, and the `runewright` app SHALL push the branch over HTTPS and post the full ceremony body as the first comment.
+The owner SHALL author every ceremony pull request, ghostwritten by the orchestrating agent with a short summary and pushed under the owner's credentials, and the `runewright` app SHALL post the full ceremony body as the first comment. The app acts only server-side, from workflow-minted tokens; no local key ceremony is required to move work.
 
 #### Scenario: Ghostwritten pull request
 
