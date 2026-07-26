@@ -9,6 +9,7 @@ permissions:
     pull-requests: write
     issues: write
     id-token: write
+    actions: read
 
 concurrency:
     group: review-correctness-${{ github.event.pull_request.number }}
@@ -17,10 +18,8 @@ concurrency:
 jobs:
     correctness:
         name: review/correctness
-        # The subscription token spends only on the owner's pull requests, and
-        # drafts stay free for iteration. A seal head is an empty owner
-        # commit; re-reviewing it would re-spend for an unchanged tree, and
-        # the owner-seal workflow restores the approval instead.
+        # The subscription token spends only on the owner's pull requests,
+        # and drafts stay free for iteration.
         if: >
             github.event.pull_request.draft == false &&
             github.event.pull_request.user.login == 'N4M3Z'
@@ -33,7 +32,6 @@ jobs:
 
             # Only a genuine seal skips the review: empty, signature-verified,
             # owner-authored, seal: subject — the same test owner-seal makes.
-            # A non-empty commit wearing a seal: subject gets reviewed.
             - id: seal-head
               name: Skip seal heads
               env:
@@ -51,22 +49,37 @@ jobs:
                       echo "seal=false" >> "$GITHUB_OUTPUT"
                   fi
 
-            # The subscription lane goes last: wait for the free lanes'
-            # verdicts on this head so Claude reviews a stabilized tree once
-            # and skips what they already found. New pushes cancel the wait
-            # via the concurrency group.
-            - name: Wait for the other lanes
+            # Prose-only diffs are the conventions lane's territory; the
+            # subscription reviews executable surface. Markdown under
+            # docs/specs or .github stays in scope, since canon and
+            # machinery are executable in the way that matters.
+            - id: scope
+              name: Scope to reviewable changes
               if: steps.seal-head.outputs.seal == 'false'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  files=$(gh pr diff ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --name-only)
+                  substantive=$(printf '%s\n' "$files" | grep -vE '^(docs/(?!specs/)|README|CHANGELOG|CONTRIBUTING).*\.md$' || true)
+                  substantive=$(printf '%s\n' "$files" | grep -Ev '\.md$' || true)
+                  in_scope_md=$(printf '%s\n' "$files" | grep -E '^(docs/specs/|\.github/).*\.md$' || true)
+                  if [ -z "$substantive" ] && [ -z "$in_scope_md" ]; then
+                      echo "skip=true" >> "$GITHUB_OUTPUT"
+                      echo "Prose-only change; correctness lane stands down."
+                  else
+                      echo "skip=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            # The subscription lane goes last: wait for the free lanes'
+            # verdicts on this head so the adjudicator reviews a stabilized
+            # tree once. Presence-aware: each expected app must have created
+            # AND concluded its runs; capped well under the job timeout.
+            - name: Wait for the other lanes
+              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
               env:
                   GH_TOKEN: ${{ github.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
-                  # Presence-aware: each expected app must have created its
-                  # check run for this head AND concluded it. Counting only
-                  # visibly-pending runs would race the apps' webhook lag
-                  # and read "not started yet" as "finished".
-                  # Cap well under timeout-minutes so the review always has
-                  # room to run after an absent or wedged lane.
                   expected="macroscopeapp cursor"
                   for _ in $(seq 1 45); do
                       settled=true
@@ -84,14 +97,35 @@ jobs:
                   done
                   echo "other lanes absent or still running after 15m; reviewing anyway"
 
+            # Cross-round ledger: the previous round's verdict artifact, when
+            # one exists, tells the adjudicator what was already reported and
+            # which sha was last judged, enabling delta re-reviews.
+            - id: ledger
+              name: Fetch the previous verdict
+              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  name="runeseer-verdict-pr${{ github.event.pull_request.number }}"
+                  artifact=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?name=$name" \
+                      --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | last | .id // empty')
+                  prev_sha=""
+                  if [ -n "$artifact" ]; then
+                      gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > prev-verdict.zip \
+                          && unzip -o prev-verdict.zip runeseer-verdict.json -d .previous-verdict >/dev/null \
+                          && prev_sha=$(jq -r '.sha // empty' .previous-verdict/runeseer-verdict.json) || true
+                  fi
+                  echo "prev_sha=${prev_sha}" >> "$GITHUB_OUTPUT"
+                  echo "previous verdict: ${prev_sha:-none}"
+
             - id: runeseer
-              if: steps.seal-head.outputs.seal == 'false'
+              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
               uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
               with:
                   app-id: ${{ secrets.RUNESEER_APP_ID }}
                   private-key: ${{ secrets.RUNESEER_APP_KEY }}
 
-            - if: steps.seal-head.outputs.seal == 'false'
+            - if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
               uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
               with:
                   claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -99,48 +133,84 @@ jobs:
                   allowed_bots: "runewright"
                   track_progress: true
                   claude_args: |
-                      --allowedTools "Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*)"
+                      --allowedTools "Read,Write,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git rev-parse:*)"
                   prompt: >
                       You are the adjudicating reviewer; the other lanes have
-                      already spoken. First fetch their output: the inline
-                      review comments (gh api
-                      repos/OWNER/REPO/pulls/N/comments) and issue comments
-                      from macroscopeapp[bot] and cursor[bot]. Judge each of
-                      their findings against the actual code: confirmed,
-                      disputed (say why), or already addressed by a later
-                      commit. Then review the full diff yourself for
-                      correctness defects they missed: logic errors, broken
+                      already spoken. First fetch their output: inline review
+                      comments (gh api repos/OWNER/REPO/pulls/N/comments,
+                      paginated) and issue comments from macroscopeapp[bot]
+                      and cursor[bot]. Judge each finding against the code:
+                      confirmed, disputed (say why), or already addressed.
+                      A previous-round ledger may exist at
+                      .previous-verdict/runeseer-verdict.json; findings
+                      listed there are already reported, so never re-report
+                      them, and when its sha
+                      (${{ steps.ledger.outputs.prev_sha }}) is an ancestor
+                      of HEAD, focus your own review on the range from that
+                      sha to HEAD rather than the whole diff. Review for
+                      correctness defects only: logic errors, broken
                       invariants, silent failure modes, security problems,
-                      claims the diff does not uphold. Post only NET-NEW
-                      findings as inline comments; never duplicate another
-                      lane. Skip style and conventions. You MUST end with
-                      exactly one summary comment via gh pr comment: after
-                      the first line, list your per-finding judgments of the
-                      other lanes. The first line MUST be exactly
-                      `review/correctness: clean @SHA` when no unresolved
-                      genuine finding remains from any lane, or
-                      `review/correctness: N findings @SHA` counting all
-                      unresolved genuine findings, yours and theirs, where
-                      SHA is the full head commit id from
-                      `git rev-parse HEAD`. A review that posts nothing is
-                      a failed review.
+                      claims the diff does not uphold. Post inline comments
+                      only for findings of medium severity and above;
+                      collect low-severity nits into a Digest section of
+                      your summary instead. Never duplicate another lane.
+                      Then write runeseer-verdict.json in the workspace
+                      root: {"sha": full HEAD sha, "verdict": "clean" or
+                      "findings", "count": N, "findings": [{"path", "line",
+                      "summary", "lane", "judgment"}]} covering every
+                      unresolved genuine finding from any lane. Finally post
+                      exactly one summary comment via gh pr comment: first
+                      line exactly `review/correctness: clean @SHA` or
+                      `review/correctness: N findings @SHA` (full HEAD sha),
+                      then your per-finding judgments of the other lanes,
+                      then the Digest. A review that posts nothing is a
+                      failed review.
 
-            # Earned approval: a clean verdict FOR THIS HEAD becomes
-            # runeseer's approving review. The verdict line carries the sha
-            # it judged, so a stale clean from an earlier commit can never
-            # approve a later one; pagination scans every comment.
+            # The verdict artifact is the machine-readable record: the next
+            # round's ledger, and the approval's evidence.
+            - name: Upload verdict
+              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v6
+              with:
+                  name: runeseer-verdict-pr${{ github.event.pull_request.number }}
+                  path: runeseer-verdict.json
+                  retention-days: 30
+                  if-no-files-found: warn
+
+            # Earned approval: a clean verdict FOR THIS HEAD, read from the
+            # artifact rather than comment archaeology.
             - name: Approve on clean verdict
-              if: steps.seal-head.outputs.seal == 'false'
+              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
               env:
                   GH_TOKEN: ${{ steps.runeseer.outputs.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
-                  match=$(gh api --paginate "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-                      --jq ".[] | select(.user.login == \"runeseer[bot]\") | .body" \
-                      | grep -cE "^review/correctness: clean @${HEAD_SHA}" || true)
-                  echo "clean verdicts for ${HEAD_SHA}: $match"
-                  if [ "$match" -ge 1 ]; then
+                  [ -f runeseer-verdict.json ] || { echo "no verdict file; not approving"; exit 0; }
+                  verdict=$(jq -r '.verdict // empty' runeseer-verdict.json)
+                  sha=$(jq -r '.sha // empty' runeseer-verdict.json)
+                  echo "verdict=$verdict sha=$sha head=$HEAD_SHA"
+                  if [ "$verdict" = "clean" ] && [ "$sha" = "$HEAD_SHA" ]; then
                       gh api -X POST "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
                           -f event=APPROVE \
                           -f body="Earned approval: review/correctness returned a clean verdict for ${HEAD_SHA}. Dismissed automatically on any new push."
                   fi
+
+            # Metrics: cost, turns, and finding counts land in the job
+            # summary so the round-trip's worth stays measured, not vibed.
+            - name: Metrics
+              if: always() && steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              run: |
+                  exec_log=/home/runner/work/_temp/claude-execution-output.json
+                  cost="?"; turns="?"
+                  if [ -f "$exec_log" ]; then
+                      cost=$(jq -r '[.[] | select(.type == "result")] | last | .total_cost_usd // "?"' "$exec_log" 2>/dev/null || echo "?")
+                      turns=$(jq -r '[.[] | select(.type == "result")] | last | .num_turns // "?"' "$exec_log" 2>/dev/null || echo "?")
+                  fi
+                  count="?"
+                  [ -f runeseer-verdict.json ] && count=$(jq -r '.count // "?"' runeseer-verdict.json)
+                  {
+                      echo "### review/correctness metrics"
+                      echo "- unresolved findings: $count"
+                      echo "- turns: $turns, est. cost: \$$cost"
+                      echo "- previous verdict sha: ${{ steps.ledger.outputs.prev_sha || 'none' }}"
+                  } >> "$GITHUB_STEP_SUMMARY"
