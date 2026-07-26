@@ -53,13 +53,26 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
+                  # Presence-aware: each expected app must have created its
+                  # check run for this head AND concluded it. Counting only
+                  # visibly-pending runs would race the apps' webhook lag
+                  # and read "not started yet" as "finished".
+                  expected="macroscopeapp cursor"
                   for _ in $(seq 1 60); do
-                      pending=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/check-runs" \
-                          --jq '[.check_runs[] | select(.app.slug == "macroscopeapp" or .app.slug == "cursor") | select(.status != "completed")] | length')
-                      [ "$pending" = "0" ] && { echo "other lanes settled"; exit 0; }
+                      settled=true
+                      for app in $expected; do
+                          runs=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/check-runs" \
+                              --jq "[.check_runs[] | select(.app.slug == \"$app\")]")
+                          total=$(printf '%s' "$runs" | jq 'length')
+                          done_count=$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')
+                          if [ "$total" = "0" ] || [ "$done_count" != "$total" ]; then
+                              settled=false
+                          fi
+                      done
+                      [ "$settled" = "true" ] && { echo "other lanes settled"; exit 0; }
                       sleep 20
                   done
-                  echo "other lanes still running after 20m; reviewing anyway"
+                  echo "other lanes absent or still running after 20m; reviewing anyway"
 
             - id: runeseer
               if: steps.seal-head.outputs.seal == 'false'
