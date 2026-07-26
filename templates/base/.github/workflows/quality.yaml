@@ -53,6 +53,30 @@ jobs:
             - name: Commit-stage checks
               uses: j178/prek-action@v2
 
+            # Ceremony files must match the skeleton baseline; diverge by
+            # removing the file from .ceremony-manifest in a reviewed pull
+            # request, never by silent local edits.
+            - name: Ceremony drift
+              run: |
+                  [ -f .ceremony-manifest ] || { echo "no manifest, skipping"; exit 0; }
+                  base="https://raw.githubusercontent.com/runedeck/skeleton/main/templates/base"
+                  drifted=""
+                  while IFS= read -r file; do
+                      case "$file" in ''|'#'*) continue ;; esac
+                      if [ ! -f "$file" ]; then
+                          drifted="$drifted $file(missing)"
+                          continue
+                      fi
+                      if ! curl -fsSL "$base/$file" | diff -q - "$file" >/dev/null 2>&1; then
+                          drifted="$drifted $file"
+                      fi
+                  done < .ceremony-manifest
+                  if [ -n "$drifted" ]; then
+                      echo "Ceremony files drifted from the skeleton baseline:$drifted"
+                      exit 1
+                  fi
+                  echo "Ceremony files match the skeleton baseline."
+
             # Scan exactly the commits this event introduces. The rangeless
             # fallback only fires on a repository's first push, where the
             # full scan and the introduced commits are the same set.
