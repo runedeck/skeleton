@@ -12,4 +12,4 @@ hooks:
 
 schemas:
     - changed-files:
-          - any-glob-to-any-file: ["schemas/**", "**/.mdschema"]
+          - any-glob-to-any-file: ["schemas/**", "**/*.mdschema"]

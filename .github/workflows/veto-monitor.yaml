@@ -25,18 +25,22 @@ jobs:
                   GH_TOKEN: ${{ steps.runewright.outputs.token }}
               run: |
                   waiting=""
-                  for repo in $(gh api orgs/runedeck/repos --jq '.[].name'); do
+                  for repo in $(gh api --paginate orgs/runedeck/repos --jq '.[].name'); do
                       numbers=$(gh api "repos/runedeck/$repo/pulls?state=open" \
                           --jq '.[] | select(.draft == false and .user.login != "N4M3Z") | .number' 2>/dev/null || true)
                       for n in $numbers; do
                           pr=$(gh api graphql -f query="query { repository(owner: \"runedeck\", name: \"$repo\") { pullRequest(number: $n) { reviewDecision updatedAt mergeable commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }")
                           decision=$(printf '%s' "$pr" | jq -r '.data.repository.pullRequest.reviewDecision // "NONE"')
                           rollup=$(printf '%s' "$pr" | jq -r '.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup.state // "NONE"')
+                          mergeable=$(printf '%s' "$pr" | jq -r '.data.repository.pullRequest.mergeable // "UNKNOWN"')
                           updated=$(printf '%s' "$pr" | jq -r '.data.repository.pullRequest.updatedAt')
                           age_hours=$(( ( $(date +%s) - $(date -d "$updated" +%s) ) / 3600 ))
-                          if [ "$decision" != "APPROVED" ] && { [ "$rollup" = "SUCCESS" ] || [ "$rollup" = "NONE" ]; } && [ "$age_hours" -ge 20 ]; then
+                          # Green means green: pending, failing, or absent
+                          # checks and conflicted branches are not waiting
+                          # on the owner.
+                          if [ "$decision" != "APPROVED" ] && [ "$rollup" = "SUCCESS" ] && [ "$mergeable" != "CONFLICTING" ] && [ "$age_hours" -ge 20 ]; then
                               waiting="$waiting runedeck/$repo#$n(${age_hours}h)"
-                              last_bump=$(gh api "repos/runedeck/$repo/issues/$n/comments" \
+                              last_bump=$(gh api --paginate "repos/runedeck/$repo/issues/$n/comments" \
                                   --jq '[.[] | select(.user.login == "runewright[bot]" and (.body | startswith("Awaiting the owner")))] | last | .created_at // empty')
                               if [ -z "$last_bump" ] || [ $(( ( $(date +%s) - $(date -d "$last_bump" +%s) ) / 3600 )) -ge 20 ]; then
                                   gh api -X POST "repos/runedeck/$repo/issues/$n/comments" \

@@ -52,5 +52,12 @@ jobs:
                                   ...context.repo, issue_number: pr.number, name: label.name });
                           }
                       }
+                      try {
+                          await github.rest.issues.getLabel({ ...context.repo, name: size });
+                      } catch {
+                          await github.rest.issues.createLabel({
+                              ...context.repo, name: size, color: "ededed",
+                              description: "Changed-lines bucket, applied automatically" });
+                      }
                       await github.rest.issues.addLabels({
                           ...context.repo, issue_number: pr.number, labels: [size] });

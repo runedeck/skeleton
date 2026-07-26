@@ -20,4 +20,4 @@ hooks:
 
 schemas:
     - changed-files:
-          - any-glob-to-any-file: ["templates/base/schemas/**", "**/.mdschema"]
+          - any-glob-to-any-file: ["templates/base/schemas/**", "**/*.mdschema"]
