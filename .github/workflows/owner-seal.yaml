@@ -28,14 +28,16 @@ jobs:
                   subject=$(printf '%s' "$commit" | jq -r '.commit.message' | head -1)
                   verified=$(printf '%s' "$commit" | jq -r '.commit.verification.verified')
                   author=$(printf '%s' "$commit" | jq -r '.author.login // empty')
-                  files=$(printf '%s' "$commit" | jq -r '.files | length')
+                  files=$(printf '%s' "$commit" | jq -r '(.files // []) | length')
+                  parent=$(printf '%s' "$commit" | jq -r '.parents[0].sha // empty')
                   echo "head: $subject | verified=$verified author=$author files=$files"
                   if printf '%s' "$subject" | grep -q '^seal:' \
                       && [ "$verified" = "true" ] \
                       && [ "$author" = "N4M3Z" ] \
                       && [ "$files" = "0" ]; then
                       echo "sealed=true" >> "$GITHUB_OUTPUT"
-                      echo "The head commit is a verified owner seal."
+                      echo "parent=$parent" >> "$GITHUB_OUTPUT"
+                      echo "The head commit is a verified owner seal over $parent."
                   else
                       echo "sealed=false" >> "$GITHUB_OUTPUT"
                       echo "The branch is unsealed: the latest commit must be an empty," \
@@ -45,10 +47,13 @@ jobs:
                   fi
 
             # An empty seal cannot change the review verdict, but its push
-            # dismissed runeseer's approval; restore it so sealing does not
-            # strand the review requirement.
+            # dismissed runeseer's approval; restore it only when the clean
+            # verdict names exactly the commit the seal sits on, so sealing
+            # over unreviewed work restores nothing. Restore failures never
+            # fail the check: the seal itself already verified.
             - id: runeseer
               if: steps.verify.outputs.sealed == 'true' && github.event.pull_request.user.login == 'N4M3Z'
+              continue-on-error: true
               uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
               with:
                   app-id: ${{ secrets.RUNESEER_APP_ID }}
@@ -56,16 +61,18 @@ jobs:
 
             - name: Restore earned approval over the seal
               if: steps.verify.outputs.sealed == 'true' && github.event.pull_request.user.login == 'N4M3Z'
+              continue-on-error: true
               env:
                   GH_TOKEN: ${{ steps.runeseer.outputs.token }}
+                  PARENT: ${{ steps.verify.outputs.parent }}
               run: |
-                  verdict=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-                      --jq '[.[] | select(.user.login == "runeseer[bot]") | .body] | last' \
-                      | grep -oE '^review/correctness: (clean|[0-9]+ findings)' | head -1 || true)
-                  if [ "$verdict" = "review/correctness: clean" ]; then
+                  match=$(gh api --paginate "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+                      --jq ".[] | select(.user.login == \"runeseer[bot]\") | .body" \
+                      | grep -cE "^review/correctness: clean @${PARENT}" || true)
+                  if [ "$match" -ge 1 ]; then
                       gh api -X POST "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
                           -f event=APPROVE \
-                          -f body="Earned approval restored over the owner's seal: the sealed tree is the one review/correctness judged clean."
+                          -f body="Earned approval restored over the owner's seal: the sealed commit ${PARENT} is the one review/correctness judged clean."
                   else
-                      echo "No clean verdict on record; approval not restored."
+                      echo "No clean verdict names ${PARENT}; approval not restored. Wait for the review of the sealed tree, then re-seal."
                   fi
