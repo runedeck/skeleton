@@ -131,7 +131,7 @@ A pull request touching protected paths SHALL either carry a specification chang
 
 ### Requirement: Earned Approval
 
-A clean correctness verdict on the owner's pull request SHALL become the reviewer identity's approving review, and any later push SHALL dismiss it until a clean re-review re-grants it.
+A clean correctness verdict on the owner's pull request SHALL become the reviewer identity's approving review, and any later push SHALL dismiss it until a clean re-review re-grants it. The verdict SHALL be recorded machine-readably, bound to the commit id it judged, and approval SHALL fire only when the bound id is the current head.
 
 #### Scenario: Clean verdict approves
 
@@ -156,6 +156,29 @@ Merging SHALL require the branch head to be an owner seal: an empty, signature-v
 
 - **WHEN** any commit lands after a seal
 - **THEN** the `owner-seal` check fails until the owner seals again
+
+### Requirement: Review Economy
+
+Reviews SHALL spend proportionally to what changed: the correctness lane stands down on prose-only diffs, re-reviews judge only the range since the last recorded verdict without re-reporting its findings, low-severity notes collect into a digest rather than inline threads, and pull requests open as drafts until the tree is stable.
+
+#### Scenario: Prose-only change
+
+- **WHEN** a pull request touches only markdown outside the specifications and the machinery
+- **THEN** the correctness lane does not run and its absence blocks nothing
+
+#### Scenario: Re-review after fixes
+
+- **WHEN** a round already recorded a verdict for an ancestor of the head
+- **THEN** the re-review judges the range since that ancestor and does not re-report the recorded findings
+
+### Requirement: Finding Resolution
+
+A fix commit MAY name the review thread it answers with a `Resolves-Thread:` trailer, and the named threads SHALL resolve automatically when the commit is pushed.
+
+#### Scenario: Trailer resolves thread
+
+- **WHEN** a pushed commit carries `Resolves-Thread:` with a thread id
+- **THEN** that thread is resolved and the resolution traces to the commit
 
 ### Requirement: Release Notes Attestation
 
