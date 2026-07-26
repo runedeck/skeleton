@@ -1,0 +1,28 @@
+repos:
+    - repo: builtin
+      hooks:
+          - id: trailing-whitespace
+          - id: check-yaml
+          - id: check-json
+
+    - repo: local
+      hooks:
+          - id: shellcheck
+            name: shellcheck
+            entry: shellcheck -S warning
+            language: system
+            types: [shell]
+
+          - id: gitleaks
+            name: gitleaks (staged)
+            entry: gitleaks git --staged --pre-commit --no-banner
+            language: system
+            pass_filenames: false
+            stages: [pre-commit]
+
+          - id: gitleaks-range
+            name: gitleaks (push range)
+            entry: sh -c 'if [ -n "${PRE_COMMIT_FROM_REF:-}" ]; then gitleaks git --no-banner --log-opts "${PRE_COMMIT_FROM_REF}..${PRE_COMMIT_TO_REF:-HEAD}"; else gitleaks git --no-banner; fi'
+            language: system
+            pass_filenames: false
+            stages: [pre-push]
