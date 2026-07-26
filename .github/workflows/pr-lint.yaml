@@ -43,7 +43,7 @@ jobs:
                   script: |
                       const pr = context.payload.pull_request;
                       const changed = pr.additions + pr.deletions;
-                      const size = changed < 50 ? "size/S" : changed < 300 ? "size/M" : changed < 1000 ? "size/L" : "size/XL";
+                      const size = changed < 50 ? "size/small" : changed < 300 ? "size/med" : changed < 1000 ? "size/large" : "size/xlarge";
                       const { data: labels } = await github.rest.issues.listLabelsOnIssue({
                           ...context.repo, issue_number: pr.number });
                       for (const label of labels) {

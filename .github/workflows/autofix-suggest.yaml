@@ -15,7 +15,7 @@ permissions:
 
 jobs:
     suggest:
-        if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'autofix'
+        if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'summon:autofix'
         runs-on: ubuntu-latest
         timeout-minutes: 10
         steps:

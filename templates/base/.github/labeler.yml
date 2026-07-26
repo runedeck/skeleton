@@ -1,15 +1,15 @@
-docs:
+area:docs:
     - changed-files:
           - any-glob-to-any-file: ["docs/**", "README.md", "*.md"]
 
-workflows:
+area:workflows:
     - changed-files:
           - any-glob-to-any-file: ".github/workflows/**"
 
-hooks:
+area:hooks:
     - changed-files:
           - any-glob-to-any-file: ".githooks/**"
 
-schemas:
+area:schemas:
     - changed-files:
           - any-glob-to-any-file: ["schemas/**", "**/*.mdschema"]

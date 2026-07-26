@@ -41,7 +41,7 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-Every pull request SHALL run `review/conventions` and `review/defects`, and the owner's pull requests SHALL additionally run `review/correctness`, each lane a separate check run backed by a different vendor. The correctness lane spends the owner's subscription, so it is scoped to the owner's pull requests and SHALL NOT be required of anyone else's.
+Review lanes are summoned, never ambient where they bill: `review/defects` runs unsummoned, while `review/conventions` and `review/correctness` each answer an owner-applied summon label, and the correctness lane additionally runs only on the owner's non-draft pull requests. A lane that was not summoned SHALL NOT be required and its absence blocks nothing.
 
 #### Scenario: Lane blocks a merge
 

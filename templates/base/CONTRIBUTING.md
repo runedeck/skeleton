@@ -30,3 +30,5 @@ CI runs validation on every PR. The `main` branch requires passing CI before mer
 ## Review etiquette
 
 Reviews are billed and re-run on every push, so batch your responses: collect fixes locally while reviewers are working and push them together once the lanes settle, rather than one push per finding. A fix commit may name the review thread it answers with a `Resolves-Thread: <id>` trailer; the thread resolves automatically on push.
+
+Billed reviewers are summoned, never ambient: the maintainer applies `summon:` labels (`summon:runeseer`, `summon:macroscope`, `summon:autofix`) to invoke them, and each summon is visible in the pull request timeline.

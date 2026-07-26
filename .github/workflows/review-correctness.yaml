@@ -2,7 +2,7 @@ name: Review Correctness
 
 on:
     pull_request:
-        types: [opened, reopened, ready_for_review, synchronize]
+        types: [ready_for_review, synchronize, labeled]
 
 permissions:
     contents: read
@@ -18,11 +18,16 @@ concurrency:
 jobs:
     correctness:
         name: review/correctness
-        # The subscription token spends only on the owner's pull requests,
-        # and drafts stay free for iteration.
+        # Summoned, never ambient: the lane runs only while the owner's
+        # summon label is on the pull request, only for the owner's
+        # non-draft pull requests. Bugbot runs unsummoned (it is free);
+        # Macroscope answers its own summon label via the dashboard's
+        # always-review configuration.
         if: >
             github.event.pull_request.draft == false &&
-            github.event.pull_request.user.login == 'N4M3Z'
+            github.event.pull_request.user.login == 'N4M3Z' &&
+            contains(github.event.pull_request.labels.*.name, 'summon:runeseer') &&
+            (github.event.action != 'labeled' || github.event.label.name == 'summon:runeseer')
         runs-on: ubuntu-latest
         timeout-minutes: 40
         steps:
@@ -79,8 +84,12 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+                  MACROSCOPE_SUMMONED: ${{ contains(github.event.pull_request.labels.*.name, 'summon:macroscope') }}
               run: |
-                  expected="macroscopeapp cursor"
+                  # Bugbot runs unsummoned; Macroscope only answers its
+                  # summon label, so expect it only when summoned.
+                  expected="cursor"
+                  [ "$MACROSCOPE_SUMMONED" = "true" ] && expected="cursor macroscopeapp"
                   for _ in $(seq 1 45); do
                       settled=true
                       for app in $expected; do
