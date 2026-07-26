@@ -1,0 +1,12 @@
+# useDefault is required: a gitleaks config without it REPLACES the built-in
+# ruleset, silently disabling every secret rule. This keeps the defaults and
+# layers the allowlist on top.
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+    "\\.entire/.*",
+    "\\.specstory/.*",
+    "\\.jj/.*",
+]

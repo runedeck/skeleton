@@ -1,0 +1,12 @@
+build/
+dist/
+.DS_Store
+.entire/
+.rune-archive.lock
+
+# SpecStory: the project binding is tracked, its output is not.
+.specstory/history/
+.specstory/debug/
+
+# Parallel work: one jj workspace per agent, ignored before any exists.
+.workspaces/

@@ -1,0 +1,17 @@
+# Pull request body schema: summary sentence, then Plan / Changes / Testing.
+
+heading_rules:
+    no_skip_levels: false
+    max_depth: 2
+
+structure:
+    - heading:
+          pattern: "^## Plan$"
+    - heading:
+          pattern: "^## Changes$"
+      lists:
+          - min: 1
+    - heading:
+          pattern: "^## Testing$"
+      lists:
+          - min: 1
