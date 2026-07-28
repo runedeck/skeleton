@@ -17,12 +17,16 @@ repos:
             language: system
             types: [shell]
 
+          # Language templates are fixture content: a rust file under
+          # templates/ must not summon cargo at the skeleton root, where no
+          # manifest exists.
           - id: ruff
             name: ruff check
             entry: ruff check .
             language: system
             pass_filenames: false
             types: [python]
+            exclude: ^templates/
 
           - id: cargo-fmt
             name: cargo fmt
@@ -30,6 +34,7 @@ repos:
             language: system
             pass_filenames: false
             types: [rust]
+            exclude: ^templates/
 
           - id: cargo-clippy
             name: cargo clippy
@@ -37,6 +42,7 @@ repos:
             language: system
             pass_filenames: false
             types: [rust]
+            exclude: ^templates/
 
           - id: tsc
             name: tsc --noEmit
@@ -44,6 +50,7 @@ repos:
             language: system
             pass_filenames: false
             types: [ts]
+            exclude: ^templates/
 
           - id: gitleaks
             name: gitleaks (staged)
@@ -64,6 +71,7 @@ repos:
             language: system
             pass_filenames: false
             types: [rust]
+            exclude: ^templates/
             stages: [pre-push]
 
           - id: semgrep

@@ -38,7 +38,14 @@ jobs:
                   sudo install gitleaks /usr/local/bin/gitleaks
                   shellcheck -S warning templates/base/.githooks/*
                   prek run --all-files
-                  bash templates/base/.githooks/pre-push </dev/null || true
+                  # Feed the hook a genuine ref-update line so it exercises a
+                  # real range; empty stdin on main degenerates to a no-op,
+                  # and a swallowed exit code would report a broken hook as
+                  # healthy.
+                  zero=0000000000000000000000000000000000000000
+                  from=$(git rev-parse HEAD~5 2>/dev/null || echo "$zero")
+                  printf 'refs/heads/main %s refs/heads/main %s\n' "$(git rev-parse HEAD)" "$from" \
+                      | bash templates/base/.githooks/pre-push origin "https://github.com/${{ github.repository }}"
 
             - name: Report breakage
               if: steps.run.outcome == 'failure'
