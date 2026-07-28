@@ -41,7 +41,12 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-Review lanes are summoned, never ambient where they bill: `review/defects` runs unsummoned, while `review/conventions` and `review/correctness` each answer an owner-applied summon label, and the correctness lane additionally runs only on the owner's non-draft pull requests. A lane that was not summoned SHALL NOT be required and its absence blocks nothing.
+Review lanes are summoned, never ambient where they bill: `review/defects` runs unsummoned, while `review/conventions` and `review/correctness` each answer an owner-applied summon label, and the correctness lane additionally runs only on the owner's non-draft pull requests. A lane that was not summoned SHALL NOT be required and its absence blocks nothing. `summon:review` SHALL expand into every lane summon, the correctness lane adjudicating last once the others settle, so one label runs the full cascade while the concrete labels still summon a single lane.
+
+#### Scenario: Full cascade from one label
+
+- **WHEN** the owner applies `summon:review`
+- **THEN** every lane is summoned and `review/correctness` adjudicates after the other lanes settle on the head
 
 #### Scenario: Lane blocks a merge
 

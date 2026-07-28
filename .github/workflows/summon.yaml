@@ -1,0 +1,42 @@
+name: Summon
+
+# summon:review is the one-label entry to the full cascade: runewright
+# expands it to the concrete lane summons. Bugbot reviews unsummoned and
+# Macroscope's always-review answers its label, so expansion alone makes
+# the correctness lane run last: it waits for both to settle on the head
+# before adjudicating. The concrete summon: labels stay usable directly
+# for a single lane. The labels are applied with runewright's token
+# because label events created by the workflow token would not trigger
+# the lanes listening for them.
+on:
+    pull_request:
+        types: [labeled]
+
+permissions:
+    contents: read
+
+jobs:
+    expand:
+        if: github.event.label.name == 'summon:review'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - id: runewright
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
+                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+
+            - name: Expand into the lane summons
+              env:
+                  GH_TOKEN: ${{ steps.runewright.outputs.token }}
+              run: |
+                  for label in "summon:macroscope" "summon:runeseer"; do
+                      gh api "repos/${{ github.repository }}/labels/$(printf '%s' "$label" | sed 's/:/%3A/')" >/dev/null 2>&1 \
+                          || gh api -X POST "repos/${{ github.repository }}/labels" \
+                              -f name="$label" -f color="5319e7" \
+                              -f description="Summons this review lane" >/dev/null
+                  done
+                  gh api -X POST "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+                      -f "labels[]=summon:macroscope" -f "labels[]=summon:runeseer" >/dev/null
+                  echo "cascade armed: macroscope and runeseer summoned; the correctness lane adjudicates after the free lanes settle."
