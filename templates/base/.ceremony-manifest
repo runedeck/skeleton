@@ -7,6 +7,8 @@
 .githooks/jj-push
 .github/workflows/quality.yaml
 .github/workflows/pr-lint.yaml
+.github/workflows/congrats.yaml
+.github/labeler.yml
 .pre-commit-config.yaml
 .gitleaks.toml
 KEYS
