@@ -29,6 +29,6 @@ CI runs validation on every PR. The `main` branch requires passing CI before mer
 
 ## Review etiquette
 
-Reviews are billed and re-run on every push, so batch your responses: collect fixes locally while reviewers are working and push them together once the lanes settle, rather than one push per finding. A fix commit may name the review thread it answers with a `Resolves-Thread: <value>` trailer, where the value is the finding comment's URL, its numeric comment id, or the thread's GraphQL node id; the thread resolves automatically on push. Only threads on the same pull request resolve.
+No reviewer runs ambiently: every lane answers a maintainer-applied label, and pushes to an unlabeled pull request summon nothing. Bare `review` runs the full funnel — cursor, then macroscope, then the adjudicating correctness lane, each stage only after the previous settles clean — while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. Every summon is visible in the pull request timeline.
 
-Billed reviewers are summoned, never ambient: the maintainer applies review labels to invoke them — bare `review` for the full cascade, `review:runeseer`, `review:macroscope`, or `review:autofix` for a single lane — and each summon is visible in the pull request timeline.
+Batch your responses: iterate in draft, collect fixes locally, push them as one batch, and summon a fresh round only when the tree is stable. A fix commit may name the review thread it answers with a `Resolves-Thread: <value>` trailer, where the value is the finding comment's URL, its numeric comment id, or the thread's GraphQL node id; the thread resolves automatically on push. Only threads on the same pull request resolve.

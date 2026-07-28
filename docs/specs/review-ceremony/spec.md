@@ -8,7 +8,9 @@ Nothing reaches `main` on one opinion. An application opens every pull request s
 
 ### Requirement: Owner-Opened Pull Requests
 
-The owner SHALL author every ceremony pull request, ghostwritten by the orchestrating agent with a short summary and pushed under the owner's credentials, and the `runewright` app SHALL post the full ceremony body as the first comment. The app acts only server-side, from workflow-minted tokens; no local key ceremony is required to move work.
+The owner MUST author every ceremony pull request, ghostwritten by the orchestrating agent with a short summary and pushed under the owner's credentials, and the `runewright` app SHALL post the full ceremony body as the first comment. The app acts only server-side, from workflow-minted tokens; no local key ceremony is required to move work.
+
+*Rationale:* owner authorship is currently the only way to summon the hosted review bots without a Cursor team subscription; individual-tier Bugbot reviews only the account owner's pull requests.
 
 #### Scenario: Ghostwritten pull request
 
@@ -41,12 +43,26 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-Review lanes are summoned, never ambient where they bill: `review/defects` runs unsummoned, while `review/conventions` and `review/correctness` each answer an owner-applied review label, and the correctness lane additionally runs only on the owner's non-draft pull requests. A lane that was not summoned SHALL NOT be required and its absence blocks nothing. The bare `review` label SHALL expand into every lane label, the correctness lane adjudicating last once the others settle, so one label runs the full cascade while the concrete `review:` labels still summon a single lane.
+Every review lane MUST be summoned; no lane reviews ambiently. Each lane answers its owner-applied `review:` label, and the correctness lane runs only on non-draft pull requests. A lane that was not summoned SHALL NOT be required and its absence blocks nothing. The bare `review` label MUST run the full funnel in escalation order — cursor, then macroscope, then the adjudicating correctness lane — each stage spending only after the previous stage settles clean, so the owner reviews only work every cheaper stage has already passed.
 
 #### Scenario: Full cascade from one label
 
 - **WHEN** the owner applies `review`
-- **THEN** every lane is summoned and `review/correctness` adjudicates after the other lanes settle on the head
+- **THEN** the lanes run in escalation order and `review/correctness` adjudicates last, after the other lanes settle clean on the head
+
+#### Scenario: Unsummoned quiet
+
+- **WHEN** a pull request is pushed carrying no `review` or `review:` label
+- **THEN** no review lane runs and no lane comments
+
+### Requirement: External Lane Configuration
+
+The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST trigger only when mentioned with incremental review enabled and autofix off, Macroscope MUST review only by label with draft review, auto-merge, and approvability off, and both MUST honor the `review:skip` waiver. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
+
+#### Scenario: Ambient reviewer detected
+
+- **WHEN** a lane reviews a push that carried no summon
+- **THEN** the lane's dashboard configuration is corrected before the next round is summoned
 
 #### Scenario: Lane blocks a merge
 

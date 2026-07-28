@@ -4,9 +4,10 @@ dist/
 .entire/
 .rune-archive.lock
 
-# SpecStory: the project binding is tracked, its output is not.
+# SpecStory: the project binding is tracked, its output and cli state are not.
 .specstory/history/
 .specstory/debug/
+.specstory/cli/
 
 # Parallel work: one jj workspace per agent, ignored before any exists.
 .workspaces/
