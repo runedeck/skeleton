@@ -12,6 +12,10 @@ concurrency:
 
 permissions:
     contents: read
+    pull-requests: read
+
+env:
+    GITLEAKS_VERSION: "8.30.1"
 
 jobs:
     quality:
@@ -48,6 +52,39 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: |
                   gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq '.body // ""' \
-                      | awk '/^## Release Notes[[:space:]]*$/{in_section=1; next} /^## /{in_section=0} in_section && /^[-*] /{found=1} END{exit !found}' \
+                      | awk '/^## Release Notes[[:space:]]*$/{in_section=1; next} /^## /{in_section=0} in_section && /^([-*+]|[0-9]+[.)]) /{found=1} END{exit !found}' \
                       && echo "Release Notes section present." \
                       || { echo "The pull request body needs a '## Release Notes' section with at least one entry ('- N/A' for non-user-facing work)."; exit 1; }
+
+            # The skeleton enforces on itself the hooks it ships: the distro
+            # gitleaks is too old for `gitleaks git`, so install the pinned
+            # upstream release verified against its published checksums.
+            - name: Install tools
+              run: |
+                  pipx install ruff semgrep
+                  curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+                  curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+                  sha256sum --check --ignore-missing "gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+                  tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
+                  sudo install gitleaks /usr/local/bin/gitleaks
+
+            - name: Commit-stage checks
+              uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
+
+            # Scan exactly the commits this event introduces. The rangeless
+            # fallback only fires on a repository's first push, where the
+            # full scan and the introduced commits are the same set.
+            - name: Pre-push-stage checks
+              run: |
+                  if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+                      from="${{ github.event.pull_request.base.sha }}"
+                  elif [ -n "${{ github.event.before }}" ] && ! printf '%s' "${{ github.event.before }}" | grep -q '^0*$'; then
+                      from="${{ github.event.before }}"
+                  else
+                      from=""
+                  fi
+                  if [ -n "$from" ] && git cat-file -e "$from" 2>/dev/null; then
+                      prek run --stage pre-push --from-ref "$from" --to-ref "${{ github.sha }}"
+                  else
+                      prek run --stage pre-push --all-files
+                  fi
