@@ -143,19 +143,24 @@ A clean correctness verdict on the owner's pull request SHALL become the reviewe
 - **WHEN** any commit lands after the approval
 - **THEN** the approval is dismissed and returns only after a clean re-review
 
-### Requirement: Owner Seal
+### Requirement: Seal
 
-Merging SHALL require the branch head to be an owner seal: an empty, signature-verified commit by the owner with a `seal:` subject. A push after the seal SHALL unseal the branch, and a valid seal SHALL restore the earned approval its own push dismissed.
+Merging SHALL require the branch head to be a seal: a signature-verified commit authored by the pull request's submitter or the owner, the human vouching for the branch's final state. A branch whose head is ghostwritten SHALL be sealed by topping it with an empty verified commit bearing a `seal:` subject; a submitter whose own signed commit is the head needs no extra ritual. A push after a seal SHALL unseal the branch, and a valid empty seal SHALL restore the earned approval its own push dismissed only when the sealed commit is the one the recorded verdict judged clean.
 
 #### Scenario: Sealed branch merges
 
-- **WHEN** the head commit is an empty verified owner commit with a `seal:` subject
-- **THEN** the `owner-seal` check passes and the merge may proceed
+- **WHEN** the head commit is signature-verified and authored by the submitter or the owner
+- **THEN** the `seal` check passes and the merge may proceed
+
+#### Scenario: Fork submitter seals
+
+- **WHEN** a fork pull request's head is the submitter's own signature-verified commit
+- **THEN** the `seal` check passes without any owner involvement
 
 #### Scenario: Push unseals
 
 - **WHEN** any commit lands after a seal
-- **THEN** the `owner-seal` check fails until the owner seals again
+- **THEN** the `seal` check fails until the branch is sealed again
 
 ### Requirement: Review Economy
 
@@ -173,11 +178,11 @@ Reviews SHALL spend proportionally to what changed: the correctness lane stands 
 
 ### Requirement: Finding Resolution
 
-A fix commit MAY name the review thread it answers with a `Resolves-Thread:` trailer, and the named threads SHALL resolve automatically when the commit is pushed.
+A fix commit MAY name the review thread it answers with a `Resolves-Thread:` trailer whose value is the finding comment's URL, its numeric comment id, or the thread's node id, and the named threads SHALL resolve automatically when the commit is pushed. A trailer SHALL resolve only threads on its own pull request.
 
 #### Scenario: Trailer resolves thread
 
-- **WHEN** a pushed commit carries `Resolves-Thread:` with a thread id
+- **WHEN** a pushed commit carries `Resolves-Thread:` naming a thread on its pull request
 - **THEN** that thread is resolved and the resolution traces to the commit
 
 ### Requirement: Release Notes Attestation
