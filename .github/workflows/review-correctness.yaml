@@ -27,12 +27,15 @@ jobs:
             github.event.pull_request.draft == false &&
             github.event.pull_request.user.login == 'N4M3Z' &&
             contains(github.event.pull_request.labels.*.name, 'summon:runeseer') &&
-            (github.event.action != 'labeled' || github.event.label.name == 'summon:runeseer')
+            (github.event.action != 'labeled' || startsWith(github.event.label.name, 'summon:'))
         runs-on: ubuntu-latest
         timeout-minutes: 40
         steps:
+            # The head commit itself, not the synthetic merge ref: the verdict
+            # must record the sha the approval step compares against.
             - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               with:
+                  ref: ${{ github.event.pull_request.head.sha }}
                   fetch-depth: 0
 
             # Prose-only diffs are the conventions lane's territory; the
@@ -188,7 +191,9 @@ jobs:
                   if-no-files-found: warn
 
             # Earned approval: a clean verdict FOR THIS HEAD, read from the
-            # artifact rather than comment archaeology.
+            # artifact rather than comment archaeology. The live head is
+            # re-fetched first and the review is pinned to the judged commit,
+            # so a push racing the verdict can never collect the approval.
             - name: Approve on clean verdict
               if: steps.scope.outputs.skip == 'false'
               env:
@@ -198,12 +203,26 @@ jobs:
                   [ -f runeseer-verdict.json ] || { echo "no verdict file; not approving"; exit 0; }
                   verdict=$(jq -r '.verdict // empty' runeseer-verdict.json)
                   sha=$(jq -r '.sha // empty' runeseer-verdict.json)
-                  echo "verdict=$verdict sha=$sha head=$HEAD_SHA"
-                  if [ "$verdict" = "clean" ] && [ "$sha" = "$HEAD_SHA" ]; then
+                  live=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq '.head.sha')
+                  echo "verdict=$verdict sha=$sha head=$HEAD_SHA live=$live"
+                  if [ "$verdict" = "clean" ] && [ "$sha" = "$HEAD_SHA" ] && [ "$live" = "$HEAD_SHA" ]; then
                       gh api -X POST "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
                           -f event=APPROVE \
+                          -f commit_id="$HEAD_SHA" \
                           -f body="Earned approval: review/correctness returned a clean verdict for ${HEAD_SHA}. Dismissed automatically on any new push."
                   fi
+
+            # The spec's word is binding: a lane holding unresolved findings
+            # fails its check. Green means clean, never merely finished.
+            - name: Verdict gates the check
+              if: steps.scope.outputs.skip == 'false'
+              run: |
+                  [ -f runeseer-verdict.json ] || { echo "no verdict file; the review did not complete"; exit 1; }
+                  verdict=$(jq -r '.verdict // empty' runeseer-verdict.json)
+                  count=$(jq -r '.count // 0' runeseer-verdict.json)
+                  [ "$verdict" = "clean" ] && exit 0
+                  echo "review/correctness holds $count unresolved findings; the check stays red until they clear."
+                  exit 1
 
             # Metrics: cost, turns, and finding counts land in the job
             # summary so the round-trip's worth stays measured, not vibed.
