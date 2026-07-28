@@ -1,7 +1,7 @@
 # Sealed adoption evidence under .provenance/drafts/ is excluded everywhere:
 # those files are review records whose digests must stay byte-stable, and an
 # auto-fixing hook that rewrites them destroys the evidence it touches.
-exclude: '.*/\.provenance/drafts/.*'
+exclude: '(^|/)\.provenance/drafts/'
 repos:
     - repo: builtin
       hooks:
