@@ -1,0 +1,69 @@
+name: Autofix Comment
+
+# The trusted half of the autofix pair: it runs in the base repository's
+# context with access to the runewright secrets, downloads the patch the
+# untrusted half produced, and posts it as a suggestion comment. It never
+# checks out or executes pull request code — the artifact is data, quoted
+# into a fenced block, and the pull request number is validated before use.
+on:
+    workflow_run:
+        workflows: [Autofix Suggest]
+        types: [completed]
+
+permissions:
+    contents: read
+    actions: read
+
+jobs:
+    comment:
+        if: github.event.workflow_run.conclusion == 'success'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - name: Download the patch artifact
+              id: patch
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RUN_ID: ${{ github.event.workflow_run.id }}
+              run: |
+                  artifact=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts" \
+                      --jq '.artifacts[] | select(.name == "autofix-patch") | .id' | head -1)
+                  if [ -z "$artifact" ]; then
+                      echo "present=false" >> "$GITHUB_OUTPUT"
+                      echo "no patch artifact: the fixers changed nothing."
+                      exit 0
+                  fi
+                  gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > autofix.zip
+                  unzip -o autofix.zip autofix.patch pr-number.txt >/dev/null
+                  pr=$(head -1 pr-number.txt | tr -cd '0-9')
+                  [ -n "$pr" ] || { echo "artifact carries no valid pull request number"; exit 1; }
+                  echo "present=true" >> "$GITHUB_OUTPUT"
+                  echo "pr=$pr" >> "$GITHUB_OUTPUT"
+
+            - id: runewright
+              if: steps.patch.outputs.present == 'true'
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
+                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+
+            # The patch is a suggestion for the author to apply and commit
+            # under their own identity; nothing here commits.
+            - name: Comment the suggestion
+              if: steps.patch.outputs.present == 'true'
+              env:
+                  GH_TOKEN: ${{ steps.runewright.outputs.token }}
+                  PR: ${{ steps.patch.outputs.pr }}
+              run: |
+                  lines=$(wc -l < autofix.patch)
+                  if [ "$lines" -le 120 ]; then
+                      {
+                          printf 'Mechanical fixes available; apply with `git apply autofix.patch` and commit as yourself:\n\n```diff\n'
+                          cat autofix.patch
+                          printf '```\n'
+                      } > comment.md
+                  else
+                      printf 'Mechanical fixes available (%s lines); download the autofix-patch artifact from https://github.com/%s/actions/runs/%s and apply with `git apply autofix.patch`, committing as yourself.\n' \
+                          "$lines" "${{ github.repository }}" "${{ github.event.workflow_run.id }}" > comment.md
+                  fi
+                  gh api -X POST "repos/${{ github.repository }}/issues/${PR}/comments" -F body=@comment.md >/dev/null

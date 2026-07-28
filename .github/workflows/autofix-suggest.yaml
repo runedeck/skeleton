@@ -1,5 +1,9 @@
 name: Autofix Suggest
 
+# The untrusted half: this run checks out and executes pull request code
+# (prek fixers), so it triggers on pull_request and holds no secrets — on
+# fork pull requests GitHub strips them anyway. Its only output is the
+# patch artifact; the trusted half (autofix-comment.yaml) posts it.
 on:
     pull_request:
         types: [labeled]
@@ -24,6 +28,8 @@ jobs:
                   ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', inputs.pr_number) }}
 
             - name: Run fixers
+              env:
+                  PR: ${{ github.event.pull_request.number || inputs.pr_number }}
               run: |
                   pipx install prek 2>/dev/null || pip install prek
                   prek run --all-files || true
@@ -31,6 +37,7 @@ jobs:
                       echo "changed=false" >> "$GITHUB_ENV"
                   else
                       git diff > autofix.patch
+                      printf '%s\n' "$PR" > pr-number.txt
                       echo "changed=true" >> "$GITHUB_ENV"
                   fi
 
@@ -39,32 +46,7 @@ jobs:
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v6
               with:
                   name: autofix-patch
-                  path: autofix.patch
+                  path: |
+                      autofix.patch
+                      pr-number.txt
                   retention-days: 3
-
-            - id: runewright
-              if: env.changed == 'true'
-              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
-              with:
-                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
-                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
-
-            # The patch is a suggestion for the author to apply and commit
-            # under their own identity; nothing here commits.
-            - name: Comment the suggestion
-              if: env.changed == 'true'
-              env:
-                  GH_TOKEN: ${{ steps.runewright.outputs.token }}
-                  PR: ${{ github.event.pull_request.number || inputs.pr_number }}
-              run: |
-                  lines=$(wc -l < autofix.patch)
-                  if [ "$lines" -le 120 ]; then
-                      {
-                          printf 'Mechanical fixes available; apply with `git apply autofix.patch` and commit as yourself:\n\n```diff\n'
-                          cat autofix.patch
-                          printf '```\n'
-                      } > comment.md
-                  else
-                      printf 'Mechanical fixes available (%s lines); download the autofix-patch artifact from this run and apply with `git apply autofix.patch`, committing as yourself.\n' "$lines" > comment.md
-                  fi
-                  gh api -X POST "repos/${{ github.repository }}/issues/${PR}/comments" -F body=@comment.md >/dev/null
