@@ -1,4 +1,4 @@
-name: Owner Seal
+name: Seal
 
 on:
     pull_request:
@@ -7,22 +7,30 @@ on:
 permissions:
     contents: read
     pull-requests: write
+    actions: read
 
 concurrency:
-    group: owner-seal-${{ github.event.pull_request.number }}
+    group: seal-${{ github.event.pull_request.number }}
     cancel-in-progress: true
 
 jobs:
     seal:
-        name: owner-seal
+        name: seal
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
+            # A sealed branch ends in a signature-verified commit authored by
+            # the submitter or the owner: the human vouches for the final
+            # state, and an agent cannot vouch for itself. A branch whose head
+            # is ghostwritten is sealed by topping it with an empty verified
+            # commit bearing a seal: subject; a contributor whose own signed
+            # commit sits at the head needs no extra ritual.
             - id: verify
-              name: Verify the head commit is an owner seal
+              name: Verify the head commit is a signed seal
               env:
                   GH_TOKEN: ${{ github.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+                  SUBMITTER: ${{ github.event.pull_request.user.login }}
               run: |
                   commit=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}")
                   subject=$(printf '%s' "$commit" | jq -r '.commit.message' | head -1)
@@ -31,28 +39,57 @@ jobs:
                   files=$(printf '%s' "$commit" | jq -r '(.files // []) | length')
                   parent=$(printf '%s' "$commit" | jq -r '.parents[0].sha // empty')
                   echo "head: $subject | verified=$verified author=$author files=$files"
-                  if printf '%s' "$subject" | grep -q '^seal:' \
-                      && [ "$verified" = "true" ] \
-                      && [ "$author" = "N4M3Z" ] \
-                      && [ "$files" = "0" ]; then
-                      echo "sealed=true" >> "$GITHUB_OUTPUT"
-                      echo "parent=$parent" >> "$GITHUB_OUTPUT"
-                      echo "The head commit is a verified owner seal over $parent."
-                  else
+                  if [ "$verified" != "true" ] \
+                      || { [ "$author" != "$SUBMITTER" ] && [ "$author" != "N4M3Z" ]; }; then
                       echo "sealed=false" >> "$GITHUB_OUTPUT"
-                      echo "The branch is unsealed: the latest commit must be an empty," \
-                          "signature-verified owner commit with a seal: subject." \
-                          "Seal with: git commit --allow-empty -S -m 'seal: approve' && git push"
+                      echo "The branch is unsealed: the head commit must be" \
+                          "signature-verified and authored by the submitter or the owner." \
+                          "Sign your final commit, or top up a ghostwritten branch with:" \
+                          "git commit --allow-empty -S -m 'seal: approve' && git push"
                       exit 1
+                  fi
+                  echo "sealed=true" >> "$GITHUB_OUTPUT"
+                  if printf '%s' "$subject" | grep -q '^seal:' && [ "$files" = "0" ]; then
+                      echo "ritual=true" >> "$GITHUB_OUTPUT"
+                      echo "parent=$parent" >> "$GITHUB_OUTPUT"
+                      echo "The head commit is an empty verified seal over $parent."
+                  else
+                      echo "ritual=false" >> "$GITHUB_OUTPUT"
+                      echo "The head commit is signature-verified by $author; the branch is sealed."
                   fi
 
             # An empty seal cannot change the review verdict, but its push
-            # dismissed runeseer's approval; restore it only when the clean
-            # verdict names exactly the commit the seal sits on, so sealing
-            # over unreviewed work restores nothing. Restore failures never
-            # fail the check: the seal itself already verified.
+            # dismissed runeseer's approval; restore it only when the verdict
+            # artifact — the same record the approval step treats as ground
+            # truth — is clean for exactly the commit the seal sits on.
+            # Restore failures never fail the check: the seal itself already
+            # verified.
+            - id: ledger
+              name: Read the verdict artifact for the sealed parent
+              if: steps.verify.outputs.ritual == 'true' && github.event.pull_request.user.login == 'N4M3Z'
+              continue-on-error: true
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PARENT: ${{ steps.verify.outputs.parent }}
+              run: |
+                  name="runeseer-verdict-pr${{ github.event.pull_request.number }}"
+                  artifact=$(gh api --paginate --slurp "repos/${{ github.repository }}/actions/artifacts?name=$name&per_page=100" \
+                      --jq '[.[].artifacts[] | select(.expired == false)] | sort_by(.created_at) | last | .id // empty')
+                  [ -n "$artifact" ] || { echo "no verdict artifact; approval not restored."; exit 0; }
+                  gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip
+                  unzip -o verdict.zip runeseer-verdict.json >/dev/null
+                  verdict=$(jq -r '.verdict // empty' runeseer-verdict.json)
+                  sha=$(jq -r '.sha // empty' runeseer-verdict.json)
+                  echo "verdict=$verdict sha=$sha parent=$PARENT"
+                  if [ "$verdict" = "clean" ] && [ "$sha" = "$PARENT" ]; then
+                      echo "restore=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "The verdict artifact is ${verdict:-absent} @${sha:-none}, not clean @${PARENT};" \
+                          "approval not restored. Wait for the review of the sealed tree, then re-seal."
+                  fi
+
             - id: runeseer
-              if: steps.verify.outputs.sealed == 'true' && github.event.pull_request.user.login == 'N4M3Z'
+              if: steps.ledger.outputs.restore == 'true'
               continue-on-error: true
               uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
               with:
@@ -60,19 +97,12 @@ jobs:
                   private-key: ${{ secrets.RUNESEER_APP_KEY }}
 
             - name: Restore earned approval over the seal
-              if: steps.verify.outputs.sealed == 'true' && github.event.pull_request.user.login == 'N4M3Z'
+              if: steps.ledger.outputs.restore == 'true'
               continue-on-error: true
               env:
                   GH_TOKEN: ${{ steps.runeseer.outputs.token }}
                   PARENT: ${{ steps.verify.outputs.parent }}
               run: |
-                  match=$(gh api --paginate "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-                      --jq ".[] | select(.user.login == \"runeseer[bot]\") | .body" \
-                      | grep -cE "^review/correctness: clean @${PARENT}" || true)
-                  if [ "$match" -ge 1 ]; then
-                      gh api -X POST "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
-                          -f event=APPROVE \
-                          -f body="Earned approval restored over the owner's seal: the sealed commit ${PARENT} is the one review/correctness judged clean."
-                  else
-                      echo "No clean verdict names ${PARENT}; approval not restored. Wait for the review of the sealed tree, then re-seal."
-                  fi
+                  gh api -X POST "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
+                      -f event=APPROVE \
+                      -f body="Earned approval restored over the seal: the sealed commit ${PARENT} is the one review/correctness judged clean."
