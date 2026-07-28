@@ -37,6 +37,14 @@ jobs:
                   unzip -o autofix.zip autofix.patch pr-number.txt >/dev/null
                   pr=$(head -1 pr-number.txt | tr -cd '0-9')
                   [ -n "$pr" ] || { echo "artifact carries no valid pull request number"; exit 1; }
+                  # The artifact is the untrusted suggest run's output: the
+                  # number it names must be the pull request that run actually
+                  # built, or a fork could aim runewright's comment anywhere.
+                  head_sha=$(gh api "repos/${{ github.repository }}/pulls/$pr" --jq '.head.sha' 2>/dev/null || true)
+                  if [ "$head_sha" != "${{ github.event.workflow_run.head_sha }}" ]; then
+                      echo "pull request $pr does not match the run's head commit; refusing to comment."
+                      exit 1
+                  fi
                   echo "present=true" >> "$GITHUB_OUTPUT"
                   echo "pr=$pr" >> "$GITHUB_OUTPUT"
 
@@ -57,10 +65,16 @@ jobs:
               run: |
                   lines=$(wc -l < autofix.patch)
                   if [ "$lines" -le 120 ]; then
+                      # The fence outruns the longest backtick run inside the
+                      # patch, so patch content cannot escape the diff block
+                      # and inject markdown into runewright's comment.
+                      longest=$(grep -o '`\{1,\}' autofix.patch | awk '{ if (length > m) m = length } END { print m + 0 }')
+                      width=$(( longest >= 3 ? longest + 1 : 3 ))
+                      fence=$(printf '%*s' "$width" '' | tr ' ' '`')
                       {
-                          printf 'Mechanical fixes available; apply with `git apply autofix.patch` and commit as yourself:\n\n```diff\n'
+                          printf 'Mechanical fixes available; apply with `git apply autofix.patch` and commit as yourself:\n\n%sdiff\n' "$fence"
                           cat autofix.patch
-                          printf '```\n'
+                          printf '%s\n' "$fence"
                       } > comment.md
                   else
                       printf 'Mechanical fixes available (%s lines); download the autofix-patch artifact from https://github.com/%s/actions/runs/%s and apply with `git apply autofix.patch`, committing as yourself.\n' \
