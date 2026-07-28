@@ -143,24 +143,19 @@ A clean correctness verdict on the owner's pull request SHALL become the reviewe
 - **WHEN** any commit lands after the approval
 - **THEN** the approval is dismissed and returns only after a clean re-review
 
-### Requirement: Seal
+### Requirement: Owner Attestation on Tags
 
-Merging SHALL require the branch head to be a seal: a signature-verified commit authored by the pull request's submitter or the owner, the human vouching for the branch's final state. A branch whose head is ghostwritten SHALL be sealed by topping it with an empty verified commit bearing a `seal:` subject; a submitter whose own signed commit is the head needs no extra ritual. A push after a seal SHALL unseal the branch, and a valid empty seal SHALL restore the earned approval its own push dismissed only when the sealed commit is the one the recorded verdict judged clean.
+The owner's hardware key SHALL enter the ceremony at tags, not merges: release and checkpoint tags are annotated, owner-signed, and verified in CI against the committed `KEYS` file, and a signed tag vouches for every commit reachable beneath it. Merging SHALL demand no signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
 
-#### Scenario: Sealed branch merges
+#### Scenario: Signed tag vouches for merged history
 
-- **WHEN** the head commit is signature-verified and authored by the submitter or the owner
-- **THEN** the `seal` check passes and the merge may proceed
+- **WHEN** the owner signs a release or checkpoint tag over `main`
+- **THEN** every merge since the previous signed tag is attested by that signature
 
-#### Scenario: Fork submitter seals
+#### Scenario: Merge needs no ritual
 
-- **WHEN** a fork pull request's head is the submitter's own signature-verified commit
-- **THEN** the `seal` check passes without any owner involvement
-
-#### Scenario: Push unseals
-
-- **WHEN** any commit lands after a seal
-- **THEN** the `seal` check fails until the branch is sealed again
+- **WHEN** an approved, green pull request is merged from the platform interface
+- **THEN** no additional signature is demanded at merge time
 
 ### Requirement: Review Economy
 

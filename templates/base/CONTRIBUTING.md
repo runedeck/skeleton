@@ -24,11 +24,6 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 2. Make changes following the conventions above
 3. `make validate`
 4. Open a PR against `main` **as a draft**, and mark it ready when the tree is stable
-5. Seal the branch before merge: the head commit must be signature-verified
-   (a [signing key on your GitHub account](https://docs.github.com/en/authentication/managing-commit-signature-verification))
-   and authored by you. A branch ending in your own signed commit is already
-   sealed; otherwise top it up with
-   `git commit --allow-empty -S -m 'seal: approve' && git push`
 
 CI runs validation on every PR. The `main` branch requires passing CI before merge. The body carries a `## Release Notes` section (`- N/A` when nothing is user-facing).
 

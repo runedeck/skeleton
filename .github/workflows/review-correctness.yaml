@@ -11,12 +11,9 @@ permissions:
     id-token: write
     actions: read
 
-# Queued, never cancelled: a seal pushed while the parent's review is in
-# flight must not kill that review — the seal run that follows will skip
-# itself, and the finished verdict is what lets the seal restore approval.
 concurrency:
     group: review-correctness-${{ github.event.pull_request.number }}
-    cancel-in-progress: false
+    cancel-in-progress: true
 
 jobs:
     correctness:
@@ -38,36 +35,12 @@ jobs:
               with:
                   fetch-depth: 0
 
-            # Only a genuine ritual seal skips the review: empty,
-            # signature-verified, authored by the submitter or the owner,
-            # seal: subject — the same test the seal check makes.
-            - id: seal-head
-              name: Skip seal heads
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  SUBMITTER: ${{ github.event.pull_request.user.login }}
-              run: |
-                  commit=$(gh api "repos/${{ github.repository }}/commits/${{ github.event.pull_request.head.sha }}")
-                  subject=$(printf '%s' "$commit" | jq -r '.commit.message' | head -1)
-                  verified=$(printf '%s' "$commit" | jq -r '.commit.verification.verified')
-                  author=$(printf '%s' "$commit" | jq -r '.author.login // empty')
-                  files=$(printf '%s' "$commit" | jq -r '(.files // []) | length')
-                  if printf '%s' "$subject" | grep -q '^seal:' \
-                      && [ "$verified" = "true" ] \
-                      && { [ "$author" = "$SUBMITTER" ] || [ "$author" = "N4M3Z" ]; } \
-                      && [ "$files" = "0" ]; then
-                      echo "seal=true" >> "$GITHUB_OUTPUT"
-                  else
-                      echo "seal=false" >> "$GITHUB_OUTPUT"
-                  fi
-
             # Prose-only diffs are the conventions lane's territory; the
             # subscription reviews executable surface. Markdown under
             # docs/specs or .github stays in scope, since canon and
             # machinery are executable in the way that matters.
             - id: scope
               name: Scope to reviewable changes
-              if: steps.seal-head.outputs.seal == 'false'
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
@@ -86,7 +59,7 @@ jobs:
             # tree once. Presence-aware: each expected app must have created
             # AND concluded its runs; capped well under the job timeout.
             - name: Wait for the other lanes
-              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              if: steps.scope.outputs.skip == 'false'
               env:
                   GH_TOKEN: ${{ github.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -117,7 +90,7 @@ jobs:
             # which sha was last judged, enabling delta re-reviews.
             - id: ledger
               name: Fetch the previous verdict
-              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              if: steps.scope.outputs.skip == 'false'
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
@@ -142,7 +115,7 @@ jobs:
             # never call the API with the write-scoped token.
             - id: lanes
               name: Fetch the other lanes' findings
-              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              if: steps.scope.outputs.skip == 'false'
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
@@ -154,13 +127,13 @@ jobs:
                   echo "inline: $(jq 'length' .lane/inline-comments.json), issue: $(jq 'length' .lane/issue-comments.json)"
 
             - id: runeseer
-              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              if: steps.scope.outputs.skip == 'false'
               uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
               with:
                   app-id: ${{ secrets.RUNESEER_APP_ID }}
                   private-key: ${{ secrets.RUNESEER_APP_KEY }}
 
-            - if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+            - if: steps.scope.outputs.skip == 'false'
               uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
               with:
                   claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -206,7 +179,7 @@ jobs:
             # The verdict artifact is the machine-readable record: the next
             # round's ledger, and the approval's evidence.
             - name: Upload verdict
-              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              if: steps.scope.outputs.skip == 'false'
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v6
               with:
                   name: runeseer-verdict-pr${{ github.event.pull_request.number }}
@@ -217,7 +190,7 @@ jobs:
             # Earned approval: a clean verdict FOR THIS HEAD, read from the
             # artifact rather than comment archaeology.
             - name: Approve on clean verdict
-              if: steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              if: steps.scope.outputs.skip == 'false'
               env:
                   GH_TOKEN: ${{ steps.runeseer.outputs.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -235,7 +208,7 @@ jobs:
             # Metrics: cost, turns, and finding counts land in the job
             # summary so the round-trip's worth stays measured, not vibed.
             - name: Metrics
-              if: always() && steps.seal-head.outputs.seal == 'false' && steps.scope.outputs.skip == 'false'
+              if: always() && steps.scope.outputs.skip == 'false'
               run: |
                   exec_log=/home/runner/work/_temp/claude-execution-output.json
                   cost="?"; turns="?"

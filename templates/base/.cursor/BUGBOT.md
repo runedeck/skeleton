@@ -1,8 +1,8 @@
 # Review guidance for this repository
 
 This repository follows the runedeck review ceremony: model-authored
-commits, owner-authored pull requests, multiple review lanes, and an
-owner seal before merge.
+commits, owner-authored pull requests, multiple review lanes, and
+owner-signed release tags attesting the merged history.
 
 Suppressions, learned from past rounds:
 
