@@ -25,7 +25,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 3. `make validate`
 4. Open a PR against `main` **as a draft**, and mark it ready when the tree is stable
 
-CI runs validation on every PR. The `main` branch requires passing CI before merge. The body carries a `## Release Notes` section (`- N/A` when nothing is user-facing).
+CI runs validation on every PR. The `main` branch requires passing CI before merge. The body carries a `## Release Notes` section (`- N/A` when nothing is user-facing). Write PR text the way a diff summarizer would: verb-first, factual, file-anchored bullets, claims the diff upholds, no narrative.
 
 ## Review etiquette
 

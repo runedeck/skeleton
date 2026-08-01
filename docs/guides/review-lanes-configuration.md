@@ -63,14 +63,14 @@ Product Overview text:
 
 ## PR description markers
 
-Macroscope posts pull request summaries into the description instead of a comment when the body carries its markers. The template places them inside the `## Changes` section:
+Macroscope posts pull request summaries into the description instead of a comment when the body carries its markers. The pull request body template includes:
 
 ```text
 <!-- Macroscope's pull request summary starts here -->
 <!-- Macroscope's pull request summary ends here -->
 ```
 
-The Changes section is machine-written canon: the diff-derived summary cannot overclaim, so authors write Plan, Testing, and Release Notes, the parts only they know, and add Changes bullets by hand only when the summary is absent or misses something.
+One fewer comment per pull request, and the summary lands where a reader looks first. Authored Changes bullets follow the same register the summarizer uses: verb-first, factual, file-anchored, claims the diff upholds.
 
 ## Check names and secrets
 

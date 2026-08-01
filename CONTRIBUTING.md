@@ -16,7 +16,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 2. Make changes; keep `templates/base` copies and their root counterparts in step where the `.ceremony-manifest` pairs them
 3. Open a PR against `main` **as a draft**, and mark it ready when the tree is stable
 
-The body carries `## Plan`, `## Changes`, `## Testing`, and `## Release Notes` sections (`- N/A` when nothing is user-facing); the template pre-fills the shape.
+The body carries `## Plan`, `## Changes`, `## Testing`, and `## Release Notes` sections (`- N/A` when nothing is user-facing); the template pre-fills the shape. Write PR text the way a diff summarizer would: verb-first, factual, file-anchored bullets, claims the diff upholds, no narrative.
 
 ## Review etiquette
 

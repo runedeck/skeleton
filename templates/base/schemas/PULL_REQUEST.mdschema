@@ -1,8 +1,7 @@
 # Pull request body schema: summary sentence, then Plan / Changes / Testing /
-# Release Notes. Changes is machine-written: Macroscope summarizes the diff
-# between its description markers, so the section requires no authored list;
-# hand-written bullets appear only when the summary is absent or incomplete.
-# The notes section feeds the release body at tag time; `- N/A` is the legal
+# Release Notes. Changes bullets are verb-first, factual, and file-anchored:
+# claims the diff upholds, in the register a diff summarizer would use. The
+# notes section feeds the release body at tag time; `- N/A` is the legal
 # entry for work with no user-facing effect.
 
 heading_rules:
@@ -14,6 +13,8 @@ structure:
           pattern: "^## Plan$"
     - heading:
           pattern: "^## Changes$"
+      lists:
+          - min: 1
     - heading:
           pattern: "^## Testing$"
       lists:

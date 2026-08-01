@@ -1,16 +1,17 @@
 <!-- One-sentence summary in prose, no heading, replacing this comment. -->
 
+<!-- Macroscope's pull request summary starts here -->
+<!-- Macroscope's pull request summary ends here -->
+
 ## Plan
 
 <!-- Why this shape and not the alternative, in brief prose. -->
 
 ## Changes
 
-<!-- Macroscope's pull request summary starts here -->
-<!-- Macroscope's pull request summary ends here -->
-
-<!-- Macroscope writes this section from the diff. Add hand-written
-     bullets only when its summary has not landed or misses something. -->
+- <!-- Verb-first, factual, file-anchored: "Renames X to Y in `path`",
+     "Centralizes A, B, C into D across `p1`, `p2`". Claims the diff
+     upholds, nothing more. -->
 
 ## Testing
 
