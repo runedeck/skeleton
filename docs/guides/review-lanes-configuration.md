@@ -74,7 +74,7 @@ One fewer comment per pull request, and the summary lands where a reader looks f
 
 ## Check names and secrets
 
-The lanes run as reusable workflows called from `runedeck/seer`, so most check contexts compose as `caller job / called job` — the cascade's check is **`cascade / walk`**. The correctness lane is the exception: a caller-side mirror job reports under the stable name **`review/correctness`**, which is the context the canon names; never point a ruleset at its composed form. Never mark `review/correctness` as a *required* status check at all: summoned lanes cannot be universally required (an unsummoned pull request would block forever, and a skipped check would count as satisfied), so the merge gate is the earned approval under required reviews, and the check exists for visibility. The org secrets (`RUNESEER_APP_ID`, `RUNESEER_APP_KEY`, `RUNEWRIGHT_APP_ID`, `RUNEWRIGHT_APP_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`) must have **All repositories** visibility before any scaffolded repository summons a lane; a caller with unreadable secrets fails at first summon, not at scaffold time.
+Check contexts, identities, and the org secret roster live in the skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md); this guide carries only the dashboard state. The one rule worth repeating here: never mark `review/correctness` as a required status check, the merge gate is the earned approval under required reviews.
 
 ## Verification
 
