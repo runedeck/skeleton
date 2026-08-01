@@ -1,15 +1,16 @@
 <!-- One-sentence summary in prose, no heading, replacing this comment. -->
 
-<!-- Macroscope's pull request summary starts here -->
-<!-- Macroscope's pull request summary ends here -->
-
 ## Plan
 
 <!-- Why this shape and not the alternative, in brief prose. -->
 
 ## Changes
 
-- <!-- Bold artifact plus backticked path, colon, what it changes. -->
+<!-- Macroscope's pull request summary starts here -->
+<!-- Macroscope's pull request summary ends here -->
+
+<!-- Macroscope writes this section from the diff. Add hand-written
+     bullets only when its summary has not landed or misses something. -->
 
 ## Testing
 
