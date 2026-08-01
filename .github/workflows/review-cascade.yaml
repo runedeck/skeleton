@@ -17,9 +17,11 @@ permissions:
     pull-requests: read
     issues: write
 
+# Only a fresh bare review label may cancel a walk: the walk's own
+# stage labels re-enter this group and must never kill it.
 concurrency:
     group: review-cascade-${{ github.event.pull_request.number }}
-    cancel-in-progress: true
+    cancel-in-progress: ${{ github.event.label.name == 'review' }}
 
 jobs:
     cascade:
