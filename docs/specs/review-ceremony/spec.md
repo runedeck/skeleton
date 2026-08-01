@@ -8,7 +8,9 @@ Nothing reaches `main` on one opinion. An application opens every pull request s
 
 ### Requirement: Owner-Opened Pull Requests
 
-The owner SHALL author every ceremony pull request, ghostwritten by the orchestrating agent with a short summary, and the `runewright` app SHALL push the branch over HTTPS and post the full ceremony body as the first comment.
+The owner MUST author every ceremony pull request, ghostwritten by the orchestrating agent with a short summary and pushed under the owner's credentials, and the `runewright` app SHALL post the full ceremony body as the first comment. The app acts only server-side, from workflow-minted tokens; no local key ceremony is required to move work.
+
+*Rationale:* owner authorship is currently the only way to summon the hosted review bots without a Cursor team subscription; individual-tier Bugbot reviews only the account owner's pull requests.
 
 #### Scenario: Ghostwritten pull request
 
@@ -41,7 +43,26 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-Every pull request SHALL run `review/conventions` and `review/defects`, and the owner's pull requests SHALL additionally run `review/correctness`, each lane a separate check run backed by a different vendor. The correctness lane spends the owner's subscription, so it is scoped to the owner's pull requests and SHALL NOT be required of anyone else's.
+A lane that bills per run MUST be summoned; a flat-rate lane MAY review ambiently on non-draft pull requests, tuned for precision. Each lane also answers its owner-applied `review:` label, the correctness lane is summoned-only, and a lane that was not summoned SHALL NOT be required and its absence blocks nothing. The bare `review` label MUST run the full funnel in escalation order — cursor, then macroscope, then the adjudicating correctness lane — each stage spending only after the previous stage settles clean, so the owner reviews only work every cheaper stage has already passed.
+
+#### Scenario: Full cascade from one label
+
+- **WHEN** the owner applies `review`
+- **THEN** the lanes run in escalation order and `review/correctness` adjudicates last, after the other lanes settle clean on the head
+
+#### Scenario: Unsummoned quiet
+
+- **WHEN** a pull request is pushed carrying no `review` or `review:` label
+- **THEN** no review lane runs and no lane comments
+
+### Requirement: External Lane Configuration
+
+The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST trigger only when mentioned with incremental review enabled and autofix off, Macroscope MUST review only by label with draft review, auto-merge, and approvability off, and both MUST honor the `review:skip` waiver. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
+
+#### Scenario: Ambient reviewer detected
+
+- **WHEN** a lane reviews a push that carried no summon
+- **THEN** the lane's dashboard configuration is corrected before the next round is summoned
 
 #### Scenario: Lane blocks a merge
 
@@ -50,13 +71,18 @@ Every pull request SHALL run `review/conventions` and `review/defects`, and the 
 
 #### Scenario: Reviewer unavailable
 
-- **WHEN** a review lane that applies to the pull request cannot produce a verdict
-- **THEN** its check remains pending rather than passing
+- **WHEN** a summoned lane cannot produce a verdict
+- **THEN** its stage fails visibly rather than passing, and a fresh summon retries the round
 
 #### Scenario: Correctness lane scope
 
-- **WHEN** a pull request is authored by anyone other than the owner
-- **THEN** `review/correctness` does not run and its absence blocks nothing
+- **WHEN** the owner summons the correctness lane on any same-repository, non-draft pull request
+- **THEN** the lane runs regardless of author, since the owner controls spend through the summon itself
+
+#### Scenario: Fork pull request
+
+- **WHEN** a pull request comes from a fork
+- **THEN** the correctness lane cannot run, the platform strips its credentials from fork-triggered runs, and the funnel for that pull request ends at the free lanes plus the owner's review
 
 #### Scenario: Instructions read from the base branch
 
@@ -65,17 +91,22 @@ Every pull request SHALL run `review/conventions` and `review/defects`, and the 
 
 ### Requirement: Draft Exemption
 
-Review lanes SHALL run when a pull request is opened, reopened, marked ready for review, or synchronized while not a draft, and SHALL NOT run on synchronization of a draft.
+A review lane SHALL run only while its summon label is present and the pull request is not a draft; draft iteration and unlabeled pushes are free. A summon is one round: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh label.
 
 #### Scenario: Draft iteration
 
 - **WHEN** an agent pushes repeatedly to a draft pull request
 - **THEN** no review lane runs for those pushes
 
-#### Scenario: Marked ready
+#### Scenario: Marked ready, unsummoned
 
-- **WHEN** the pull request is marked ready for review
-- **THEN** every review lane runs against the current head commit
+- **WHEN** the pull request is marked ready for review with no review label applied
+- **THEN** no lane runs until the owner summons one
+
+#### Scenario: Summon consumed
+
+- **WHEN** the correctness lane's round ends
+- **THEN** the review labels are removed, and a later push summons nothing until a fresh label lands
 
 ### Requirement: Deterministic Checks Independent of Review
 
@@ -128,6 +159,66 @@ A pull request touching protected paths SHALL either carry a specification chang
 
 - **WHEN** a pull request touches only files outside the protected paths
 - **THEN** the specification check passes without requiring a specification change
+
+### Requirement: Earned Approval
+
+A clean correctness verdict on a summoned pull request SHALL become the reviewer identity's approving review, and any later push SHALL dismiss it until a clean re-review re-grants it. The verdict SHALL be recorded machine-readably with a finding count of zero, bound to the commit id it judged, and approval SHALL fire only when the bound id is the live current head.
+
+#### Scenario: Clean verdict approves
+
+- **WHEN** `review/correctness` posts a verdict of clean on a summoned pull request
+- **THEN** the reviewer identity submits an approving review satisfying the required approval
+
+#### Scenario: Push dismisses
+
+- **WHEN** any commit lands after the approval
+- **THEN** the approval is dismissed and returns only after a clean re-review
+
+### Requirement: Owner Attestation on Tags
+
+The owner's hardware key SHALL enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor today. The release workflow, when releases begin, SHALL verify the tag against `KEYS` before anything publishes; until it exists, verification is the operator's `git verify-tag`. Merging SHALL demand no signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
+
+#### Scenario: Signed tag vouches for merged history
+
+- **WHEN** the owner signs a release or checkpoint tag over `main`
+- **THEN** every merge since the previous signed tag is attested by that signature
+
+#### Scenario: Merge needs no ritual
+
+- **WHEN** an approved, green pull request is merged from the platform interface
+- **THEN** no additional signature is demanded at merge time
+
+### Requirement: Review Economy
+
+Reviews SHALL spend proportionally to what changed: the correctness lane stands down on prose-only diffs, re-reviews judge only the range since the last recorded verdict without re-reporting its findings, low-severity notes collect into a digest rather than inline threads, and pull requests open as drafts until the tree is stable.
+
+#### Scenario: Prose-only change
+
+- **WHEN** a pull request touches only markdown outside the specifications and the machinery
+- **THEN** the correctness lane does not run and its absence blocks nothing
+
+#### Scenario: Re-review after fixes
+
+- **WHEN** a round already recorded a verdict for an ancestor of the head
+- **THEN** the re-review judges the range since that ancestor and does not re-report the recorded findings
+
+### Requirement: Finding Resolution
+
+A fix commit MAY name the review thread it answers with a `Resolves-Thread:` trailer whose value is the finding comment's URL, its numeric comment id, or the thread's node id, and the named threads SHALL resolve automatically when the commit is pushed. A trailer SHALL resolve only threads on its own pull request.
+
+#### Scenario: Trailer resolves thread
+
+- **WHEN** a pushed commit carries `Resolves-Thread:` naming a thread on its pull request
+- **THEN** that thread is resolved and the resolution traces to the commit
+
+### Requirement: Release Notes Attestation
+
+Every pull request body SHALL carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow SHALL compile the sections of merged pull requests into the release body the owner signs over.
+
+#### Scenario: Missing section
+
+- **WHEN** a pull request body has no Release Notes section
+- **THEN** the quality check fails naming the requirement
 
 ### Requirement: Merge and Release Ceremony
 
