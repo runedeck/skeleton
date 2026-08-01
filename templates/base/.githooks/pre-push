@@ -44,6 +44,15 @@ check_range() {
     fi
 }
 
+# Repo-local extension point: a sibling pre-push.local runs first with the
+# same arguments and stdin unavailable, for integrations the baseline does
+# not carry (session capture, notifications). The baseline stays
+# manifest-identical everywhere while repositories keep their extras.
+hook_dir=$(dirname "$0")
+if [ -x "$hook_dir/pre-push.local" ]; then
+    "$hook_dir/pre-push.local" "$@" || true
+fi
+
 saw_ref_updates=0
 # An interactive terminal cannot deliver the ref-update protocol; reading
 # from it would block forever, so only consume stdin when it is not a TTY.
