@@ -36,9 +36,12 @@ jobs:
             # first-party paths (./) and runedeck/* refs are exempt.
             - name: Action pinning
               run: |
-                  violations=$(grep -RnE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*[^./[:space:]]' .github/workflows templates/*/.github/workflows 2>/dev/null \
-                      | grep -vE 'uses:[[:space:]]*(\./|runedeck/)' \
-                      | grep -vE '@[0-9a-f]{40}' || true)
+                  # Comments are stripped before the SHA test so trailing
+                  # text cannot fake a pin.
+                  violations=$(grep -RnE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*["'\'']?[^./[:space:]"'\'']' .github/workflows templates/*/.github/workflows 2>/dev/null \
+                      | sed 's/[[:space:]]#.*$//' \
+                      | grep -vE 'uses:[[:space:]]*["'\'']?(\./|runedeck/)' \
+                      | grep -vE '@[0-9a-f]{40}["'\'']?$' || true)
                   if [ -n "$violations" ]; then
                       echo "Unpinned third-party actions:"
                       printf '%s\n' "$violations"

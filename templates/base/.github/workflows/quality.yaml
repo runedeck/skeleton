@@ -29,9 +29,12 @@ jobs:
             # first-party paths (./) and runedeck/* refs are exempt.
             - name: Action pinning
               run: |
-                  violations=$(grep -RnE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*[^./[:space:]]' .github/workflows 2>/dev/null \
-                      | grep -vE 'uses:[[:space:]]*(\./|runedeck/)' \
-                      | grep -vE '@[0-9a-f]{40}' || true)
+                  # Comments are stripped before the SHA test so trailing
+                  # text cannot fake a pin.
+                  violations=$(grep -RnE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*["'\'']?[^./[:space:]"'\'']' .github/workflows 2>/dev/null \
+                      | sed 's/[[:space:]]#.*$//' \
+                      | grep -vE 'uses:[[:space:]]*["'\'']?(\./|runedeck/)' \
+                      | grep -vE '@[0-9a-f]{40}["'\'']?$' || true)
                   if [ -n "$violations" ]; then
                       echo "Unpinned third-party actions:"
                       printf '%s\n' "$violations"
@@ -70,11 +73,14 @@ jobs:
 
             # Ceremony files must match the skeleton baseline; diverge by
             # removing the file from .ceremony-manifest in a reviewed pull
-            # request, never by silent local edits.
+            # request, never by silent local edits. The fetch is
+            # authenticated: rate limits stop biting, and a private skeleton
+            # fails with a nameable cause instead of an anonymous 404.
             - name: Ceremony drift
+              env:
+                  GH_TOKEN: ${{ github.token }}
               run: |
                   [ -f .ceremony-manifest ] || { echo "no manifest, skipping"; exit 0; }
-                  base="https://raw.githubusercontent.com/runedeck/skeleton/main/templates/base"
                   drifted=""
                   fetch_failed=""
                   baseline=$(mktemp)
@@ -84,8 +90,12 @@ jobs:
                           drifted="$drifted $file(missing)"
                           continue
                       fi
-                      # A failed fetch is a network problem, never drift.
-                      if ! curl -fsSL "$base/$file" -o "$baseline"; then
+                      # A failed fetch is a network or access problem, never
+                      # drift. This token cannot read a private skeleton; if
+                      # the skeleton ever goes private, the baseline needs an
+                      # org token or a published copy.
+                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/$file?ref=main" \
+                          -H "Accept: application/vnd.github.raw" > "$baseline" 2>/dev/null; then
                           fetch_failed="$fetch_failed $file"
                           continue
                       fi

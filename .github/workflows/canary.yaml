@@ -52,6 +52,10 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
+                  gh api "repos/${{ github.repository }}/labels/machinery-canary" >/dev/null 2>&1 \
+                      || gh api -X POST "repos/${{ github.repository }}/labels" \
+                          -f name="machinery-canary" -f color="d93f0b" \
+                          -f description="issues only: nightly canary failure tracking" >/dev/null
                   existing=$(gh api "repos/${{ github.repository }}/issues?state=open&labels=machinery-canary" --jq '.[0].number // empty')
                   body="The nightly machinery canary failed on main: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                   if [ -n "$existing" ]; then
