@@ -4,7 +4,10 @@
 repos:
     - repo: builtin
       hooks:
+          # SpecStory generates its config with trailing whitespace; the
+          # fixer must not fight the generator on a tool-owned file.
           - id: trailing-whitespace
+            exclude: ^\.specstory/
           - id: check-yaml
             exclude: ^templates/
           - id: check-json
