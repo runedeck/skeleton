@@ -176,7 +176,7 @@ A clean correctness verdict on a summoned pull request SHALL become the reviewer
 
 ### Requirement: Owner Attestation on Tags
 
-The owner's hardware key SHALL enter the ceremony at tags, not merges: release and checkpoint tags are annotated, owner-signed, and verified in CI against the committed `KEYS` file, and a signed tag vouches for every commit reachable beneath it. Merging SHALL demand no signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
+The owner's hardware key SHALL enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor today. The release workflow, when releases begin, SHALL verify the tag against `KEYS` before anything publishes; until it exists, verification is the operator's `git verify-tag`. Merging SHALL demand no signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
 
 #### Scenario: Signed tag vouches for merged history
 

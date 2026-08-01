@@ -9,3 +9,4 @@
 - [ ] Promote the drafts-provenance machinery into rune or retire the `.provenance/drafts/` convention entirely (deck todo 2026-07-19 tracks the rune side)
 - [ ] Move the review-lanes configuration guide into the provisioning deck once it exists
 - [ ] Workflow linting in seer's quality job (actionlint, hash-verified install) so expression and embedded-shell mistakes surface before review
+- [ ] Release workflow verifying the `v*` tag signature against root `KEYS` before anything publishes, compiling merged Release Notes sections into the release body
