@@ -10,3 +10,4 @@
 - [ ] Move the review-lanes configuration guide into the provisioning deck once it exists
 - [ ] Workflow linting in seer's quality job (actionlint, hash-verified install) so expression and embedded-shell mistakes surface before review
 - [ ] Release workflow verifying the `v*` tag signature against root `KEYS` before anything publishes, compiling merged Release Notes sections into the release body
+- [ ] rune mdschema enforces the declared word_count and lists constraints; today only heading presence is checked, so the schemas' constraints are documentation
