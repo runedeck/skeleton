@@ -44,13 +44,16 @@ check_range() {
     fi
 }
 
-# Repo-local extension point: a sibling pre-push.local runs first with the
-# same arguments and stdin unavailable, for integrations the baseline does
-# not carry (session capture, notifications). The baseline stays
-# manifest-identical everywhere while repositories keep their extras.
+# A repository may add push-time integrations of its own (session capture,
+# notifications) as an executable .githooks/pre-push.local; it runs first
+# with the same arguments. This file stays identical across repositories
+# and the drift check compares it, so per-repository additions live in the
+# .local sibling, never here. Stdin is redirected away: the ref-update
+# lines on stdin belong to the range checks below, and a .local that read
+# them would silently reduce those checks to the HEAD fallback.
 hook_dir=$(dirname "$0")
 if [ -x "$hook_dir/pre-push.local" ]; then
-    "$hook_dir/pre-push.local" "$@" || true
+    "$hook_dir/pre-push.local" "$@" < /dev/null || true
 fi
 
 saw_ref_updates=0

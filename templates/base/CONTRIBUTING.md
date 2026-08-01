@@ -5,7 +5,7 @@
 ```sh
 git clone https://github.com/${OWNER}/${NAME}.git
 cd ${NAME}
-prek run --all-files    # the checks CI runs at commit stage
+make install    # activates the git hooks and the jj push alias
 ```
 
 ## Conventions
@@ -22,7 +22,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 
 1. Fork and create a branch
 2. Make changes following the conventions above
-3. Run `prek run --all-files` and fix what it reports
+3. `make validate`
 4. Open a PR against `main` **as a draft**, and mark it ready when the tree is stable
 
 CI runs validation on every PR. The `main` branch requires passing CI before merge. The body carries a `## Release Notes` section (`- N/A` when nothing is user-facing). Write PR text the way a diff summarizer would: verb-first, factual, file-anchored bullets, claims the diff upholds, no narrative.
