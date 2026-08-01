@@ -5,7 +5,7 @@
 ```sh
 git clone https://github.com/${OWNER}/${NAME}.git
 cd ${NAME}
-make install
+make install    # activates the git hooks and the jj push alias
 ```
 
 ## Conventions
