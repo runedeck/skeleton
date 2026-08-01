@@ -43,7 +43,7 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-Every review lane MUST be summoned; no lane reviews ambiently. Each lane answers its owner-applied `review:` label, and the correctness lane runs only on non-draft pull requests. A lane that was not summoned SHALL NOT be required and its absence blocks nothing. The bare `review` label MUST run the full funnel in escalation order — cursor, then macroscope, then the adjudicating correctness lane — each stage spending only after the previous stage settles clean, so the owner reviews only work every cheaper stage has already passed.
+A lane that bills per run MUST be summoned; a flat-rate lane MAY review ambiently on non-draft pull requests, tuned for precision. Each lane also answers its owner-applied `review:` label, the correctness lane is summoned-only, and a lane that was not summoned SHALL NOT be required and its absence blocks nothing. The bare `review` label MUST run the full funnel in escalation order — cursor, then macroscope, then the adjudicating correctness lane — each stage spending only after the previous stage settles clean, so the owner reviews only work every cheaper stage has already passed.
 
 #### Scenario: Full cascade from one label
 

@@ -47,17 +47,17 @@ Product Overview text:
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Correctness | Off, with Always-Review label `review:macroscope` | Stage 2 fires only when summoned by the cascade or the owner |
-| Detection Mode | Prefer Coverage | False positives cost adjudication time, not owner attention: runeseer judges every finding before anything reaches a human |
+| Correctness | On, plus the `review:macroscope` label trigger | Macroscope is flat-rate, so ambient review costs nothing per run; precision tuning keeps the volume humane, and the cascade's stage 2 finds the lane already settled |
+| Detection Mode | Prefer Precision | Ambient reviewing trades coverage for signal; runeseer still adjudicates whatever it reports |
 | Check Run Agents | On | Enables in-repo `.macroscope/` agents as check runs; ceremony-specific checks can be authored there |
 | Review Draft PRs | Off | Draft iteration is free |
 | Automatically Merge Macroscope's PRs | Off | Nothing merges itself in this org; every merge is the owner's action |
-| Auto-assign Reviewer | Off | CODEOWNERS routes review |
+| Auto-assign Reviewer | On | Routes a reviewer onto PRs opened without one |
 | Skip Dependabot | Off | No Dependabot; revisit if it arrives |
 | Review Cross-Repo PRs | On | Fork pull requests must pass stage 2 or the contributor funnel dead-ends after cursor |
 | Skip PRs by Author | Empty | No exempt authors |
 | Skip PRs by Labels | `review:skip` | The ceremony waiver label silences the lane |
-| Approvability | Off | Earned approval is runeseer's alone; two approval authorities would blur the gate |
+| Approvability | On, medium threshold | A second approval authority beside runeseer's earned approval; either satisfies required review, the owner's merge click stays the final gate, and the dashboard counts only runeseer approvals |
 | Release Ref Patterns | `v*` | Matches the signed-tag release ceremony |
 | Status features | On | Commit summaries and digests cost nothing in review terms |
 
@@ -78,4 +78,4 @@ Check contexts, identities, and the org secret roster live in the skeleton's [AR
 
 ## Verification
 
-After configuring, open a draft pull request in any scaffolded repository and push twice: no lane may comment. Mark it ready and apply `review`: cursor must answer the cascade's `bugbot run` comment, macroscope must answer its label, and runeseer must run only after both settle.
+After configuring, open a draft pull request in any scaffolded repository and push twice: no lane may comment while it is a draft. Mark it ready: only macroscope may review ambiently. Apply `review`: cursor must answer the cascade's `bugbot run` comment, and runeseer must run only after both free lanes settle.
