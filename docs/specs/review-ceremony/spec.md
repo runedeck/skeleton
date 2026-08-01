@@ -71,13 +71,18 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 #### Scenario: Reviewer unavailable
 
-- **WHEN** a review lane that applies to the pull request cannot produce a verdict
-- **THEN** its check remains pending rather than passing
+- **WHEN** a summoned lane cannot produce a verdict
+- **THEN** its stage fails visibly rather than passing, and a fresh summon retries the round
 
 #### Scenario: Correctness lane scope
 
-- **WHEN** a pull request is authored by anyone other than the owner
-- **THEN** `review/correctness` does not run and its absence blocks nothing
+- **WHEN** the owner summons the correctness lane on any same-repository, non-draft pull request
+- **THEN** the lane runs regardless of author, since the owner controls spend through the summon itself
+
+#### Scenario: Fork pull request
+
+- **WHEN** a pull request comes from a fork
+- **THEN** the correctness lane cannot run, the platform strips its credentials from fork-triggered runs, and the funnel for that pull request ends at the free lanes plus the owner's review
 
 #### Scenario: Instructions read from the base branch
 
@@ -86,17 +91,22 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 ### Requirement: Draft Exemption
 
-Review lanes SHALL run when a pull request is opened, reopened, marked ready for review, or synchronized while not a draft, and SHALL NOT run on synchronization of a draft.
+A review lane SHALL run only while its summon label is present and the pull request is not a draft; draft iteration and unlabeled pushes are free. A summon is one round: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh label.
 
 #### Scenario: Draft iteration
 
 - **WHEN** an agent pushes repeatedly to a draft pull request
 - **THEN** no review lane runs for those pushes
 
-#### Scenario: Marked ready
+#### Scenario: Marked ready, unsummoned
 
-- **WHEN** the pull request is marked ready for review
-- **THEN** every review lane runs against the current head commit
+- **WHEN** the pull request is marked ready for review with no review label applied
+- **THEN** no lane runs until the owner summons one
+
+#### Scenario: Summon consumed
+
+- **WHEN** the correctness lane's round ends
+- **THEN** the review labels are removed, and a later push summons nothing until a fresh label lands
 
 ### Requirement: Deterministic Checks Independent of Review
 
@@ -152,11 +162,11 @@ A pull request touching protected paths SHALL either carry a specification chang
 
 ### Requirement: Earned Approval
 
-A clean correctness verdict on the owner's pull request SHALL become the reviewer identity's approving review, and any later push SHALL dismiss it until a clean re-review re-grants it. The verdict SHALL be recorded machine-readably, bound to the commit id it judged, and approval SHALL fire only when the bound id is the current head.
+A clean correctness verdict on a summoned pull request SHALL become the reviewer identity's approving review, and any later push SHALL dismiss it until a clean re-review re-grants it. The verdict SHALL be recorded machine-readably with a finding count of zero, bound to the commit id it judged, and approval SHALL fire only when the bound id is the live current head.
 
 #### Scenario: Clean verdict approves
 
-- **WHEN** `review/correctness` posts a verdict of clean on the owner's pull request
+- **WHEN** `review/correctness` posts a verdict of clean on a summoned pull request
 - **THEN** the reviewer identity submits an approving review satisfying the required approval
 
 #### Scenario: Push dismisses

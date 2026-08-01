@@ -6,16 +6,27 @@ The funnel this configuration serves: a pull request passes cursor, then macrosc
 
 ## Cursor Bugbot (cursor.com/dashboard → Bugbot)
 
+Bugbot settings resolve personal → repository → installation → team, where an installation is the GitHub App connection to one account or organization. Configure at the tiers named below and leave repository and personal dropdowns on "Use Installation Default": one source of truth, inherited by every current and future scaffolded repository. No behavioral toggle reads from the repository; repo files contribute review guidance only (`.cursor/BUGBOT.md`, root plus nested).
+
+Preferences page (the team tier; on an individual plan this page is the top tier and "Use Team Default" resolves here):
+
 | Setting | Required value | Reason |
 | --- | --- | --- |
 | Trigger Mode | Only when mentioned | Stage 1 fires when the review cascade posts `bugbot run`; ambient per-push reviewing is the largest storm source |
 | Incremental Review | On | Each round reviews only the delta since the last; without it every round re-flags the full backlog |
-| Review Draft PRs | Off | Draft iteration is free by ceremony rule |
-| Autofix Mode | Off | Autofix in this org is suggestion-only through runewright; a bot pushing commits breaks commit attribution |
-| PR Summaries | On | One self-editing comment; the risk score block rides along |
-| Post PR risk score | On | Cheap prioritization signal in the summary |
 | Bugbot Effort Levels | Smart | Adequate; the adjudicating lane catches what a cheaper pass misses |
-| Repository Rules | Seed from `.cursor/BUGBOT.md` learnings | Dashboard rules persist across pull requests; the in-repo `BUGBOT.md` carries the same suppressions for transparency |
+
+runedeck installation page:
+
+| Setting | Required value | Reason |
+| --- | --- | --- |
+| Auto-Enable for New Repositories | On | Scaffolded repositories inherit the lane without a dashboard visit |
+| Review Draft PRs | Off | Draft iteration is free by ceremony rule |
+| Run Once Per PR | Off | It would ignore new commits entirely; incremental review is the right delta mechanism |
+| Post PR Summary | Description mode if the dropdown offers one, else As Comment | The description is where a reader looks first, and it spares a comment |
+| Post PR risk score | On | Cheap prioritization signal in the summary |
+| Automatically Learn Rules | On | Suppressions accumulate across pull requests without re-teaching |
+| Autofix Behavior | Off | Autofix in this org is suggestion-only through runewright; a bot pushing commits breaks commit attribution |
 
 Bugbot reads `.cursor/BUGBOT.md` from the repository root. It supports no include syntax, so the file stays self-contained; nested `.cursor/BUGBOT.md` files scope guidance to subtrees.
 
@@ -60,6 +71,10 @@ Macroscope posts pull request summaries into the description instead of a commen
 ```
 
 One fewer comment per pull request, and the summary lands where a reader looks first.
+
+## Check names and secrets
+
+The lanes run as reusable workflows called from `runedeck/seer`, so most check contexts compose as `caller job / called job` — the cascade's check is **`cascade / walk`**. The correctness lane is the exception: a caller-side mirror job reports under the stable name **`review/correctness`**, which is the context the canon names; never point a ruleset at its composed form. Never mark `review/correctness` as a *required* status check at all: summoned lanes cannot be universally required (an unsummoned pull request would block forever, and a skipped check would count as satisfied), so the merge gate is the earned approval under required reviews, and the check exists for visibility. The org secrets (`RUNESEER_APP_ID`, `RUNESEER_APP_KEY`, `RUNEWRIGHT_APP_ID`, `RUNEWRIGHT_APP_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`) must have **All repositories** visibility before any scaffolded repository summons a lane; a caller with unreadable secrets fails at first summon, not at scaffold time.
 
 ## Verification
 
