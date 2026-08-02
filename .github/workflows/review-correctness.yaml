@@ -62,9 +62,12 @@ jobs:
                   # each is checked for provenance, because any pull-request
                   # workflow can upload an artifact under any name; a foreign
                   # artifact skips only itself and never hides an authentic
-                  # verdict beneath it. Verdict artifacts expire with the
-                  # repository retention window; a head idle past it reports red
-                  # and re-summons, which is the correct staleness.
+                  # verdict beneath it. Verdict artifacts carry a 30-day
+                  # retention; a head that sits unmerged past it reports red
+                  # until a fresh round runs, which is the intended staleness
+                  # rather than a defect: a month-old adjudication has not
+                  # judged the base branch the pull request would merge into
+                  # today.
                   name="runeseer-verdict-pr${{ github.event.pull_request.number }}"
                   candidates=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?name=$name&per_page=100" \
                       --jq '[.artifacts[] | select(.expired == false)]' \
@@ -72,9 +75,16 @@ jobs:
                           | .[] | "\(.id) \(.workflow_run.id // "")"')
                   while read -r artifact run_id; do
                       [ -n "${artifact:-}" ] && [ -n "${run_id:-}" ] || continue
-                      run_path=$(gh api "repos/${{ github.repository }}/actions/runs/$run_id" --jq '.path' 2>/dev/null || true)
+                      # A lookup that fails and a run that belongs to another
+                      # workflow are different answers: the first leaves this
+                      # candidate unjudged and ends the walk, the second is a
+                      # foreign artifact that skips only itself.
+                      if ! run_path=$(gh api "repos/${{ github.repository }}/actions/runs/$run_id" --jq '.path' 2>/dev/null); then
+                          echo "run $run_id is unreadable; the verdict behind artifact $artifact cannot be confirmed"
+                          break
+                      fi
                       if [ "$run_path" != ".github/workflows/review-correctness.yaml" ]; then
-                          echo "verdict artifact $artifact came from ${run_path:-an unreadable run}; skipping it"
+                          echo "verdict artifact $artifact came from $run_path; skipping it"
                           continue
                       fi
                       rm -rf .verdict
