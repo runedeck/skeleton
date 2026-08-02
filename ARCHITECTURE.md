@@ -29,7 +29,7 @@ A repository subscribes through its own workflow files: each carries a thin call
 
 ## Check names
 
-Most lane checks compose as `caller job / called job`; the cascade reports as `cascade / walk`. The correctness lane is mirrored by a caller-side job under the stable name `review/correctness`. No summoned lane may be a required status check, since an unsummoned pull request would block forever; the merge gate is the earned approval under required reviews.
+Most lane checks compose as `caller job / called job`; the cascade reports as `cascade / walk`. The correctness lane is mirrored by a caller-side job under the stable name `review/correctness`, and the mirror fails closed: a head with no verdict reports failure, never a satisfiable skip. Both contexts are required status checks in the owner-veto ruleset, which the funnel satisfies by walking every ready pull request automatically; the merge gate is that verdict plus the earned approval under required reviews. Fork pull requests, where the paid lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
 
 ## Secrets
 

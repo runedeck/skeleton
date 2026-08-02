@@ -12,7 +12,7 @@ Preferences page (the team tier; on an individual plan this page is the top tier
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Trigger Mode | Only when mentioned | Stage 1 fires when the review cascade posts `bugbot run`; ambient per-push reviewing is the largest storm source |
+| Trigger Mode | Automatic | Cursor is the free first layer and burns on every push; the cascade finds stage 1 already settled and skips its summon. Draft reviews stay off, so draft iteration still costs nothing |
 | Incremental Review | On | Each round reviews only the delta since the last; without it every round re-flags the full backlog |
 | Bugbot Effort Levels | Smart | Adequate; the adjudicating lane catches what a cheaper pass misses |
 
@@ -47,7 +47,7 @@ Product Overview text:
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Correctness | On, plus the `review:macroscope` label trigger | Macroscope is flat-rate, so ambient review costs nothing per run; precision tuning keeps the volume humane, and the cascade's stage 2 finds the lane already settled |
+| Correctness | Off ambient; the `review:macroscope` label trigger only | Macroscope fires second in the funnel, after cursor settles clean; ambient runs would spend it ahead of the cheaper layer and out of funnel order |
 | Detection Mode | Prefer Precision | Ambient reviewing trades coverage for signal; runeseer still adjudicates whatever it reports |
 | Check Run Agents | On | Enables in-repo `.macroscope/` agents as check runs; ceremony-specific checks can be authored there |
 | Review Draft PRs | Off | Draft iteration is free |
@@ -74,8 +74,8 @@ One fewer comment per pull request, and the summary lands where a reader looks f
 
 ## Check names and secrets
 
-Check contexts, identities, and the org secret roster live in the skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md); this guide carries only the dashboard state. The one rule worth repeating here: never mark `review/correctness` as a required status check, the merge gate is the earned approval under required reviews.
+Check contexts, identities, and the org secret roster live in the skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md); this guide carries only the dashboard state. The rule worth repeating here: `cascade / walk` and `review/correctness` are required status checks in the owner-veto ruleset, and the verdict mirror fails closed, so a head with no verdict stays red until a funnel round completes; fork pull requests merge through the owner's admin bypass.
 
 ## Verification
 
-After configuring, open a draft pull request in any scaffolded repository and push twice: no lane may comment while it is a draft. Mark it ready: only macroscope may review ambiently. Apply `review`: cursor must answer the cascade's `bugbot run` comment, and runeseer must run only after both free lanes settle.
+After configuring, open a draft pull request in any scaffolded repository and push twice: no lane may comment while it is a draft. Mark it ready: the funnel walks by itself — cursor settles (or is summoned by the walk), macroscope answers its stage label, and runeseer adjudicates last. `review/correctness` must hold red until the verdict lands and the clean verdict must post the earned approval. Apply `review` only to re-summon after fixes.

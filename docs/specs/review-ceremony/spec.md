@@ -43,17 +43,17 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-A lane that bills per run MUST be summoned; a flat-rate lane MAY review ambiently on non-draft pull requests, tuned for precision. Each lane also answers its owner-applied `review:` label, the correctness lane is summoned-only, and a lane that was not summoned SHALL NOT be required and its absence blocks nothing. The bare `review` label MUST run the full funnel in escalation order — cursor, then macroscope, then the adjudicating correctness lane — each stage spending only after the previous stage settles clean, so the owner reviews only work every cheaper stage has already passed.
+A lane that bills per run MUST run only inside a funnel round. The funnel walks every ready same-repository pull request once automatically, and the bare `review` label re-summons it after fixes; each lane also answers its owner-applied `review:` label. The walk runs in escalation order — cursor, then macroscope, then the adjudicating correctness lane — each stage spending only after the previous stage settles clean, so the paid stages spend only on work every cheaper stage has already passed. The walk (`cascade / walk`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
 
 #### Scenario: Full cascade from one label
 
 - **WHEN** the owner applies `review`
 - **THEN** the lanes run in escalation order and `review/correctness` adjudicates last, after the other lanes settle clean on the head
 
-#### Scenario: Unsummoned quiet
+#### Scenario: Push between rounds
 
-- **WHEN** a pull request is pushed carrying no `review` or `review:` label
-- **THEN** no review lane runs and no lane comments
+- **WHEN** a pull request is pushed carrying no `review` or `review:` label after its automatic walk
+- **THEN** no paid lane runs for that push; the head holds a red verdict mirror until the owner re-summons with `review`
 
 ### Requirement: External Lane Configuration
 
@@ -77,7 +77,7 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 #### Scenario: Correctness lane scope
 
 - **WHEN** the owner summons the correctness lane on any same-repository, non-draft pull request
-- **THEN** the lane runs regardless of author, since the owner controls spend through the summon itself
+- **THEN** the lane runs regardless of author; spend is bounded to one round per walk, and further rounds cost a deliberate re-summon
 
 #### Scenario: Fork pull request
 
@@ -91,17 +91,17 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 ### Requirement: Draft Exemption
 
-A review lane SHALL run only while its summon label is present and the pull request is not a draft; draft iteration and unlabeled pushes are free. A summon is one round: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh label.
+A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. The funnel starts when a pull request becomes ready. A round is one walk: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh `review` label.
 
 #### Scenario: Draft iteration
 
 - **WHEN** an agent pushes repeatedly to a draft pull request
 - **THEN** no review lane runs for those pushes
 
-#### Scenario: Marked ready, unsummoned
+#### Scenario: Marked ready, funnel walks
 
-- **WHEN** the pull request is marked ready for review with no review label applied
-- **THEN** no lane runs until the owner summons one
+- **WHEN** the pull request is marked ready for review
+- **THEN** the funnel walks it once automatically, in escalation order, with no label required
 
 #### Scenario: Summon consumed
 
@@ -195,7 +195,7 @@ Reviews SHALL spend proportionally to what changed: the correctness lane stands 
 #### Scenario: Prose-only change
 
 - **WHEN** a pull request touches only markdown outside the specifications and the machinery
-- **THEN** the correctness lane does not run and its absence blocks nothing
+- **THEN** the correctness lane stands down without spend and its check reports green
 
 #### Scenario: Re-review after fixes
 
