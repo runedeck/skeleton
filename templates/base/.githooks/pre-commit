@@ -14,15 +14,12 @@ for argument in ${1+"$@"}; do
     [ "$argument" = "--all-files" ] && all_files=true
 done
 
-gitleaks_config=()
-[ ! -f .gitleaks.toml ] || gitleaks_config=(--config .gitleaks.toml)
-
 scan_tracked_files() {
     local scan_failed=false
 
     while IFS= read -r -d '' file; do
         [ -f "$file" ] || continue
-        gitleaks dir "${gitleaks_config[@]}" --no-banner "$file" || scan_failed=true
+        gitleaks dir --config .gitleaks.toml --no-banner "$file" || scan_failed=true
     done < <(git ls-files -z)
 
     [ "$scan_failed" = "false" ]

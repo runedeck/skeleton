@@ -73,9 +73,9 @@ jobs:
                   sudo install gitleaks /usr/local/bin/gitleaks
 
             # Runs before any step executes tree-configured commands. Pull
-            # requests use the base branch's manifest, so one change cannot
-            # weaken its own checks. A reviewed manifest change controls later
-            # pull requests after it reaches main.
+            # requests use the base branch's manifest and pushes use the prior
+            # head, so one change cannot weaken its own checks. A reviewed
+            # manifest change controls later events after it reaches main.
             - name: Ceremony drift
               env:
                   GH_TOKEN: ${{ github.token }}
@@ -84,14 +84,27 @@ jobs:
                   manifest_ref=HEAD
                   if [ "${{ github.event_name }}" = "pull_request" ]; then
                       manifest_ref="${{ github.event.pull_request.base.sha }}"
+                  elif [ -n "${{ github.event.before }}" ] \
+                      && ! printf '%s' "${{ github.event.before }}" | grep -q '^0*$'; then
+                      manifest_ref="${{ github.event.before }}"
                   fi
+                  if ! git cat-file -e "$manifest_ref:.ceremony-manifest" 2>/dev/null; then
+                      git fetch --no-tags --depth=1 origin "$manifest_ref" || true
+                  fi
+                  git cat-file -e "$manifest_ref:.ceremony-manifest" 2>/dev/null \
+                      || { echo "Trusted ceremony manifest is unavailable at $manifest_ref."; exit 1; }
                   trusted_manifest=$(mktemp)
                   baseline=$(mktemp)
-                  fetch_error=$(mktemp)
-                  if ! git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest"; then
-                      echo "Trusted ceremony manifest is unavailable at $manifest_ref."
+                  canonical_tree=$(mktemp)
+                  canonical_paths=$(mktemp)
+                  if ! gh api "repos/runedeck/skeleton/git/trees/main?recursive=1" > "$canonical_tree"; then
+                      echo "Skeleton baseline is inaccessible."
                       exit 1
                   fi
+                  jq -e '.truncated == false' "$canonical_tree" >/dev/null \
+                      || { echo "Skeleton baseline tree is truncated."; exit 1; }
+                  jq -r '.tree[] | select(.type == "blob") | .path' "$canonical_tree" > "$canonical_paths"
+                  git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest"
                   drifted=""
                   fetch_failed=""
                   while IFS= read -r file || [ -n "$file" ]; do
@@ -101,13 +114,13 @@ jobs:
                           drifted="$drifted $file(missing)"
                           continue
                       fi
+                      if ! grep -Fxq "templates/base/$file" "$canonical_paths"; then
+                          drifted="$drifted $file(baseline-missing)"
+                          continue
+                      fi
                       if ! gh api "repos/runedeck/skeleton/contents/templates/base/$file?ref=main" \
-                          -H "Accept: application/vnd.github.raw" > "$baseline" 2> "$fetch_error"; then
-                          if grep -q '(HTTP 404)' "$fetch_error"; then
-                              drifted="$drifted $file(baseline-missing)"
-                          else
-                              fetch_failed="$fetch_failed $file"
-                          fi
+                          -H "Accept: application/vnd.github.raw" > "$baseline" 2>/dev/null; then
+                          fetch_failed="$fetch_failed $file"
                           continue
                       fi
                       if ! diff -q "$baseline" "$file" >/dev/null; then
