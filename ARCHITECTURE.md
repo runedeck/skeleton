@@ -17,7 +17,7 @@ Same-repository pull requests walk four stages, each spending only after the pre
 3. **runeseer** — summoned by the `review:runeseer` label; adjudicates the free lanes' findings and earns the approving review on an explicit clean verdict for the live head
 4. **the owner** — reviews only work carrying that approval; merging is always the owner's action
 
-The bare `review` label runs the whole walk. Labels are one-round tokens, consumed when the round ends. Fork pull requests run the free lanes and end at the owner's review, since the paid lane's secrets never reach fork-triggered runs.
+The funnel walks every ready same-repository pull request automatically, and the bare `review` label re-summons it after fixes. Labels are one-round tokens, consumed when the round ends. Fork pull requests run the free lanes and merge through the owner's Repository-admin bypass, since the paid lane's secrets never reach fork-triggered runs.
 
 ## Subscription model
 

@@ -33,25 +33,46 @@ jobs:
             CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
     # Mirrors the called lane's result under the stable check context the
-    # rulesets require. Fail-closed: a head with no verdict reports failure
-    # rather than skipping, because a skipped check satisfies required
-    # status checks and would open a merge window before the adjudication
-    # lands. The lane's prose-only stand-down concludes success in-job, so
-    # it reports green here; only verdict-less heads (unsummoned, fork)
-    # fail. The funnel walk summons the verdict automatically on ready
-    # pull requests; the review label re-summons after fixes.
+    # rulesets require. Fail-closed and event-independent: when the lane did
+    # not run in this workflow, the newest verdict artifact decides, so an
+    # unrelated label event can never redden an adjudicated head and a
+    # skipped run can never green an unjudged one. The lane's prose-only
+    # stand-down concludes success in-job, so it reports green here. Drafts
+    # skip the mirror: a draft cannot merge, and its iteration stays quiet.
     review-context:
         name: review/correctness
         needs: review
-        if: always()
+        if: always() && github.event.pull_request.draft == false
         runs-on: ubuntu-latest
-        timeout-minutes: 2
+        timeout-minutes: 3
         steps:
-            - run: |
+            - env:
+                  GH_TOKEN: ${{ github.token }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
                   [ "${{ needs.review.result }}" = "success" ] && exit 0
-                  if [ "${{ needs.review.result }}" = "skipped" ]; then
-                      echo "no verdict on this head yet; the funnel summons it, or re-apply the review label"
-                  else
-                      echo "the lane concluded: ${{ needs.review.result }}"
+                  if [ "${{ needs.review.result }}" = "failure" ]; then
+                      echo "the lane concluded: failure"
+                      exit 1
                   fi
+                  # Lane skipped or cancelled in this run: the newest verdict
+                  # artifact for this pull request decides, validated with the
+                  # same strict tuple the approval gate uses. The artifact name
+                  # matches the lane's ARTIFACT_PREFIX plus the number.
+                  name="runeseer-verdict-pr${{ github.event.pull_request.number }}"
+                  artifact=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?name=$name&per_page=100" \
+                      --jq '[.artifacts[] | select(.expired == false)]' \
+                      | jq -s -r 'add // [] | sort_by(.created_at) | last | .id // empty')
+                  if [ -n "$artifact" ]; then
+                      gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip \
+                          && unzip -o verdict.zip runeseer-verdict.json -d .verdict >/dev/null || true
+                      if jq -e --arg sha "$HEAD_SHA" '
+                          .verdict == "clean" and .count == 0
+                          and (.findings | type == "array" and length == 0)
+                          and .sha == $sha' .verdict/runeseer-verdict.json >/dev/null 2>&1; then
+                          echo "clean verdict on record for $HEAD_SHA"
+                          exit 0
+                      fi
+                  fi
+                  echo "no clean verdict for this head; the funnel summons it, or re-apply the review label"
                   exit 1
