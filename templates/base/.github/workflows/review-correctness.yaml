@@ -78,8 +78,14 @@ jobs:
                           continue
                       fi
                       rm -rf .verdict
-                      gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip \
-                          && unzip -o verdict.zip runeseer-verdict.json -d .verdict >/dev/null || continue
+                      # An authentic artifact that cannot be read ends the walk:
+                      # continuing would let an older clean verdict for this
+                      # head stand in for a newer one nobody has seen.
+                      if ! gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip \
+                          || ! unzip -o verdict.zip runeseer-verdict.json -d .verdict >/dev/null; then
+                          echo "verdict artifact $artifact is unreadable; the recorded verdict cannot be confirmed"
+                          break
+                      fi
                       if jq -e --arg sha "$HEAD_SHA" '
                           .verdict == "clean" and .count == 0
                           and (.findings | type == "array" and length == 0)
