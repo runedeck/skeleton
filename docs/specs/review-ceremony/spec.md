@@ -39,7 +39,7 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 #### Scenario: Checks bind everyone
 
 - **WHEN** any same-repository pull request fails a required check
-- **THEN** the merge is refused regardless of who authored it; the admin bypass in the review ruleset is reserved for fork pull requests, where the funnel cannot produce a verdict
+- **THEN** the merge is refused regardless of who authored it; the review ruleset grants its admin bypass to the owner as an actor, and the ceremony reserves its use for fork pull requests, where the funnel cannot produce a verdict
 
 ### Requirement: Three Review Lanes
 
@@ -57,11 +57,11 @@ A lane that bills per run MUST run only inside a funnel round. The funnel walks 
 
 ### Requirement: External Lane Configuration
 
-The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST trigger only when mentioned with incremental review enabled and autofix off, Macroscope MUST review only by label with draft review, auto-merge, and approvability off, and both MUST honor the `review:skip` waiver. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
+The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST review automatically with incremental review enabled, draft reviews off, and autofix off; Macroscope MUST review only by its stage label with draft review and auto-merge off, its approvability approval advisory beneath the required verdict checks; and both MUST honor the `review:skip` waiver. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
 
 #### Scenario: Ambient reviewer detected
 
-- **WHEN** a lane reviews a push that carried no summon
+- **WHEN** a lane reviews outside its sanctioned trigger: macroscope without its stage label, or any lane on a draft
 - **THEN** the lane's dashboard configuration is corrected before the next round is summoned
 
 #### Scenario: Lane blocks a merge
