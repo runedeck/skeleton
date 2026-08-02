@@ -83,7 +83,7 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  [ -f .ceremony-manifest ] || { echo "no manifest, skipping"; exit 0; }
+                  [ -f .ceremony-manifest ] || { echo "manifest missing: ceremony repositories carry .ceremony-manifest, and deleting it does not lift the drift gate"; exit 1; }
                   drifted=""
                   fetch_failed=""
                   baseline=$(mktemp)

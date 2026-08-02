@@ -5,12 +5,25 @@ set -euo pipefail
 # floor. A machine with neither tool fails loudly rather than committing
 # unscanned, matching the pre-push hook's stance.
 
+# Arguments pass through: make validate widens the run with --all-files,
+# while a git-invoked hook arrives bare and checks the staged set. The
+# bare "$@" is safe under set -u with zero arguments in command position,
+# verified on macOS system bash 3.2.57.
+all_files=false
+for argument in "$@"; do
+    [ "$argument" = "--all-files" ] && all_files=true
+done
+
 if command -v prek >/dev/null 2>&1 && [ -f .pre-commit-config.yaml ]; then
-    # Arguments pass through: make validate widens the run with --all-files,
-    # while a git-invoked hook arrives bare and checks the staged set.
     prek run "$@"
 elif command -v gitleaks >/dev/null 2>&1; then
-    gitleaks git --staged --pre-commit --no-banner
+    # The fallback honors the widened scope: a full scan for --all-files,
+    # the staged set for a git-invoked hook.
+    if [ "$all_files" = "true" ]; then
+        gitleaks git --no-banner
+    else
+        gitleaks git --staged --pre-commit --no-banner
+    fi
 else
     echo "  ⚠  neither prek nor gitleaks found — commit checks cannot run" >&2
     echo "     install: brew install prek gitleaks" >&2
