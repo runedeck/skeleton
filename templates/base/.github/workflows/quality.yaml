@@ -72,23 +72,24 @@ jobs:
                   tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
                   sudo install gitleaks /usr/local/bin/gitleaks
 
-            # Runs before any step executes tree-configured commands. The
-            # canonical manifest defines the comparison surface, so a pull
-            # request cannot weaken the check by editing its local copy.
+            # Runs before any step executes tree-configured commands. Pull
+            # requests use the base branch's manifest, so one change cannot
+            # weaken its own checks. A reviewed manifest change controls later
+            # pull requests after it reaches main.
             - name: Ceremony drift
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
                   [ -f .ceremony-manifest ] || { echo "manifest missing: ceremony repositories carry .ceremony-manifest"; exit 1; }
-                  canonical_manifest=$(mktemp)
-                  baseline=$(mktemp)
-                  if ! gh api "repos/runedeck/skeleton/contents/templates/base/.ceremony-manifest?ref=main" \
-                      -H "Accept: application/vnd.github.raw" > "$canonical_manifest" 2>/dev/null; then
-                      echo "Canonical ceremony manifest fetch failed."
-                      exit 1
+                  manifest_ref=HEAD
+                  if [ "${{ github.event_name }}" = "pull_request" ]; then
+                      manifest_ref="${{ github.event.pull_request.base.sha }}"
                   fi
-                  if ! diff -q "$canonical_manifest" .ceremony-manifest >/dev/null; then
-                      echo "Ceremony files drifted from the skeleton baseline: .ceremony-manifest"
+                  trusted_manifest=$(mktemp)
+                  baseline=$(mktemp)
+                  fetch_error=$(mktemp)
+                  if ! git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest"; then
+                      echo "Trusted ceremony manifest is unavailable at $manifest_ref."
                       exit 1
                   fi
                   drifted=""
@@ -101,14 +102,18 @@ jobs:
                           continue
                       fi
                       if ! gh api "repos/runedeck/skeleton/contents/templates/base/$file?ref=main" \
-                          -H "Accept: application/vnd.github.raw" > "$baseline" 2>/dev/null; then
-                          fetch_failed="$fetch_failed $file"
+                          -H "Accept: application/vnd.github.raw" > "$baseline" 2> "$fetch_error"; then
+                          if grep -q '(HTTP 404)' "$fetch_error"; then
+                              drifted="$drifted $file(baseline-missing)"
+                          else
+                              fetch_failed="$fetch_failed $file"
+                          fi
                           continue
                       fi
                       if ! diff -q "$baseline" "$file" >/dev/null; then
                           drifted="$drifted $file"
                       fi
-                  done < "$canonical_manifest"
+                  done < "$trusted_manifest"
                   if [ -n "$fetch_failed" ]; then
                       echo "Baseline fetch failed, drift unknown for:$fetch_failed"
                       exit 1
