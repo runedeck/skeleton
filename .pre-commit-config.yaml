@@ -16,13 +16,13 @@ repos:
       hooks:
           - id: check-conflict-markers
             name: conflict markers
-            entry: sh -c 'status=0; for file in "$@"; do grep -n -E "^(<<<<<<<|=======|>>>>>>>)" "$file" && status=1; done; exit "$status"' --
+            entry: sh -c 'status=0; for file in "$@"; do if grep -q "^<<<<<<< " "$file" && grep -qx "=======" "$file" && grep -q "^>>>>>>> " "$file"; then grep -n -E "^(<<<<<<< |=======\$|>>>>>>> )" "$file"; status=1; fi; done; exit "$status"' --
             language: system
             types: [text]
 
           - id: check-reject-files
             name: reject files
-            entry: sh -c 'rejects=$(find . -type f -name "*.rej" -print); [ -z "$rejects" ] || { printf "%s\n" "$rejects"; exit 1; }'
+            entry: sh -c 'rejects=$(git ls-files --cached --others --exclude-standard -- "*.rej"); [ -z "$rejects" ] || { printf "%s\n" "$rejects"; exit 1; }'
             language: system
             pass_filenames: false
 
