@@ -44,6 +44,11 @@ check_range() {
     fi
 }
 
+if [ "${1:-}" = "--all-files" ]; then
+    check_range "" HEAD
+    exit 0
+fi
+
 # A repository may add push-time integrations of its own (session capture,
 # notifications) as an executable .githooks/pre-push.local; it runs first
 # with the same arguments. This file stays identical across repositories
