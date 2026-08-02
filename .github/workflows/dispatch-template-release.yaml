@@ -33,7 +33,10 @@ jobs:
                   TEMPLATE_TAG: ${{ github.event.release.tag_name }}
               run: |
                   set -eu
-                  printf '%s\n' "$TEMPLATE_CONSUMERS" | while IFS= read -r repository; do
+                  # The token action accepts commas or newlines; normalize so
+                  # both list styles dispatch to every consumer.
+                  printf '%s\n' "$TEMPLATE_CONSUMERS" | tr ',' '\n' | while IFS= read -r repository; do
+                      repository=$(printf '%s' "$repository" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
                       [ -n "$repository" ] || continue
                       if ! printf '%s' "$repository" | grep -Eq '^[A-Za-z0-9_.-]+$'; then
                           echo "invalid consumer repository name: $repository"

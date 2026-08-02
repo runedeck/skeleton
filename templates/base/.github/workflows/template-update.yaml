@@ -69,7 +69,8 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: |
                   url=$(gh pr list --state open --limit 1000 --json headRefName,url \
-                      --jq '[.[] | select(.headRefName | startswith("template-update/"))][0].url // ""')
+                      --jq --arg branch "template-update/${{ steps.detect.outputs.tag }}" \
+                      '[.[] | select(.headRefName == $branch)][0].url // ""')
                   printf '%s\n' "url=$url" | tee -a "$GITHUB_OUTPUT" >/dev/null
                   [ -z "$url" ] || echo "an update pull request is already open: $url"
 
@@ -91,7 +92,17 @@ jobs:
               env:
                   APPLY_OUTCOME: ${{ steps.apply.outcome }}
               run: |
-                  conflicts=$(grep -RInE --exclude-dir=.git --exclude-dir=.jj '^(<<<<<<<|=======|>>>>>>>)' . || true)
+                  # A file counts as conflicted only when it carries all three
+                  # markers; a lone ======= is a Markdown setext underline.
+                  conflicts=""
+                  while IFS= read -r file; do
+                      if grep -qx '=======' "$file" && grep -q '^>>>>>>> ' "$file"; then
+                          conflicts="$conflicts $file"
+                      fi
+                  done <<EOF_CONFLICTS
+                  $(grep -RIlE --exclude-dir=.git --exclude-dir=.jj '^<<<<<<< ' . || true)
+                  EOF_CONFLICTS
+                  conflicts=$(printf '%s' "$conflicts" | sed 's/^ //')
                   rejects=$(find . -path ./.git -prune -o -path ./.jj -prune -o -type f -name '*.rej' -print)
                   if [ -n "$conflicts" ] || [ -n "$rejects" ]; then
                       [ -z "$conflicts" ] || printf '%s\n' "$conflicts"
