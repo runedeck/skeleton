@@ -8,7 +8,7 @@ repos:
       hooks:
           # Everything under .provenance/ is sealed, digest-bound evidence:
           # an auto-fixing hook that rewrites it destroys what it touches.
-          # Validators and secret scanning still cover it.
+          # Non-draft records remain covered by validators and secret scanning.
           - id: trailing-whitespace
             exclude: '(^|/)\.provenance/'
           - id: check-yaml
