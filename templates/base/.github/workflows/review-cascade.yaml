@@ -20,7 +20,7 @@ permissions:
 # Only a fresh bare review label may cancel a walk: the walk's own
 # stage labels re-enter this group and must never kill it.
 concurrency:
-    group: review-cascade-${{ github.event.pull_request.number }}
+    group: review-cascade-${{ github.event.pull_request.number }}-${{ github.event.action == 'reopened' && 'reopen' || 'walk' }}
     cancel-in-progress: ${{ github.event.label.name == 'review' }}
 
 jobs:
@@ -39,9 +39,14 @@ jobs:
                   CALLER_TOKEN: ${{ github.token }}
                   GH_TOKEN: ${{ steps.runewright.outputs.token }}
               run: |
-                  GH_TOKEN=$CALLER_TOKEN gh api -X DELETE \
-                      "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/review" \
-                      >/dev/null 2>&1 || true
+                  active_labels=$(GH_TOKEN=$CALLER_TOKEN gh api \
+                      "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+                      --jq '.[].name')
+                  if printf '%s\n' "$active_labels" | grep -qx review; then
+                      GH_TOKEN=$CALLER_TOKEN gh api -X DELETE \
+                          "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/review" \
+                          >/dev/null
+                  fi
                   gh api -X POST \
                       "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
                       -f "labels[]=review" >/dev/null

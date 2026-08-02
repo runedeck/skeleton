@@ -103,6 +103,11 @@ A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are 
 - **WHEN** the pull request is marked ready for review
 - **THEN** the funnel walks it once automatically, in escalation order, with no label required
 
+#### Scenario: Reopened pull request
+
+- **WHEN** a pull request reopens
+- **THEN** the funnel restarts automatically on the current head
+
 #### Scenario: Summon consumed
 
 - **WHEN** the correctness lane's round ends
