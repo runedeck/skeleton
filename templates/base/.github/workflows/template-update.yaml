@@ -106,8 +106,10 @@ jobs:
               if: steps.detect.outputs.update == 'true' && steps.existing.outputs.url == ''
               run: |
                   git add -A
-                  git diff --cached --quiet \
-                      && { echo "Copier reported an update but changed no files."; exit 1; }
+                  if git diff --cached --quiet; then
+                      echo "Copier reported an update but changed no files."
+                      exit 1
+                  fi
 
             - name: Install validation tools
               if: steps.detect.outputs.update == 'true' && steps.existing.outputs.url == ''
