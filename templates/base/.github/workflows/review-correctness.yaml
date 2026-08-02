@@ -8,7 +8,7 @@ name: Review Correctness
 # clean round never re-enters here.
 on:
     pull_request:
-        types: [opened, ready_for_review, reopened, synchronize, labeled, unlabeled]
+        types: [opened, ready_for_review, synchronize, labeled, unlabeled]
 
 permissions:
     contents: read
