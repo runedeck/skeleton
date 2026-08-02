@@ -90,8 +90,11 @@ jobs:
                   # The baseline manifest, not the local one, decides what is
                   # tracked: emptying the local list would otherwise unlist the
                   # very files this gate protects. A repository still diverges
-                  # deliberately by dropping an entry, but the drop must name
-                  # the file in a comment, which reads in the diff.
+                  # deliberately by dropping an entry, and the drop declares
+                  # itself in the manifest as a comment of one exact form:
+                  #   # <path> diverges deliberately: <reason>
+                  # A looser match would let any comment mentioning a short
+                  # entry such as KEYS exempt it.
                   baseline_manifest=$(mktemp)
                   if ! gh api "repos/runedeck/skeleton/contents/templates/base/.ceremony-manifest?ref=main" \
                       -H "Accept: application/vnd.github.raw" > "$baseline_manifest" 2>/dev/null; then
@@ -100,20 +103,23 @@ jobs:
                   fi
                   unexplained=""
                   # The || [ -n ... ] tail keeps a final line that carries no
-                  # newline; only a comment line counts as the explanation, so
-                  # another entry mentioning the path cannot stand in for one.
-                  while IFS= read -r entry || [ -n "$entry" ]; do
+                  # newline, and leading whitespace is stripped before the
+                  # comment test so an indented comment is never read as a path.
+                  while IFS= read -r raw_entry || [ -n "$raw_entry" ]; do
+                      entry=${raw_entry#"${raw_entry%%[![:space:]]*}"}
                       case "$entry" in ''|'#'*) continue ;; esac
                       grep -qxF "$entry" .ceremony-manifest && continue
-                      grep -E '^[[:space:]]*#' .ceremony-manifest \
-                          | grep -qF "$entry" \
+                      pattern=$(printf '%s' "$entry" | sed 's/[][\.*^$/]/\\&/g')
+                      grep -qE "^[[:space:]]*#[[:space:]]*${pattern}[[:space:]]+diverges deliberately:" \
+                          .ceremony-manifest \
                           || unexplained="$unexplained $entry"
                   done < "$baseline_manifest"
                   if [ -n "$unexplained" ]; then
-                      echo "Baseline manifest entries dropped without a comment naming them:$unexplained"
+                      echo "Baseline manifest entries dropped without a '# <path> diverges deliberately: <reason>' comment:$unexplained"
                       exit 1
                   fi
-                  while IFS= read -r file || [ -n "$file" ]; do
+                  while IFS= read -r raw_file || [ -n "$raw_file" ]; do
+                      file=${raw_file#"${raw_file%%[![:space:]]*}"}
                       case "$file" in ''|'#'*) continue ;; esac
                       if [ ! -f "$file" ]; then
                           drifted="$drifted $file(missing)"
