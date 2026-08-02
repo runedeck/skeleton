@@ -47,7 +47,11 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq '.body // ""' \
+                  # The fetch and the parse fail separately: an API or
+                  # permission fault must not read as a missing section.
+                  body=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq '.body // ""') \
+                      || { echo "could not read the pull request body (API or permission failure)"; exit 1; }
+                  printf '%s\n' "$body" \
                       | awk '/^## Release Notes[[:space:]]*$/{in_section=1; next} /^## /{in_section=0} in_section && /^([-*+]|[0-9]+[.)]) /{found=1} END{exit !found}' \
                       && echo "Release Notes section present." \
                       || { echo "The pull request body needs a '## Release Notes' section with at least one entry ('- N/A' for non-user-facing work)."; exit 1; }
@@ -68,9 +72,8 @@ jobs:
                   tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
                   sudo install gitleaks /usr/local/bin/gitleaks
 
-            - name: Commit-stage checks
-              uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
-
+            # Runs before any step executes tree-configured commands, so a
+            # tampered hook config fails validation before it can run.
             # Ceremony files must match the skeleton baseline; diverge by
             # removing the file from .ceremony-manifest in a reviewed pull
             # request, never by silent local edits. The fetch is
@@ -112,6 +115,9 @@ jobs:
                       exit 1
                   fi
                   echo "Ceremony files match the skeleton baseline."
+
+            - name: Commit-stage checks
+              uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
 
             # Scan exactly the commits this event introduces. The rangeless
             # fallback only fires on a repository's first push, where the

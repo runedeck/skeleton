@@ -6,7 +6,9 @@ set -euo pipefail
 # unscanned, matching the pre-push hook's stance.
 
 if command -v prek >/dev/null 2>&1 && [ -f .pre-commit-config.yaml ]; then
-    prek run
+    # Arguments pass through: make validate widens the run with --all-files,
+    # while a git-invoked hook arrives bare and checks the staged set.
+    prek run "$@"
 elif command -v gitleaks >/dev/null 2>&1; then
     gitleaks git --staged --pre-commit --no-banner
 else
