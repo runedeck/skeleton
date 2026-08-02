@@ -32,6 +32,7 @@ jobs:
                   TEMPLATE_REPOSITORY: ${{ github.repository }}
                   TEMPLATE_TAG: ${{ github.event.release.tag_name }}
               run: |
+                  set -eu
                   printf '%s\n' "$TEMPLATE_CONSUMERS" | while IFS= read -r repository; do
                       [ -n "$repository" ] || continue
                       if ! printf '%s' "$repository" | grep -Eq '^[A-Za-z0-9_.-]+$'; then

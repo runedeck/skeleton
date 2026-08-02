@@ -68,7 +68,7 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  url=$(gh pr list --state open --json headRefName,url \
+                  url=$(gh pr list --state open --limit 1000 --json headRefName,url \
                       --jq '[.[] | select(.headRefName | startswith("template-update/"))][0].url // ""')
                   printf '%s\n' "url=$url" | tee -a "$GITHUB_OUTPUT" >/dev/null
                   [ -z "$url" ] || echo "an update pull request is already open: $url"
@@ -107,11 +107,14 @@ jobs:
               run: |
                   sudo apt-get install -y shellcheck
                   pipx install prek ruff semgrep
-                  curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-                  curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
-                  sha256sum --check --ignore-missing "gitleaks_${GITLEAKS_VERSION}_checksums.txt"
-                  tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
-                  sudo install gitleaks /usr/local/bin/gitleaks
+                  scratch=$(mktemp -d)
+                  archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+                  checksums="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+                  curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive" -o "$scratch/$archive"
+                  curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$checksums" -o "$scratch/$checksums"
+                  (cd "$scratch" && sha256sum --check --ignore-missing "$checksums")
+                  tar -xzf "$scratch/$archive" -C "$scratch" gitleaks
+                  sudo install "$scratch/gitleaks" /usr/local/bin/gitleaks
 
             - name: Validate updated repository
               if: steps.detect.outputs.update == 'true' && steps.existing.outputs.url == ''
