@@ -75,3 +75,40 @@ Template file contents and file names SHALL resolve `${VARIABLE}` placeholders a
 
 - **WHEN** a template carries a file whose name contains `${NAME}`
 - **THEN** the scaffolded repository receives the file under the resolved name
+
+### Requirement: Portable Base
+
+`copier.yaml` SHALL expose `templates/base` as a Copier template, and direct Copier generation SHALL produce the same base files as Rune composition.
+
+#### Scenario: Direct Copier generation
+
+- **WHEN** a repository is generated from a tagged skeleton release with Copier
+- **THEN** it receives the base ceremony and `.copier-answers.yml` without requiring Rune
+
+#### Scenario: Offline Rune generation
+
+- **WHEN** Rune generates a repository without network access
+- **THEN** it uses the embedded copy of the same tagged base and writes compatible Copier answers
+
+### Requirement: Tagged Updates
+
+Generated repositories SHALL record the skeleton source, release tag, and rendering answers in `.copier-answers.yml`.
+
+#### Scenario: New template release
+
+- **WHEN** Copier updates a consumer from its recorded tag to a newer release
+- **THEN** downstream edits are reapplied and the result is reviewed as an ordinary pull request
+
+#### Scenario: Copier is unavailable
+
+- **WHEN** Copier cannot run
+- **THEN** template installation and updates are unavailable while repository checks and review lanes continue
+
+### Requirement: Verbatim Files
+
+Only files carrying the `.jinja` suffix SHALL be rendered by Copier; unsuffixed files SHALL be copied byte-for-byte.
+
+#### Scenario: GitHub expression
+
+- **WHEN** an unsuffixed workflow contains a `${{ github.ref }}` expression
+- **THEN** Copier preserves the expression without interpreting it as a template variable
