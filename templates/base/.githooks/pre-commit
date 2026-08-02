@@ -17,10 +17,14 @@ done
 if command -v prek >/dev/null 2>&1 && [ -f .pre-commit-config.yaml ]; then
     prek run ${1+"$@"}
 elif command -v gitleaks >/dev/null 2>&1; then
-    # The fallback honors the widened scope: the working tree for
-    # --all-files (gitleaks dir), the staged set for a git-invoked hook.
+    # The fallback honors the widened scope: every commit for
+    # --all-files, the staged set for a git-invoked hook. It scans the
+    # repository rather than the directory deliberately, since a
+    # directory scan reaches untracked and ignored local state (build
+    # output, tool caches) that the repository does not own and cannot
+    # fix.
     if [ "$all_files" = "true" ]; then
-        gitleaks dir --no-banner .
+        gitleaks git --no-banner
     else
         gitleaks git --staged --pre-commit --no-banner
     fi
