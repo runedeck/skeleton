@@ -41,7 +41,7 @@ Bugbot reads `.cursor/BUGBOT.md` from the repository root. It supports no includ
 
 Product Overview text:
 
-> runedeck builds rune, a CLI that assembles and deploys agent skills, rules, and hooks ("runes") across AI coding harnesses. Repositories follow a review ceremony: model-authored commits, owner-authored pull requests, label-summoned review lanes, and owner-signed release tags. The skeleton repository is the template every other repository is scaffolded from; changes to templates/ propagate to every scaffolded repository.
+> runedeck builds rune, a CLI that assembles and deploys agent skills, rules, and hooks ("runes") across AI coding harnesses. Repositories follow a review ceremony: model-authored commits, owner-authored pull requests, automatically ordered review lanes, and owner-signed release tags. The skeleton repository is the template every other repository is scaffolded from; changes to templates/ propagate to every scaffolded repository.
 
 ## Macroscope, per repository (Repos → select all → Edit settings)
 
