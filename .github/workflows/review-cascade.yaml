@@ -6,7 +6,7 @@ name: Review Cascade
 # or in the body.
 on:
     pull_request_target:
-        types: [opened, ready_for_review, labeled]
+        types: [opened, ready_for_review, reopened, labeled]
 
 # The body's reads (check runs, the live head, review threads) ride the
 # workflow token; issues: write lets it also consume labels on that
@@ -24,6 +24,28 @@ concurrency:
     cancel-in-progress: ${{ github.event.label.name == 'review' }}
 
 jobs:
+    reopen:
+        if: github.event.action == 'reopened' && github.event.pull_request.draft == false
+        runs-on: ubuntu-latest
+        steps:
+            - id: runewright
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
+                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+
+            - name: Restart the review walk
+              env:
+                  CALLER_TOKEN: ${{ github.token }}
+                  GH_TOKEN: ${{ steps.runewright.outputs.token }}
+              run: |
+                  GH_TOKEN=$CALLER_TOKEN gh api -X DELETE \
+                      "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/review" \
+                      >/dev/null 2>&1 || true
+                  gh api -X POST \
+                      "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+                      -f "labels[]=review" >/dev/null
+
     cascade:
         if: github.event.pull_request.draft == false
         uses: runedeck/seer/.github/workflows/review-cascade.yaml@main
