@@ -72,27 +72,32 @@ jobs:
                   tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
                   sudo install gitleaks /usr/local/bin/gitleaks
 
-            # Runs before any step executes tree-configured commands. Pull
-            # requests use the base branch's manifest and pushes use the prior
-            # head, so one change cannot weaken its own checks. A reviewed
-            # manifest change controls later events after it reaches main.
+            # Runs before any step executes tree-configured commands. When a
+            # prior manifest exists, pull requests use the base branch and
+            # pushes use the previous head, so one change cannot weaken its own
+            # checks. Initial adoption uses the new manifest.
             - name: Ceremony drift
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
                   [ -f .ceremony-manifest ] || { echo "manifest missing: ceremony repositories carry .ceremony-manifest"; exit 1; }
                   manifest_ref=HEAD
+                  prior_ref=""
                   if [ "${{ github.event_name }}" = "pull_request" ]; then
-                      manifest_ref="${{ github.event.pull_request.base.sha }}"
+                      prior_ref="${{ github.event.pull_request.base.sha }}"
                   elif [ -n "${{ github.event.before }}" ] \
                       && ! printf '%s' "${{ github.event.before }}" | grep -q '^0*$'; then
-                      manifest_ref="${{ github.event.before }}"
+                      prior_ref="${{ github.event.before }}"
                   fi
-                  if ! git cat-file -e "$manifest_ref:.ceremony-manifest" 2>/dev/null; then
-                      git fetch --no-tags --depth=1 origin "$manifest_ref" || true
+                  if [ -n "$prior_ref" ]; then
+                      if ! git cat-file -e "$prior_ref^{commit}" 2>/dev/null; then
+                          git fetch --no-tags --depth=1 origin "$prior_ref" \
+                              || { echo "Prior ceremony state is unavailable at $prior_ref."; exit 1; }
+                      fi
+                      if git cat-file -e "$prior_ref:.ceremony-manifest" 2>/dev/null; then
+                          manifest_ref="$prior_ref"
+                      fi
                   fi
-                  git cat-file -e "$manifest_ref:.ceremony-manifest" 2>/dev/null \
-                      || { echo "Trusted ceremony manifest is unavailable at $manifest_ref."; exit 1; }
                   trusted_manifest=$(mktemp)
                   baseline=$(mktemp)
                   canonical_tree=$(mktemp)
@@ -107,9 +112,11 @@ jobs:
                   git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest"
                   drifted=""
                   fetch_failed=""
+                  checked=0
                   while IFS= read -r file || [ -n "$file" ]; do
                       file=$(printf '%s\n' "$file" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
                       case "$file" in ''|'#'*) continue ;; esac
+                      checked=$((checked + 1))
                       if [ ! -f "$file" ]; then
                           drifted="$drifted $file(missing)"
                           continue
@@ -127,6 +134,10 @@ jobs:
                           drifted="$drifted $file"
                       fi
                   done < "$trusted_manifest"
+                  if [ "$checked" -eq 0 ]; then
+                      echo "Trusted ceremony manifest lists no files."
+                      exit 1
+                  fi
                   if [ -n "$fetch_failed" ]; then
                       echo "Baseline fetch failed, drift unknown for:$fetch_failed"
                       exit 1
