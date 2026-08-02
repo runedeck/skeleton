@@ -1,12 +1,13 @@
 # One universal config for every scaffolded repository: each hook gates on
 # the file types present in the change, so hooks for absent languages never
 # fire and language templates carry no lint config of their own.
+# Sealed adoption evidence stays byte-stable under every hook.
 repos:
     - repo: builtin
       hooks:
           # Everything under .provenance/ is sealed, digest-bound evidence:
           # an auto-fixing hook that rewrites it destroys what it touches.
-          # Validators and secret scanning still cover it.
+          # All records remain covered by validators and secret scanning.
           - id: trailing-whitespace
             exclude: '(^|/)\.provenance/'
           - id: check-yaml
