@@ -87,6 +87,28 @@ jobs:
                   drifted=""
                   fetch_failed=""
                   baseline=$(mktemp)
+                  # The baseline manifest, not the local one, decides what is
+                  # tracked: emptying the local list would otherwise unlist the
+                  # very files this gate protects. A repository still diverges
+                  # deliberately by dropping an entry, but the drop must name
+                  # the file in a comment, which reads in the diff.
+                  baseline_manifest=$(mktemp)
+                  if ! gh api "repos/runedeck/skeleton/contents/templates/base/.ceremony-manifest?ref=main" \
+                      -H "Accept: application/vnd.github.raw" > "$baseline_manifest" 2>/dev/null; then
+                      echo "Baseline manifest fetch failed; drift cannot be judged."
+                      exit 1
+                  fi
+                  unexplained=""
+                  while IFS= read -r entry; do
+                      case "$entry" in ''|'#'*) continue ;; esac
+                      grep -qxF "$entry" .ceremony-manifest && continue
+                      grep -qF "$entry" .ceremony-manifest \
+                          || unexplained="$unexplained $entry"
+                  done < "$baseline_manifest"
+                  if [ -n "$unexplained" ]; then
+                      echo "Baseline manifest entries dropped without a comment naming them:$unexplained"
+                      exit 1
+                  fi
                   while IFS= read -r file; do
                       case "$file" in ''|'#'*) continue ;; esac
                       if [ ! -f "$file" ]; then
