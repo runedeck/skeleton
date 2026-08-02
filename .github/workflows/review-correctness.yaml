@@ -3,7 +3,11 @@ name: Review Correctness
 # Thin caller: the lane's body lives in runedeck/seer. The caller owns
 # the triggers, the concurrency, and the permissions; only review-label
 # events and new pushes may cancel an active run, so an unrelated label
-# never kills a billed review mid-flight.
+# never kills a billed review mid-flight. Round-end label consumption in
+# the lane rides the workflow token, whose removals emit no events, so a
+# clean round never re-enters here; only a manual unlabel does, and the
+# lane then skips while the fail-closed mirror holds the head red until
+# re-summoned.
 on:
     pull_request:
         types: [opened, ready_for_review, reopened, synchronize, labeled, unlabeled]
@@ -32,7 +36,9 @@ jobs:
     # rulesets require. Fail-closed: a head with no verdict reports failure
     # rather than skipping, because a skipped check satisfies required
     # status checks and would open a merge window before the adjudication
-    # lands. The funnel walk summons the verdict automatically on ready
+    # lands. The lane's prose-only stand-down concludes success in-job, so
+    # it reports green here; only verdict-less heads (unsummoned, fork)
+    # fail. The funnel walk summons the verdict automatically on ready
     # pull requests; the review label re-summons after fixes.
     review-context:
         name: review/correctness

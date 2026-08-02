@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
     cascade:
+        if: github.event.pull_request.draft == false
         uses: runedeck/seer/.github/workflows/review-cascade.yaml@main
         secrets:
             RUNEWRIGHT_APP_ID: ${{ secrets.RUNEWRIGHT_APP_ID }}

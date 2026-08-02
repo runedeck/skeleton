@@ -57,7 +57,7 @@ Product Overview text:
 | Review Cross-Repo PRs | On | Fork pull requests must pass stage 2 or the contributor funnel dead-ends after cursor |
 | Skip PRs by Author | Empty | No exempt authors |
 | Skip PRs by Labels | `review:skip` | The ceremony waiver label silences the lane |
-| Approvability | On, medium threshold | A second approval authority beside runeseer's earned approval; either satisfies required review, the owner's merge click stays the final gate, and the dashboard counts only runeseer approvals |
+| Approvability | On, medium threshold | Advisory beneath the required verdict checks: its approval cannot outrank a red `review/correctness`, and the owner's merge click stays the final gate |
 | Release Ref Patterns | `v*` | Matches the signed-tag release ceremony |
 | Status features | On | Commit summaries and digests cost nothing in review terms |
 

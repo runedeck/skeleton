@@ -37,4 +37,4 @@ Iterate in draft, collect fixes locally, push them as one batch, and request a f
 
 ## Review bots
 
-No bot reviews unsummoned: every lane answers a maintainer-applied label. Bare `review` runs the full funnel, cursor, then macroscope, then the adjudicating correctness lane whose clean verdict earns the approving review, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. A summon is one round; the labels are consumed when it ends. Every summon is visible in the pull request timeline, and [ARCHITECTURE.md](ARCHITECTURE.md) describes the lanes.
+The funnel walks every ready same-repository pull request automatically: cursor, then macroscope, then the adjudicating correctness lane whose clean verdict earns the approving review. Bare `review` re-summons the funnel after fixes, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. A round consumes its labels when it ends. Every summon is visible in the pull request timeline, and [ARCHITECTURE.md](ARCHITECTURE.md) describes the lanes.
