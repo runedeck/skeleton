@@ -1,0 +1,50 @@
+name: Spec Drift
+
+on:
+    push:
+        branches: [main]
+
+permissions:
+    contents: read
+    issues: write
+    id-token: write
+
+concurrency:
+    group: spec-drift
+    cancel-in-progress: false
+
+jobs:
+    drift:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+
+            - id: runeseer
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNESEER_APP_ID }}
+                  private-key: ${{ secrets.RUNESEER_APP_KEY }}
+
+            - uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
+              with:
+                  claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+                  github_token: ${{ steps.runeseer.outputs.token }}
+                  allowed_bots: "runewright,runeseer"
+                  claude_args: |
+                      --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue create:*)"
+                  prompt: >
+                      A merge just landed on main
+                      (${{ github.event.before }}..${{ github.sha }}). Read
+                      that diff with git, then read docs/specs/ and
+                      README.md, and judge whether the merged change made
+                      any canonical statement stale, contradicted a
+                      requirement, or introduced behavior the specs do not
+                      cover. If, and only if, you find genuine drift: find
+                      the open issue titled "Spec drift log" (create it if
+                      absent) and add ONE comment listing each drift as a
+                      bullet naming the spec file and requirement affected
+                      and the commit that caused it. If nothing drifted, do
+                      nothing and post nothing.

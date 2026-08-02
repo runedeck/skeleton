@@ -4,7 +4,7 @@ dist/
 .entire/
 .rune-archive.lock
 
-# SpecStory: the project binding is tracked, its output is not.
+# SpecStory: the project binding and cli config are tracked, output is not.
 .specstory/history/
 .specstory/debug/
 

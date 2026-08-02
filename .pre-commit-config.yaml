@@ -1,16 +1,13 @@
 # One universal config for every scaffolded repository: each hook gates on
 # the file types present in the change, so hooks for absent languages never
 # fire and language templates carry no lint config of their own.
-# Sealed adoption evidence stays byte-stable under every hook.
-exclude: '(^|/)\.provenance/drafts/'
 repos:
     - repo: builtin
       hooks:
-          # Everything under .provenance/ is sealed, digest-bound evidence:
-          # an auto-fixing hook that rewrites it destroys what it touches.
-          # Validators and secret scanning still cover it.
+          # SpecStory generates its config with trailing whitespace; the
+          # fixer must not fight the generator on a tool-owned file.
           - id: trailing-whitespace
-            exclude: '(^|/)\.provenance/'
+            exclude: ^\.specstory/
           - id: check-yaml
             exclude: ^templates/
           - id: check-json
@@ -23,12 +20,16 @@ repos:
             language: system
             types: [shell]
 
+          # Language templates are fixture content: a rust file under
+          # templates/ must not summon cargo at the skeleton root, where no
+          # manifest exists.
           - id: ruff
             name: ruff check
             entry: ruff check .
             language: system
             pass_filenames: false
             types: [python]
+            exclude: ^templates/
 
           - id: cargo-fmt
             name: cargo fmt
@@ -36,6 +37,7 @@ repos:
             language: system
             pass_filenames: false
             types: [rust]
+            exclude: ^templates/
 
           - id: cargo-clippy
             name: cargo clippy
@@ -43,6 +45,7 @@ repos:
             language: system
             pass_filenames: false
             types: [rust]
+            exclude: ^templates/
 
           - id: tsc
             name: tsc --noEmit
@@ -50,6 +53,7 @@ repos:
             language: system
             pass_filenames: false
             types: [ts]
+            exclude: ^templates/
 
           - id: gitleaks
             name: gitleaks (staged)
@@ -70,6 +74,7 @@ repos:
             language: system
             pass_filenames: false
             types: [rust]
+            exclude: ^templates/
             stages: [pre-push]
 
           - id: semgrep
