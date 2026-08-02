@@ -34,21 +34,33 @@ jobs:
     # Mirrors the called lane's result under the stable check context the
     # rulesets require. Fail-closed: a head the lane did not judge reports
     # failure rather than skipping, because a skipped check satisfies a
-    # required status check and would open a merge window before the
-    # adjudication lands. The lane's prose-only stand-down concludes success
-    # in-job, so it reports green here. Drafts skip the mirror: a draft
-    # cannot merge, and its iteration stays quiet.
+    # required status check. Unrelated label events preserve green only when
+    # Runeseer approved this exact head. Drafts skip the mirror because they
+    # cannot merge.
     review-context:
         name: review/correctness
         needs: review
-        if: >-
-            always() && github.event.pull_request.draft == false &&
-            (!contains(fromJSON('["labeled", "unlabeled"]'), github.event.action) ||
-            contains(fromJSON('["review", "review:runeseer"]'), github.event.label.name))
+        if: always() && github.event.pull_request.draft == false
         runs-on: ubuntu-latest
         timeout-minutes: 2
         steps:
-            - run: |
+            - env:
+                  EVENT_ACTION: ${{ github.event.action }}
+                  EVENT_LABEL: ${{ github.event.label.name }}
+                  GH_TOKEN: ${{ github.token }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  case "$EVENT_ACTION:$EVENT_LABEL" in
+                      labeled:review|labeled:review:runeseer|unlabeled:review|unlabeled:review:runeseer) ;;
+                      labeled:*|unlabeled:*)
+                          approval_ids=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews?per_page=100" \
+                              --jq '.[] | select(.user.login == "runeseer[bot]" and .state == "APPROVED" and .commit_id == env.HEAD_SHA) | .id')
+                          [ -n "$approval_ids" ] \
+                              && { echo "Runeseer already approved this head."; exit 0; }
+                          echo "no Runeseer approval exists for this head"
+                          exit 1
+                          ;;
+                  esac
                   [ "${{ needs.review.result }}" = "success" ] && exit 0
                   if [ "${{ needs.review.result }}" = "skipped" ]; then
                       echo "no verdict on this head; the funnel summons one, or re-apply the review label"
