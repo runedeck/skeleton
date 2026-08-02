@@ -14,6 +14,18 @@ repos:
 
     - repo: local
       hooks:
+          - id: check-conflict-markers
+            name: conflict markers
+            entry: sh -c 'status=0; for file in "$@"; do grep -n -E "^(<<<<<<<|=======|>>>>>>>)" "$file" && status=1; done; exit "$status"' --
+            language: system
+            types: [text]
+
+          - id: check-reject-files
+            name: reject files
+            entry: sh -c 'rejects=$(find . -type f -name "*.rej" -print); [ -z "$rejects" ] || { printf "%s\n" "$rejects"; exit 1; }'
+            language: system
+            pass_filenames: false
+
           - id: shellcheck
             name: shellcheck
             entry: shellcheck -S warning
