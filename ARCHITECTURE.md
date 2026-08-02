@@ -10,14 +10,14 @@ This repository is the template and archetype for every repository in the organi
 
 ## Review funnel
 
-Same-repository pull requests walk four stages, each spending only after the previous settles clean:
+Same-repository pull requests run four stages, each spending only after the previous settles clean:
 
-1. **cursor** — summoned by a `bugbot run` comment the cascade posts
+1. **cursor** — summoned by an `@cursor review` comment the cascade posts
 2. **macroscope** — summoned by the `review:macroscope` label
 3. **runeseer** — summoned by the `review:runeseer` label; adjudicates the free lanes' findings and earns the approving review on an explicit clean verdict for the live head
 4. **the owner** — reviews only work carrying that approval; merging is always the owner's action
 
-The funnel walks every ready same-repository pull request automatically, and the bare `review` label re-summons it after fixes. Labels are one-round tokens, consumed when the round ends. Fork pull requests run the free lanes and merge through the owner's Repository-admin bypass, since the paid lane's secrets never reach fork-triggered runs.
+The review cascade runs automatically for every ready same-repository pull request, and the bare `review` label re-summons it after fixes. Labels are one-round tokens, consumed when the round ends. Fork pull requests run the free lanes and merge through the owner's Repository-admin bypass, since the paid lane's secrets never reach fork-triggered runs.
 
 ## Subscription model
 
@@ -29,7 +29,7 @@ A repository subscribes through its own workflow files: each carries a thin call
 
 ## Check names
 
-Most lane checks compose as `caller job / called job`; the cascade reports as `cascade / walk`. The correctness lane is mirrored by a caller-side job under the stable name `review/correctness`, and the mirror fails closed: a head with no verdict reports failure, never a satisfiable skip. Both contexts are required status checks in the owner-veto ruleset, which the funnel satisfies by walking every ready same-repository pull request automatically; the merge gate is that verdict plus the earned approval under required reviews. Fork pull requests, where the paid lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
+Most lane checks compose as `caller job / called job`; the cascade reports as `review / cascade`. The correctness lane is mirrored by a caller-side job under the stable name `review/correctness`, and the mirror fails closed: a head with no verdict reports failure, never a satisfiable skip. Both contexts are required status checks in the owner-veto ruleset, which the automatic review cascade satisfies for every ready same-repository pull request; the merge gate is that verdict plus the earned approval under required reviews. Fork pull requests, where the paid lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
 
 ## Secrets
 

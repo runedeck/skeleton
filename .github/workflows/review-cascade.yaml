@@ -1,7 +1,7 @@
 name: Review Cascade
 
-# Thin caller: the funnel walk lives in runedeck/seer. pull_request_target,
-# deliberately: the walk is API-only and checks out nothing, and fork pull
+# Thin caller: the review cascade lives in runedeck/seer. pull_request_target,
+# deliberately: the cascade is API-only and checks out nothing, and fork pull
 # requests need the base-context secrets. Never add a head checkout here
 # or in the body.
 on:
@@ -17,10 +17,10 @@ permissions:
     pull-requests: read
     issues: write
 
-# Only a fresh bare review label may cancel a walk: the walk's own
+# Only a fresh bare review label may cancel a cascade: the cascade's own
 # stage labels re-enter this group and must never kill it.
 concurrency:
-    group: review-cascade-${{ github.event.pull_request.number }}-${{ github.event.action == 'reopened' && 'reopen' || 'walk' }}
+    group: review-cascade-${{ github.event.pull_request.number }}-${{ github.event.action == 'reopened' && 'reopen' || 'cascade' }}
     cancel-in-progress: ${{ github.event.label.name == 'review' }}
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
                   app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
                   private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
 
-            - name: Restart the review walk
+            - name: Restart the review cascade
               env:
                   CALLER_TOKEN: ${{ github.token }}
                   GH_TOKEN: ${{ steps.runewright.outputs.token }}
@@ -58,7 +58,7 @@ jobs:
                       "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
                       -f "labels[]=review" >/dev/null
 
-    cascade:
+    review:
         if: github.event.pull_request.draft == false && github.event.action != 'reopened'
         uses: runedeck/seer/.github/workflows/review-cascade.yaml@main
         secrets:

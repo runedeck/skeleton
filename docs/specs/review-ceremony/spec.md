@@ -43,7 +43,7 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-A lane that bills per run MUST run only inside a funnel round. The funnel walks every ready same-repository pull request once automatically, and the bare `review` label re-summons it after fixes; each lane also answers its owner-applied `review:` label. The walk runs in escalation order — cursor, then macroscope, then the adjudicating correctness lane — each stage spending only after the previous stage settles clean, so the paid stages spend only on work every cheaper stage has already passed. The walk (`cascade / walk`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
+A lane that bills per run MUST run only inside a funnel round. The review cascade runs once automatically for every ready same-repository pull request, and the bare `review` label re-summons it after fixes; each lane also answers its owner-applied `review:` label. The cascade runs in escalation order: cursor, then macroscope, then the adjudicating correctness lane. Each stage spends only after the previous stage settles clean, so paid stages run only on work every cheaper stage has passed. Cursor runs manually from the cascade's standalone `@cursor review` comment. A terminal cursor or macroscope provider failure MUST stop immediately, clear the active summon, apply a persistent lane-specific blocked label, and refuse later summons until the blocker is cleared or a successful current-head check proves recovery. The cascade (`review / cascade`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
 
 #### Scenario: Full cascade from one label
 
@@ -52,16 +52,16 @@ A lane that bills per run MUST run only inside a funnel round. The funnel walks 
 
 #### Scenario: Push between rounds
 
-- **WHEN** a pull request is pushed carrying no `review` or `review:` label after its automatic walk
-- **THEN** no paid lane runs for that push; the head holds a red verdict mirror and an unreported walk context until the owner re-summons with `review`, so the required checks keep the merge closed
+- **WHEN** a pull request is pushed carrying no `review` or `review:` label after its automatic cascade
+- **THEN** no paid lane runs for that push; the head holds a red verdict mirror and an unreported cascade context until the owner re-summons with `review`, so the required checks keep the merge closed
 
 ### Requirement: External Lane Configuration
 
-The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST review automatically with incremental review enabled, draft reviews off, and autofix off; Macroscope MUST review only by its stage label with draft review and auto-merge off, its approvability approval advisory beneath the required verdict checks, and honoring the `review:skip` waiver, which waives only the macroscope stage: the walk still delivers the adjudication, so the required verdict mirror clears normally. Cursor has no label-skip mechanism; its ambient reviews cost nothing and are adjudicated downstream. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
+The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST run manually from a standalone `@cursor review` comment with incremental review enabled, draft reviews off, and autofix off; Macroscope MUST review only by its stage label with draft review and auto-merge off, its approvability approval advisory beneath the required verdict checks, and honoring the `review:skip` waiver, which waives only the macroscope stage. The cascade still delivers the adjudication, so the required verdict mirror clears normally. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
 
 #### Scenario: Ambient reviewer detected
 
-- **WHEN** a lane reviews outside its sanctioned trigger: macroscope without its stage label, or any lane on a draft
+- **WHEN** a lane reviews outside its sanctioned trigger or reviews a draft
 - **THEN** the lane's dashboard configuration is corrected before the next round is summoned
 
 #### Scenario: Lane blocks a merge
@@ -71,13 +71,13 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 #### Scenario: Reviewer unavailable
 
-- **WHEN** a summoned lane cannot produce a verdict
-- **THEN** its stage fails visibly rather than passing, and a fresh summon retries the round
+- **WHEN** cursor or macroscope reports a terminal provider failure
+- **THEN** the cascade stops immediately, clears that lane's summon, applies its blocked label without triggering another cascade, and refuses later summons until recovery
 
 #### Scenario: Correctness lane scope
 
 - **WHEN** the owner summons the correctness lane on any same-repository, non-draft pull request
-- **THEN** the lane runs regardless of author; spend is bounded to one round per walk, and further rounds cost a deliberate re-summon
+- **THEN** the lane runs regardless of author; spend is bounded to one round per cascade, and further rounds cost a deliberate re-summon
 
 #### Scenario: Fork pull request
 
@@ -91,17 +91,17 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 ### Requirement: Draft Exemption
 
-A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. The funnel starts when a pull request becomes ready. A round is one walk: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh `review` label.
+A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. The cascade starts when a pull request becomes ready. A round is one cascade: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh `review` label.
 
 #### Scenario: Draft iteration
 
 - **WHEN** an agent pushes repeatedly to a draft pull request
 - **THEN** no review lane runs for those pushes
 
-#### Scenario: Marked ready, funnel walks
+#### Scenario: Marked ready, cascade starts
 
 - **WHEN** the pull request is marked ready for review
-- **THEN** the funnel walks it once automatically, in escalation order, with no label required
+- **THEN** the cascade runs once automatically, in escalation order, with no label required
 
 #### Scenario: Reopened pull request
 

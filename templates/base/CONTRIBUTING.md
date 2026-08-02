@@ -33,4 +33,4 @@ Iterate in draft, collect fixes locally, push them as one batch, and request a f
 
 ## Review bots
 
-The funnel walks every ready same-repository pull request automatically: cursor, then macroscope, then the adjudicating correctness lane. Bare `review` re-summons the funnel after fixes, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. A round consumes its labels when it ends, and every round is visible in the pull request timeline.
+The review cascade runs automatically for every ready same-repository pull request: cursor, then macroscope, then the adjudicating correctness lane. Bare `review` re-summons the cascade after fixes, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. A round consumes its labels when it ends, and every round is visible in the pull request timeline.

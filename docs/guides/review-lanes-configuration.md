@@ -12,7 +12,7 @@ Preferences page (the team tier; on an individual plan this page is the top tier
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Trigger Mode | Automatic | Cursor is the free first layer and burns on every push; the cascade finds stage 1 already settled and skips its summon. Draft reviews stay off, so draft iteration still costs nothing |
+| Trigger Mode | Manual only | The cascade posts one standalone `@cursor review` comment per round; ambient pushes do not spend Cursor outside the ordered lanes |
 | Incremental Review | On | Each round reviews only the delta since the last; without it every round re-flags the full backlog |
 | Bugbot Effort Levels | Smart | Adequate; the adjudicating lane catches what a cheaper pass misses |
 
@@ -27,6 +27,8 @@ runedeck installation page:
 | Post PR risk score | On | Cheap prioritization signal in the summary |
 | Automatically Learn Rules | On | Suppressions accumulate across pull requests without re-teaching |
 | Autofix Behavior | Off | Autofix in this org is suggestion-only through runewright; a bot pushing commits breaks commit attribution |
+
+A terminal cursor failure adds `issue:cursor`, a terminal macroscope failure adds `issue:macroscope`, and a correctness round that produces no verdict adds `issue:rune`. The workflow token applies these labels without emitting another cascade event, and the cascade refuses to re-summon a blocked lane. Fix the provider or billing problem before removing a blocker; a successful current-head round clears its lane's blocker automatically.
 
 Bugbot reads `.cursor/BUGBOT.md` from the repository root. It supports no include syntax, so the file stays self-contained; nested `.cursor/BUGBOT.md` files scope guidance to subtrees.
 
@@ -74,8 +76,8 @@ One fewer comment per pull request, and the summary lands where a reader looks f
 
 ## Check names and secrets
 
-Check contexts, identities, and the org secret roster live in the skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md); this guide carries only the dashboard state. The rule worth repeating here: `cascade / walk` and `review/correctness` are required status checks in the owner-veto ruleset, and the verdict mirror fails closed, so a head with no verdict stays red until a funnel round completes; fork pull requests merge through the owner's admin bypass.
+Check contexts, identities, and the org secret roster live in the skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md); this guide carries only the dashboard state. The rule worth repeating here: `review / cascade` and `review/correctness` are required status checks in the owner-veto ruleset, and the verdict mirror fails closed, so a head with no verdict stays red until a funnel round completes; fork pull requests merge through the owner's admin bypass.
 
 ## Verification
 
-After configuring, open a draft pull request in any scaffolded repository and push twice: no lane may comment while it is a draft. Mark it ready: the funnel walks by itself — cursor settles (or is summoned by the walk), macroscope answers its stage label, and runeseer adjudicates last. `review/correctness` must hold red until the verdict lands and the clean verdict must post the earned approval. Apply `review` only to re-summon after fixes.
+After configuring, open a draft pull request in any scaffolded repository and push twice: no lane may comment while it is a draft. Mark it ready: the cascade starts by itself, posts `@cursor review`, waits for cursor to settle, summons macroscope, and lets runeseer adjudicate last. `review/correctness` must hold red until the verdict lands and the clean verdict must post the earned approval. Apply `review` only to re-summon after fixes.
