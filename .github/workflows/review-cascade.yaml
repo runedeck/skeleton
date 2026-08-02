@@ -45,14 +45,21 @@ jobs:
                   if printf '%s\n' "$active_labels" | grep -qx review; then
                       GH_TOKEN=$CALLER_TOKEN gh api -X DELETE \
                           "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/review" \
-                          >/dev/null
+                          >/dev/null 2>&1 || true
+                      active_labels=$(GH_TOKEN=$CALLER_TOKEN gh api \
+                          "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+                          --jq '.[].name')
+                      if printf '%s\n' "$active_labels" | grep -qx review; then
+                          echo "Could not clear the existing review label."
+                          exit 1
+                      fi
                   fi
                   gh api -X POST \
                       "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
                       -f "labels[]=review" >/dev/null
 
     cascade:
-        if: github.event.pull_request.draft == false
+        if: github.event.pull_request.draft == false && github.event.action != 'reopened'
         uses: runedeck/seer/.github/workflows/review-cascade.yaml@main
         secrets:
             RUNEWRIGHT_APP_ID: ${{ secrets.RUNEWRIGHT_APP_ID }}
