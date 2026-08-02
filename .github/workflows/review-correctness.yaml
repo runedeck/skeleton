@@ -29,15 +29,23 @@ jobs:
             CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
     # Mirrors the called lane's result under the stable check context the
-    # rulesets and the canon name.
+    # rulesets require. Fail-closed: a head with no verdict reports failure
+    # rather than skipping, because a skipped check satisfies required
+    # status checks and would open a merge window before the adjudication
+    # lands. The funnel walk summons the verdict automatically on ready
+    # pull requests; the review label re-summons after fixes.
     review-context:
         name: review/correctness
         needs: review
-        if: always() && needs.review.result != 'skipped'
+        if: always()
         runs-on: ubuntu-latest
         timeout-minutes: 2
         steps:
             - run: |
                   [ "${{ needs.review.result }}" = "success" ] && exit 0
-                  echo "the lane concluded: ${{ needs.review.result }}"
+                  if [ "${{ needs.review.result }}" = "skipped" ]; then
+                      echo "no verdict on this head yet; the funnel summons it, or re-apply the review label"
+                  else
+                      echo "the lane concluded: ${{ needs.review.result }}"
+                  fi
                   exit 1

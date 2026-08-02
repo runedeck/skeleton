@@ -6,7 +6,7 @@ name: Review Cascade
 # or in the body.
 on:
     pull_request_target:
-        types: [labeled]
+        types: [opened, ready_for_review, labeled]
 
 # The body's reads (check runs, the live head, review threads) ride the
 # workflow token; issues: write lets it also consume labels on that
