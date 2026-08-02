@@ -56,35 +56,43 @@ jobs:
                       echo "the lane concluded: failure"
                       exit 1
                   fi
-                  # Lane skipped or cancelled in this run: the newest verdict
-                  # artifact for this pull request decides, validated with the
-                  # same strict tuple the approval gate uses. Provenance is
-                  # checked first: only an artifact uploaded by a run of this
-                  # workflow counts, because any pull-request workflow can
-                  # upload an artifact under any name. Verdict artifacts expire
-                  # with the repository retention window; a head idle past it
-                  # reports red and re-summons, which is the correct staleness.
+                  # Lane skipped or cancelled in this run: the recorded verdict
+                  # artifacts decide, validated with the same strict tuple the
+                  # approval gate uses. Candidates are walked newest first and
+                  # each is checked for provenance, because any pull-request
+                  # workflow can upload an artifact under any name; a foreign
+                  # artifact skips only itself and never hides an authentic
+                  # verdict beneath it. Verdict artifacts expire with the
+                  # repository retention window; a head idle past it reports red
+                  # and re-summons, which is the correct staleness.
                   name="runeseer-verdict-pr${{ github.event.pull_request.number }}"
-                  newest=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?name=$name&per_page=100" \
+                  candidates=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?name=$name&per_page=100" \
                       --jq '[.artifacts[] | select(.expired == false)]' \
-                      | jq -s 'add // [] | sort_by(.created_at) | last // empty')
-                  artifact=$(jq -r '.id // empty' <<<"$newest")
-                  run_id=$(jq -r '.workflow_run.id // empty' <<<"$newest")
-                  if [ -n "$artifact" ] && [ -n "$run_id" ]; then
-                      run_path=$(gh api "repos/${{ github.repository }}/actions/runs/$run_id" --jq '.path')
+                      | jq -s -r 'add // [] | sort_by(.created_at) | reverse
+                          | .[] | "\(.id) \(.workflow_run.id // "")"')
+                  while read -r artifact run_id; do
+                      [ -n "${artifact:-}" ] && [ -n "${run_id:-}" ] || continue
+                      run_path=$(gh api "repos/${{ github.repository }}/actions/runs/$run_id" --jq '.path' 2>/dev/null || true)
                       if [ "$run_path" != ".github/workflows/review-correctness.yaml" ]; then
-                          echo "newest verdict artifact came from $run_path, not the correctness workflow; ignoring it"
-                      else
-                          gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip \
-                              && unzip -o verdict.zip runeseer-verdict.json -d .verdict >/dev/null || true
-                          if jq -e --arg sha "$HEAD_SHA" '
-                              .verdict == "clean" and .count == 0
-                              and (.findings | type == "array" and length == 0)
-                              and .sha == $sha' .verdict/runeseer-verdict.json >/dev/null 2>&1; then
-                              echo "clean verdict on record for $HEAD_SHA"
-                              exit 0
-                          fi
+                          echo "verdict artifact $artifact came from ${run_path:-an unreadable run}; skipping it"
+                          continue
                       fi
-                  fi
+                      rm -rf .verdict
+                      gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip \
+                          && unzip -o verdict.zip runeseer-verdict.json -d .verdict >/dev/null || continue
+                      if jq -e --arg sha "$HEAD_SHA" '
+                          .verdict == "clean" and .count == 0
+                          and (.findings | type == "array" and length == 0)
+                          and .sha == $sha' .verdict/runeseer-verdict.json >/dev/null 2>&1; then
+                          echo "clean verdict on record for $HEAD_SHA"
+                          exit 0
+                      fi
+                      # An authentic verdict for this head settles the question:
+                      # an older artifact cannot overturn what this one records.
+                      if jq -e --arg sha "$HEAD_SHA" '.sha == $sha' .verdict/runeseer-verdict.json >/dev/null 2>&1; then
+                          echo "the recorded verdict for $HEAD_SHA holds findings"
+                          break
+                      fi
+                  done <<<"$candidates"
                   echo "no clean verdict for this head; the funnel summons it, or re-apply the review label"
                   exit 1
