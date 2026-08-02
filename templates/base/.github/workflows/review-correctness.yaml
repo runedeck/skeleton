@@ -6,8 +6,8 @@ name: Review Correctness
 # never kills a billed review mid-flight. Round-end label consumption in
 # the lane rides the workflow token, whose removals emit no events, so a
 # clean round never re-enters here; only a manual unlabel does, and the
-# lane then skips while the fail-closed mirror holds the head red until
-# re-summoned.
+# lane then skips while the mirror reads the head's recorded verdict
+# from the artifact rather than from this run's result.
 on:
     pull_request:
         types: [opened, ready_for_review, reopened, synchronize, labeled, unlabeled]
@@ -94,6 +94,13 @@ jobs:
                       if ! gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip \
                           || ! unzip -o verdict.zip runeseer-verdict.json -d .verdict >/dev/null; then
                           echo "verdict artifact $artifact is unreadable; the recorded verdict cannot be confirmed"
+                          break
+                      fi
+                      # Parseability is judged before content, so a malformed
+                      # verdict reads as unconfirmable rather than as merely
+                      # not clean, which would fall through to an older one.
+                      if ! jq -e . .verdict/runeseer-verdict.json >/dev/null 2>&1; then
+                          echo "verdict artifact $artifact is malformed; the recorded verdict cannot be confirmed"
                           break
                       fi
                       if jq -e --arg sha "$HEAD_SHA" '
