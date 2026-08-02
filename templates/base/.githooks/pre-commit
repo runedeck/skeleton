@@ -7,20 +7,20 @@ set -euo pipefail
 
 # Arguments pass through: make validate widens the run with --all-files,
 # while a git-invoked hook arrives bare and checks the staged set. The
-# bare "$@" is safe under set -u with zero arguments in command position,
-# verified on macOS system bash 3.2.57.
+# ${1+"$@"} form expands to nothing when the hook arrives bare, which
+# bash 4.0 through 4.3 need under set -u.
 all_files=false
-for argument in "$@"; do
+for argument in ${1+"$@"}; do
     [ "$argument" = "--all-files" ] && all_files=true
 done
 
 if command -v prek >/dev/null 2>&1 && [ -f .pre-commit-config.yaml ]; then
-    prek run "$@"
+    prek run ${1+"$@"}
 elif command -v gitleaks >/dev/null 2>&1; then
-    # The fallback honors the widened scope: a full scan for --all-files,
-    # the staged set for a git-invoked hook.
+    # The fallback honors the widened scope: the working tree for
+    # --all-files (gitleaks dir), the staged set for a git-invoked hook.
     if [ "$all_files" = "true" ]; then
-        gitleaks git --no-banner
+        gitleaks dir --no-banner .
     else
         gitleaks git --staged --pre-commit --no-banner
     fi

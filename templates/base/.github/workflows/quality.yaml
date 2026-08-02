@@ -99,17 +99,21 @@ jobs:
                       exit 1
                   fi
                   unexplained=""
-                  while IFS= read -r entry; do
+                  # The || [ -n ... ] tail keeps a final line that carries no
+                  # newline; only a comment line counts as the explanation, so
+                  # another entry mentioning the path cannot stand in for one.
+                  while IFS= read -r entry || [ -n "$entry" ]; do
                       case "$entry" in ''|'#'*) continue ;; esac
                       grep -qxF "$entry" .ceremony-manifest && continue
-                      grep -qF "$entry" .ceremony-manifest \
+                      grep -E '^[[:space:]]*#' .ceremony-manifest \
+                          | grep -qF "$entry" \
                           || unexplained="$unexplained $entry"
                   done < "$baseline_manifest"
                   if [ -n "$unexplained" ]; then
                       echo "Baseline manifest entries dropped without a comment naming them:$unexplained"
                       exit 1
                   fi
-                  while IFS= read -r file; do
+                  while IFS= read -r file || [ -n "$file" ]; do
                       case "$file" in ''|'#'*) continue ;; esac
                       if [ ! -f "$file" ]; then
                           drifted="$drifted $file(missing)"
