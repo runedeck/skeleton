@@ -57,7 +57,7 @@ A lane that bills per run MUST run only inside a funnel round. The funnel walks 
 
 ### Requirement: External Lane Configuration
 
-The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST review automatically with incremental review enabled, draft reviews off, and autofix off; Macroscope MUST review only by its stage label with draft review and auto-merge off, its approvability approval advisory beneath the required verdict checks, and honoring the `review:skip` waiver. Cursor has no label-skip mechanism; its ambient reviews cost nothing and are adjudicated downstream. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
+The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST review automatically with incremental review enabled, draft reviews off, and autofix off; Macroscope MUST review only by its stage label with draft review and auto-merge off, its approvability approval advisory beneath the required verdict checks, and honoring the `review:skip` waiver, which waives only the macroscope stage: the walk still delivers the adjudication, so the required verdict mirror clears normally. Cursor has no label-skip mechanism; its ambient reviews cost nothing and are adjudicated downstream. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
 
 #### Scenario: Ambient reviewer detected
 

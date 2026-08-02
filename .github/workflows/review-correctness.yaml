@@ -26,6 +26,7 @@ concurrency:
 
 jobs:
     review:
+        if: github.event.pull_request.draft == false
         uses: runedeck/seer/.github/workflows/review-correctness.yaml@main
         secrets:
             RUNESEER_APP_ID: ${{ secrets.RUNESEER_APP_ID }}
@@ -57,21 +58,32 @@ jobs:
                   fi
                   # Lane skipped or cancelled in this run: the newest verdict
                   # artifact for this pull request decides, validated with the
-                  # same strict tuple the approval gate uses. The artifact name
-                  # matches the lane's ARTIFACT_PREFIX plus the number.
+                  # same strict tuple the approval gate uses. Provenance is
+                  # checked first: only an artifact uploaded by a run of this
+                  # workflow counts, because any pull-request workflow can
+                  # upload an artifact under any name. Verdict artifacts expire
+                  # with the repository retention window; a head idle past it
+                  # reports red and re-summons, which is the correct staleness.
                   name="runeseer-verdict-pr${{ github.event.pull_request.number }}"
-                  artifact=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?name=$name&per_page=100" \
+                  newest=$(gh api --paginate "repos/${{ github.repository }}/actions/artifacts?name=$name&per_page=100" \
                       --jq '[.artifacts[] | select(.expired == false)]' \
-                      | jq -s -r 'add // [] | sort_by(.created_at) | last | .id // empty')
-                  if [ -n "$artifact" ]; then
-                      gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip \
-                          && unzip -o verdict.zip runeseer-verdict.json -d .verdict >/dev/null || true
-                      if jq -e --arg sha "$HEAD_SHA" '
-                          .verdict == "clean" and .count == 0
-                          and (.findings | type == "array" and length == 0)
-                          and .sha == $sha' .verdict/runeseer-verdict.json >/dev/null 2>&1; then
-                          echo "clean verdict on record for $HEAD_SHA"
-                          exit 0
+                      | jq -s 'add // [] | sort_by(.created_at) | last // empty')
+                  artifact=$(jq -r '.id // empty' <<<"$newest")
+                  run_id=$(jq -r '.workflow_run.id // empty' <<<"$newest")
+                  if [ -n "$artifact" ] && [ -n "$run_id" ]; then
+                      run_path=$(gh api "repos/${{ github.repository }}/actions/runs/$run_id" --jq '.path')
+                      if [ "$run_path" != ".github/workflows/review-correctness.yaml" ]; then
+                          echo "newest verdict artifact came from $run_path, not the correctness workflow; ignoring it"
+                      else
+                          gh api "repos/${{ github.repository }}/actions/artifacts/$artifact/zip" > verdict.zip \
+                              && unzip -o verdict.zip runeseer-verdict.json -d .verdict >/dev/null || true
+                          if jq -e --arg sha "$HEAD_SHA" '
+                              .verdict == "clean" and .count == 0
+                              and (.findings | type == "array" and length == 0)
+                              and .sha == $sha' .verdict/runeseer-verdict.json >/dev/null 2>&1; then
+                              echo "clean verdict on record for $HEAD_SHA"
+                              exit 0
+                          fi
                       fi
                   fi
                   echo "no clean verdict for this head; the funnel summons it, or re-apply the review label"
