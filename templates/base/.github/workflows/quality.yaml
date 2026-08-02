@@ -88,6 +88,7 @@ jobs:
                   fetch_failed=""
                   baseline=$(mktemp)
                   while IFS= read -r file || [ -n "$file" ]; do
+                      file=$(printf '%s\n' "$file" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
                       case "$file" in ''|'#'*) continue ;; esac
                       if [ ! -f "$file" ]; then
                           drifted="$drifted $file(missing)"
