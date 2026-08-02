@@ -2,7 +2,6 @@
 # the file types present in the change, so hooks for absent languages never
 # fire and language templates carry no lint config of their own.
 # Sealed adoption evidence stays byte-stable under every hook.
-exclude: '(^|/)\.provenance/drafts/'
 repos:
     - repo: builtin
       hooks:
