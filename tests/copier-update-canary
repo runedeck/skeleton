@@ -65,8 +65,10 @@ printf '%s' "$update_status" \
 run_copier update --answers-file answers.yaml --quiet --defaults --vcs-ref v0.2.0 "$consumer_repository" >/dev/null
 grep -F "Downstream policy." "$consumer_repository/CONTRIBUTING.md" >/dev/null
 grep -F "Template release marker." "$consumer_repository/CHANGELOG.md" >/dev/null
-make -C "$consumer_repository" validate
-git -C "$consumer_repository" add .
+git -C "$consumer_repository" add -A
+RUFF_NO_CACHE=1 make -C "$consumer_repository" validate
+test -z "$(git -C "$consumer_repository" diff --name-only)"
+test -z "$(git -C "$consumer_repository" ls-files --others --exclude-standard)"
 git -C "$consumer_repository" diff --cached --binary --output="$scratch_directory/template-update.patch"
 test -s "$scratch_directory/template-update.patch"
 

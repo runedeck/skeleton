@@ -102,6 +102,13 @@ jobs:
                   [ "$APPLY_OUTCOME" = "success" ] \
                       || { echo "Copier failed before producing reviewable conflicts."; exit 1; }
 
+            - name: Stage template output
+              if: steps.detect.outputs.update == 'true' && steps.existing.outputs.url == ''
+              run: |
+                  git add -A
+                  git diff --cached --quiet \
+                      && { echo "Copier reported an update but changed no files."; exit 1; }
+
             - name: Install validation tools
               if: steps.detect.outputs.update == 'true' && steps.existing.outputs.url == ''
               run: |
@@ -118,14 +125,20 @@ jobs:
 
             - name: Validate updated repository
               if: steps.detect.outputs.update == 'true' && steps.existing.outputs.url == ''
+              env:
+                  RUFF_NO_CACHE: "1"
               run: make validate
 
-            - name: Stage update
+            - name: Build update patch
               if: steps.detect.outputs.update == 'true' && steps.existing.outputs.url == ''
               run: |
-                  git add .
-                  git diff --cached --quiet \
-                      && { echo "Copier reported an update but changed no files."; exit 1; }
+                  unstaged=$(git diff --name-only)
+                  untracked=$(git ls-files --others --exclude-standard)
+                  if [ -n "$unstaged" ] || [ -n "$untracked" ]; then
+                      [ -z "$unstaged" ] || printf 'Validation modified:\n%s\n' "$unstaged"
+                      [ -z "$untracked" ] || printf 'Validation created:\n%s\n' "$untracked"
+                      exit 1
+                  fi
                   git diff --cached --binary --output=template-update.patch
 
             - id: publisher
