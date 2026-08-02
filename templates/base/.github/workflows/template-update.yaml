@@ -42,7 +42,7 @@ jobs:
                   DISPATCH_TAG: ${{ github.event.client_payload.tag }}
                   DISPATCH_TEMPLATE: ${{ github.event.client_payload.template }}
               run: |
-                  result=$(copier check-update --output-format json)
+                  result=$(copier check-update --answers-file answers.yaml --output-format json)
                   update=$(printf '%s' "$result" | jq -r '.update_available')
                   latest=$(printf '%s' "$result" | jq -r '.latest_version')
                   target=$latest
@@ -81,9 +81,9 @@ jobs:
                   TARGET_TAG: ${{ steps.detect.outputs.tag }}
               run: |
                   if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-                      copier update --defaults --vcs-ref "$TARGET_TAG"
+                      copier update --answers-file answers.yaml --defaults --vcs-ref "$TARGET_TAG"
                   else
-                      copier update --defaults
+                      copier update --answers-file answers.yaml --defaults
                   fi
 
             - name: Reject unresolved update output
@@ -158,4 +158,4 @@ jobs:
                       --base main \
                       --head "$branch" \
                       --title "chore: update ceremony template" \
-                      --body $'Apply the released ceremony template while preserving repository-local changes.\n\n## Plan\n\nReview Copier’s three-way update instead of replacing downstream files from the template.\n\n## Changes\n\n- **Template metadata** `.copier-answers.yml`: record the released template revision.\n- **Generated files**: apply the released ceremony changes and retain downstream edits.\n\n## Testing\n\n- [x] `make validate`\n\n## Release Notes\n\n- N/A'
+                      --body $'Apply the released ceremony template while preserving repository-local changes.\n\n## Plan\n\nReview Copier’s three-way update instead of replacing downstream files from the template.\n\n## Changes\n\n- **Template metadata** `answers.yaml`: record the released template revision.\n- **Generated files**: apply the released ceremony changes and retain downstream edits.\n\n## Testing\n\n- [x] `make validate`\n\n## Release Notes\n\n- N/A'

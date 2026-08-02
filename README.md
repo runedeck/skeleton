@@ -4,7 +4,7 @@
 
 ## Portable base
 
-Copier installs `templates/base` directly and records the template release in `.copier-answers.yml`:
+Copier installs `templates/base` directly and records the template release in `answers.yaml`:
 
 ```sh
 copier copy https://github.com/runedeck/skeleton.git weather-stats

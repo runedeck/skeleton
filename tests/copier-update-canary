@@ -59,10 +59,10 @@ commit_repository "$consumer_repository" "docs: add downstream policy"
 perl -0pi -e '$_ .= "\n- Template release marker.\n"' "$template_repository/templates/base/CHANGELOG.md.jinja"
 commit_repository "$template_repository" "feat: add release marker"
 tag_repository "$template_repository" v0.2.0
-update_status=$(run_copier check-update --output-format json "$consumer_repository")
+update_status=$(run_copier check-update --answers-file answers.yaml --output-format json "$consumer_repository")
 printf '%s' "$update_status" \
     | jq -e '.update_available == true and (.latest_version == "0.2.0" or .latest_version == "v0.2.0")' >/dev/null
-run_copier update --quiet --defaults --vcs-ref v0.2.0 "$consumer_repository" >/dev/null
+run_copier update --answers-file answers.yaml --quiet --defaults --vcs-ref v0.2.0 "$consumer_repository" >/dev/null
 grep -F "Downstream policy." "$consumer_repository/CONTRIBUTING.md" >/dev/null
 grep -F "Template release marker." "$consumer_repository/CHANGELOG.md" >/dev/null
 make -C "$consumer_repository" validate
@@ -75,5 +75,5 @@ commit_repository "$consumer_repository" "docs: customize release note"
 perl -0pi -e 's/- Initial scaffold\./- Template release note./' "$template_repository/templates/base/CHANGELOG.md.jinja"
 commit_repository "$template_repository" "feat: revise release note"
 tag_repository "$template_repository" v0.3.0
-run_copier update --quiet --defaults --vcs-ref v0.3.0 "$consumer_repository" >/dev/null
+run_copier update --answers-file answers.yaml --quiet --defaults --vcs-ref v0.3.0 "$consumer_repository" >/dev/null
 grep -Eq '^(<<<<<<<|=======|>>>>>>>)' "$consumer_repository/CHANGELOG.md"

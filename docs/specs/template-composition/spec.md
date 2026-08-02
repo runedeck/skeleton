@@ -83,7 +83,7 @@ Template file contents and file names SHALL resolve `${VARIABLE}` placeholders a
 #### Scenario: Direct Copier generation
 
 - **WHEN** a repository is generated from a tagged skeleton release with Copier
-- **THEN** it receives the base ceremony and `.copier-answers.yml` without requiring Rune
+- **THEN** it receives the base ceremony and `answers.yaml` without requiring Rune
 
 #### Scenario: Offline Rune generation
 
@@ -92,7 +92,7 @@ Template file contents and file names SHALL resolve `${VARIABLE}` placeholders a
 
 ### Requirement: Tagged Updates
 
-Generated repositories SHALL record the skeleton source, release tag, and rendering answers in `.copier-answers.yml`.
+Generated repositories SHALL record the skeleton source, release tag, and rendering answers in `answers.yaml`.
 
 #### Scenario: New template release
 
