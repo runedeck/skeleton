@@ -109,7 +109,7 @@ jobs:
                       entry=${raw_entry#"${raw_entry%%[![:space:]]*}"}
                       case "$entry" in ''|'#'*) continue ;; esac
                       grep -qxF "$entry" .ceremony-manifest && continue
-                      pattern=$(printf '%s' "$entry" | sed 's/[][\.*^$/]/\\&/g')
+                      pattern=$(printf '%s' "$entry" | sed 's/[][\.*^$+?(){}|\/]/\\&/g')
                       grep -qE "^[[:space:]]*#[[:space:]]*${pattern}[[:space:]]+diverges deliberately:" \
                           .ceremony-manifest \
                           || unexplained="$unexplained $entry"
