@@ -38,8 +38,8 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 #### Scenario: Checks bind everyone
 
-- **WHEN** any pull request fails a required check
-- **THEN** the merge is refused regardless of who authored it, since the checks rules admit no bypass
+- **WHEN** any same-repository pull request fails a required check
+- **THEN** the merge is refused regardless of who authored it; the admin bypass in the review ruleset is reserved for fork pull requests, where the funnel cannot produce a verdict
 
 ### Requirement: Three Review Lanes
 
@@ -82,7 +82,7 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 #### Scenario: Fork pull request
 
 - **WHEN** a pull request comes from a fork
-- **THEN** the correctness lane cannot run, the platform strips its credentials from fork-triggered runs, and the funnel for that pull request ends at the free lanes plus the owner's review
+- **THEN** the correctness lane cannot run, the platform strips its credentials from fork-triggered runs, the funnel ends at the free lanes, and the merge rides the owner's Repository-admin bypass once those lanes settle clean
 
 #### Scenario: Instructions read from the base branch
 
