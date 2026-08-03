@@ -33,4 +33,4 @@ Most lane checks compose as `caller job / called job`; the cascade reports as `c
 
 ## Secrets
 
-Org secrets with All-repositories visibility: `RUNESEER_APP_ID`, `RUNESEER_APP_KEY`, `RUNEWRIGHT_APP_ID`, `RUNEWRIGHT_APP_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`. Callers pass them to seer's bodies explicitly; a repository without access fails at first summon, not at scaffold time.
+Org secrets with All-repositories visibility: `RUNESEER_APP_ID`, `RUNESEER_APP_KEY`, `RUNEWRIGHT_APP_ID`, `RUNEWRIGHT_APP_KEY`, `RUNEWRIGHT_GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`. The `RUNEWRIGHT_GITHUB_TOKEN` is an owner-minted fine-grained token (issues write only) the cascade uses to post Cursor summons, because Cursor drops bot-authored trigger comments. Callers pass them to seer's bodies explicitly; a repository without access fails at first summon, not at scaffold time.
