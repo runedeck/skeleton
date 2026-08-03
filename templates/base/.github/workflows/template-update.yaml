@@ -51,6 +51,14 @@ jobs:
                       printf '%s' "$DISPATCH_TEMPLATE" \
                           | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' \
                           || { echo "invalid template repository: $DISPATCH_TEMPLATE"; exit 1; }
+                      # A dispatch for another template must not advance this
+                      # repository: the payload names the template it released,
+                      # and the recorded source names the one adopted here.
+                      recorded_source=$(grep -E '^_src_path:' answers.yaml | sed 's/^_src_path:[[:space:]]*//')
+                      case "$recorded_source" in
+                          *"/$DISPATCH_TEMPLATE"|*"/$DISPATCH_TEMPLATE.git"|"$DISPATCH_TEMPLATE"|"$DISPATCH_TEMPLATE.git") ;;
+                          *) echo "dispatch names template $DISPATCH_TEMPLATE, but this repository adopted $recorded_source"; exit 1 ;;
+                      esac
                       git check-ref-format "refs/tags/$DISPATCH_TAG" \
                           || { echo "invalid template release tag: $DISPATCH_TAG"; exit 1; }
                       dispatch_version=${DISPATCH_TAG#v}
@@ -87,11 +95,9 @@ jobs:
               env:
                   TARGET_TAG: ${{ steps.detect.outputs.tag }}
               run: |
-                  if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-                      copier update --answers-file answers.yaml --defaults --vcs-ref "$TARGET_TAG"
-                  else
-                      copier update --answers-file answers.yaml --defaults
-                  fi
+                  # Every path pins the detected release, so the applied tree
+                  # always matches the tag the branch and pull request name.
+                  copier update --answers-file answers.yaml --defaults --vcs-ref "$TARGET_TAG"
 
             - name: Reject unresolved update output
               if: steps.detect.outputs.update == 'true' && steps.existing.outputs.url == ''

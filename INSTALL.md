@@ -31,6 +31,6 @@ scratch=$(mktemp -d)
 copier copy --defaults . "$scratch/skeleton-smoke"
 ```
 
-Without Homebrew, install each missing tool with the platform's package manager. Use the pinned Copier version from the update workflow when reproducing CI.
+Without Homebrew, install each missing tool with the platform's package manager. Use the pinned Copier version from the update workflow when reproducing CI. Copier renders a git template from its last commit, so the smoke test covers committed template state; commit (or `jj` snapshot and describe) working-tree edits before smoke-testing them.
 
 EXECUTE NOW: Complete the TODO list to achieve: hooks active, checks green, and the portable template rendered.
