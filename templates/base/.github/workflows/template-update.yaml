@@ -67,12 +67,14 @@ jobs:
               if: steps.detect.outputs.update == 'true'
               env:
                   GH_TOKEN: ${{ github.token }}
+                  # The tag reaches the shell as data, never by expression
+                  # interpolation into the script body.
+                  TARGET_TAG: ${{ steps.detect.outputs.tag }}
               run: |
                   # Dispatch carries the release tag (v0.2.0) while Copier's
                   # check reports the bare version (0.2.0); both branch forms
                   # must count as the same open update.
-                  bare="${{ steps.detect.outputs.tag }}"
-                  bare=${bare#v}
+                  bare=${TARGET_TAG#v}
                   url=$(gh pr list --state open --limit 1000 --json headRefName,url \
                       --jq "[.[] | select((.headRefName | startswith(\"template-update/v$bare\")) or (.headRefName | startswith(\"template-update/$bare\")))][0].url // \"\"")
                   printf '%s\n' "url=$url" | tee -a "$GITHUB_OUTPUT" >/dev/null
