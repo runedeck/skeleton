@@ -24,6 +24,7 @@ jobs:
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
+                  ref: ${{ github.event.workflow_run.head_sha }}
                   fetch-depth: 0
                   persist-credentials: false
 
@@ -42,8 +43,8 @@ jobs:
                       --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue create:*)"
                   prompt: >
                       A merge just landed on main
-                      (${{ github.event.before }}..${{ github.sha }}). Read
-                      that diff with git, then read docs/specs/ and
+                      (${{ github.event.workflow_run.head_sha }}^..${{ github.event.workflow_run.head_sha }}).
+                      Read that diff with git, then read docs/specs/ and
                       README.md, and judge whether the merged change made
                       any canonical statement stale, contradicted a
                       requirement, or introduced behavior the specs do not
