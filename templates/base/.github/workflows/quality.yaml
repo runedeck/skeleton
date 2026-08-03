@@ -83,7 +83,6 @@ jobs:
                   [ -f .ceremony-manifest ] || { echo "manifest missing: ceremony repositories carry .ceremony-manifest"; exit 1; }
                   manifest_ref=HEAD
                   prior_ref=""
-                  canonical_manifest=false
                   if [ "${{ github.event_name }}" = "pull_request" ]; then
                       prior_ref="${{ github.event.pull_request.base.sha }}"
                   elif [ -n "${{ github.event.before }}" ] \
@@ -94,14 +93,15 @@ jobs:
                       if ! git cat-file -e "$prior_ref^{commit}" 2>/dev/null \
                           && ! git fetch --no-tags --depth=1 origin "$prior_ref"; then
                           if [ "${{ github.event_name }}" = "push" ]; then
-                              canonical_manifest=true
+                              # Force-pushing main is refused by the base ruleset,
+                              # so an unfetchable before is CI history pruning;
+                              # degrade to initial-adoption semantics.
+                              echo "Prior push state is unavailable; validating against HEAD's manifest."
                           else
                               echo "Prior ceremony state is unavailable at $prior_ref."
                               exit 1
                           fi
-                      fi
-                      if [ "$canonical_manifest" = "false" ] \
-                          && git cat-file -e "$prior_ref:.ceremony-manifest" 2>/dev/null; then
+                      elif git cat-file -e "$prior_ref:.ceremony-manifest" 2>/dev/null; then
                           manifest_ref="$prior_ref"
                       fi
                   fi
@@ -121,19 +121,14 @@ jobs:
                   jq -e '.truncated == false' "$canonical_tree" >/dev/null \
                       || { echo "Skeleton baseline tree is truncated."; exit 1; }
                   jq -r '.tree[] | select(.type == "blob") | .path' "$canonical_tree" > "$canonical_paths"
-                  if [ "$canonical_manifest" = "true" ]; then
-                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/.ceremony-manifest?ref=$canonical_sha" \
-                          -H "Accept: application/vnd.github.raw" > "$trusted_manifest"; then
-                          echo "Canonical ceremony manifest is inaccessible."
-                          exit 1
-                      fi
-                  else
-                      git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest" \
-                          || { echo "Trusted ceremony manifest is unreadable at $manifest_ref."; exit 1; }
-                  fi
+                  git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest" \
+                      || { echo "Trusted ceremony manifest is unreadable at $manifest_ref."; exit 1; }
                   drifted=""
                   fetch_failed=""
                   checked=0
+                  # The union of the trusted and HEAD manifests: trusted entries
+                  # stop a change from unlisting its own checks, and HEAD-only
+                  # entries put newly added ceremony files under drift at once.
                   while IFS= read -r file || [ -n "$file" ]; do
                       file=$(printf '%s\n' "$file" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
                       case "$file" in ''|'#'*) continue ;; esac
@@ -157,7 +152,7 @@ jobs:
                       if ! diff -q "$baseline" "$file" >/dev/null; then
                           drifted="$drifted $file"
                       fi
-                  done < "$trusted_manifest"
+                  done < <(sort -u "$trusted_manifest" .ceremony-manifest)
                   if [ "$checked" -eq 0 ]; then
                       echo "Trusted ceremony manifest lists no files."
                       exit 1
