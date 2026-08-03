@@ -1,8 +1,11 @@
 name: Spec Drift
 
+# The reviewer action accepts no push events, so the merge signal arrives as
+# Quality's completed run on main and the job gates on that run's branch.
 on:
-    push:
-        branches: [main]
+    workflow_run:
+        workflows: [Quality]
+        types: [completed]
 
 permissions:
     contents: read
@@ -15,6 +18,7 @@ concurrency:
 
 jobs:
     drift:
+        if: github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success'
         runs-on: ubuntu-latest
         timeout-minutes: 15
         steps:
