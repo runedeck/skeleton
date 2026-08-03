@@ -64,3 +64,4 @@ jobs:
         secrets:
             RUNEWRIGHT_APP_ID: ${{ secrets.RUNEWRIGHT_APP_ID }}
             RUNEWRIGHT_APP_KEY: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+            CURSOR_SUMMONER_TOKEN: ${{ secrets.CURSOR_SUMMONER_TOKEN }}
