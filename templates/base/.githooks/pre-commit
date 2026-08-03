@@ -24,11 +24,20 @@ scan_file() {
 
 scan_tracked_files() {
     local scan_failed=false
+    local tracked_files
+
+    tracked_files=$(mktemp)
+    git ls-files -z > "$tracked_files" || {
+        echo "  ⚠  git ls-files failed — the tracked-file scan cannot run" >&2
+        rm -f "$tracked_files"
+        return 1
+    }
 
     while IFS= read -r -d '' file; do
         [ -f "$file" ] || continue
         scan_file "$file" || scan_failed=true
-    done < <(git ls-files -z)
+    done < "$tracked_files"
+    rm -f "$tracked_files"
 
     [ "$scan_failed" = "false" ]
 }

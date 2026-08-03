@@ -14,9 +14,12 @@ repos:
 
     - repo: local
       hooks:
+          # A labeled begin or end marker is never legitimate text, so each
+          # blocks alone and a partially resolved conflict still fails; only
+          # a bare ======= is setext-ambiguous and passes.
           - id: check-conflict-markers
             name: conflict markers
-            entry: sh -c 'status=0; for file in "$@"; do if grep -q "^<<<<<<< " "$file" && grep -qx "=======" "$file" && grep -q "^>>>>>>> " "$file"; then grep -n -E "^(<<<<<<< |=======\$|>>>>>>> )" "$file"; status=1; fi; done; exit "$status"' --
+            entry: sh -c 'status=0; for file in "$@"; do if grep -n -E "^(<<<<<<< |>>>>>>> )" "$file"; then status=1; fi; done; exit "$status"' --
             language: system
             types: [text]
 

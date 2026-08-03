@@ -24,6 +24,9 @@ jobs:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   fetch-depth: 0
+                  # The prek hooks execute code from the checked-out tree, which
+                  # must never find a usable token in the git config.
+                  persist-credentials: false
 
             # Third-party actions must be pinned to a full commit SHA;
             # first-party paths (./) and runedeck/* refs are exempt.
@@ -83,7 +86,6 @@ jobs:
                   [ -f .ceremony-manifest ] || { echo "manifest missing: ceremony repositories carry .ceremony-manifest"; exit 1; }
                   manifest_ref=HEAD
                   prior_ref=""
-                  canonical_manifest=false
                   if [ "${{ github.event_name }}" = "pull_request" ]; then
                       prior_ref="${{ github.event.pull_request.base.sha }}"
                   elif [ -n "${{ github.event.before }}" ] \
@@ -94,14 +96,15 @@ jobs:
                       if ! git cat-file -e "$prior_ref^{commit}" 2>/dev/null \
                           && ! git fetch --no-tags --depth=1 origin "$prior_ref"; then
                           if [ "${{ github.event_name }}" = "push" ]; then
-                              canonical_manifest=true
+                              # Force-pushing main is refused by the base ruleset,
+                              # so an unfetchable before is CI history pruning;
+                              # degrade to initial-adoption semantics.
+                              echo "Prior push state is unavailable; validating against HEAD's manifest."
                           else
                               echo "Prior ceremony state is unavailable at $prior_ref."
                               exit 1
                           fi
-                      fi
-                      if [ "$canonical_manifest" = "false" ] \
-                          && git cat-file -e "$prior_ref:.ceremony-manifest" 2>/dev/null; then
+                      elif git cat-file -e "$prior_ref:.ceremony-manifest" 2>/dev/null; then
                           manifest_ref="$prior_ref"
                       fi
                   fi
@@ -109,41 +112,55 @@ jobs:
                   baseline=$(mktemp)
                   canonical_tree=$(mktemp)
                   canonical_paths=$(mktemp)
-                  if ! gh api "repos/runedeck/skeleton/git/trees/main?recursive=1" > "$canonical_tree"; then
+                  # One resolved commit pins the tree listing and every file
+                  # fetch, so a skeleton push mid-check cannot desynchronize
+                  # them.
+                  canonical_sha=$(gh api "repos/runedeck/skeleton/commits/main" --jq '.sha') \
+                      || { echo "Skeleton baseline is inaccessible."; exit 1; }
+                  if ! gh api "repos/runedeck/skeleton/git/trees/$canonical_sha?recursive=1" > "$canonical_tree"; then
                       echo "Skeleton baseline is inaccessible."
                       exit 1
                   fi
                   jq -e '.truncated == false' "$canonical_tree" >/dev/null \
                       || { echo "Skeleton baseline tree is truncated."; exit 1; }
                   jq -r '.tree[] | select(.type == "blob") | .path' "$canonical_tree" > "$canonical_paths"
-                  if [ "$canonical_manifest" = "true" ]; then
-                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/.ceremony-manifest?ref=main" \
-                          -H "Accept: application/vnd.github.raw" > "$trusted_manifest"; then
-                          echo "Canonical ceremony manifest is inaccessible."
-                          exit 1
-                      fi
-                  else
-                      git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest"
-                  fi
+                  git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest" \
+                      || { echo "Trusted ceremony manifest is unreadable at $manifest_ref."; exit 1; }
                   drifted=""
                   fetch_failed=""
                   checked=0
+                  # One normalized entry list per manifest: membership tests and
+                  # the union walk compare identical trimmed forms.
+                  trusted_entries=$(mktemp)
+                  union_entries=$(mktemp)
+                  sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$trusted_manifest" \
+                      | grep -v '^#' | grep -v '^$' | sort -u > "$trusted_entries"
+                  sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$trusted_manifest" .ceremony-manifest \
+                      | grep -v '^#' | grep -v '^$' | sort -u > "$union_entries"
+                  # The union of the trusted and HEAD manifests: trusted entries
+                  # stop a change from unlisting its own checks, and HEAD-only
+                  # entries put newly added ceremony files under drift at once.
                   while IFS= read -r file || [ -n "$file" ]; do
-                      file=$(printf '%s\n' "$file" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-                      case "$file" in ''|'#'*) continue ;; esac
-                      checked=$((checked + 1))
-                      # A file the skeleton no longer ships is retirement in
-                      # progress, not drift: enforcement ends when the baseline
-                      # drops the file, whether or not the local copy is gone.
+                      # A trusted-listed file the skeleton no longer ships is
+                      # retirement in progress, not drift. Without a trusted
+                      # prior state, an entry the baseline lacks is junk.
                       if ! grep -Fxq "templates/base/$file" "$canonical_paths"; then
-                          echo "skipping $file: the skeleton baseline no longer ships it"
+                          if [ "$manifest_ref" != "HEAD" ] && grep -Fxq "$file" "$trusted_entries"; then
+                              echo "skipping $file: the skeleton baseline no longer ships it"
+                          else
+                              drifted="$drifted $file(baseline-missing)"
+                          fi
                           continue
                       fi
+                      # Only entries the baseline still ships count as checked:
+                      # a manifest whose every entry is retired must not pass
+                      # the lists-no-files guard on zero comparisons.
+                      checked=$((checked + 1))
                       if [ ! -f "$file" ]; then
                           drifted="$drifted $file(missing)"
                           continue
                       fi
-                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/$file?ref=main" \
+                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/$file?ref=$canonical_sha" \
                           -H "Accept: application/vnd.github.raw" > "$baseline" 2>/dev/null; then
                           fetch_failed="$fetch_failed $file"
                           continue
@@ -151,7 +168,7 @@ jobs:
                       if ! diff -q "$baseline" "$file" >/dev/null; then
                           drifted="$drifted $file"
                       fi
-                  done < "$trusted_manifest"
+                  done < "$union_entries"
                   if [ "$checked" -eq 0 ]; then
                       echo "Trusted ceremony manifest lists no files."
                       exit 1
@@ -170,8 +187,8 @@ jobs:
               uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
 
             # Scan exactly the commits this event introduces. The rangeless
-            # fallback only fires on a repository's first push, where the
-            # full scan and the introduced commits are the same set.
+            # fallback fires when no prior ref resolves, a first push or an
+            # unfetchable before, and widens to the full tree, never narrower.
             - name: Pre-push-stage checks
               run: |
                   if [ -n "${{ github.event.pull_request.base.sha }}" ]; then

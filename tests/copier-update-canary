@@ -78,4 +78,4 @@ perl -0pi -e 's/- Initial scaffold\./- Template release note./' "$template_repos
 commit_repository "$template_repository" "feat: revise release note"
 tag_repository "$template_repository" v0.3.0
 run_copier update --answers-file answers.yaml --quiet --defaults --vcs-ref v0.3.0 "$consumer_repository" >/dev/null
-grep -Eq '^(<<<<<<<|=======|>>>>>>>)' "$consumer_repository/CHANGELOG.md"
+grep -Eq '^(<<<<<<< |>>>>>>> )' "$consumer_repository/CHANGELOG.md"

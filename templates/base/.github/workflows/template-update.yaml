@@ -96,17 +96,10 @@ jobs:
               env:
                   APPLY_OUTCOME: ${{ steps.apply.outcome }}
               run: |
-                  # A file counts as conflicted only when it carries all three
-                  # markers; a lone ======= is a Markdown setext underline.
-                  conflicts=""
-                  while IFS= read -r file; do
-                      if grep -qx '=======' "$file" && grep -q '^>>>>>>> ' "$file"; then
-                          conflicts="$conflicts $file"
-                      fi
-                  done <<EOF_CONFLICTS
-                  $(grep -RIlE --exclude-dir=.git --exclude-dir=.jj '^<<<<<<< ' . || true)
-                  EOF_CONFLICTS
-                  conflicts=$(printf '%s' "$conflicts" | sed 's/^ //')
+                  # A labeled begin or end marker is never legitimate text, so
+                  # each blocks alone and a partially resolved conflict still
+                  # fails; only a bare ======= is setext-ambiguous and passes.
+                  conflicts=$(grep -RIlE --exclude-dir=.git --exclude-dir=.jj '^(<<<<<<< |>>>>>>> )' . || true)
                   rejects=$(find . -path ./.git -prune -o -path ./.jj -prune -o -type f -name '*.rej' -print)
                   if [ -n "$conflicts" ] || [ -n "$rejects" ]; then
                       [ -z "$conflicts" ] || printf '%s\n' "$conflicts"
