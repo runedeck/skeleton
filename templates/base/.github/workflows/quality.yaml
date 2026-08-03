@@ -109,7 +109,12 @@ jobs:
                   baseline=$(mktemp)
                   canonical_tree=$(mktemp)
                   canonical_paths=$(mktemp)
-                  if ! gh api "repos/runedeck/skeleton/git/trees/main?recursive=1" > "$canonical_tree"; then
+                  # One resolved commit pins the tree listing and every file
+                  # fetch, so a skeleton push mid-check cannot desynchronize
+                  # them.
+                  canonical_sha=$(gh api "repos/runedeck/skeleton/commits/main" --jq '.sha') \
+                      || { echo "Skeleton baseline is inaccessible."; exit 1; }
+                  if ! gh api "repos/runedeck/skeleton/git/trees/$canonical_sha?recursive=1" > "$canonical_tree"; then
                       echo "Skeleton baseline is inaccessible."
                       exit 1
                   fi
@@ -117,7 +122,7 @@ jobs:
                       || { echo "Skeleton baseline tree is truncated."; exit 1; }
                   jq -r '.tree[] | select(.type == "blob") | .path' "$canonical_tree" > "$canonical_paths"
                   if [ "$canonical_manifest" = "true" ]; then
-                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/.ceremony-manifest?ref=main" \
+                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/.ceremony-manifest?ref=$canonical_sha" \
                           -H "Accept: application/vnd.github.raw" > "$trusted_manifest"; then
                           echo "Canonical ceremony manifest is inaccessible."
                           exit 1
@@ -144,7 +149,7 @@ jobs:
                           drifted="$drifted $file(missing)"
                           continue
                       fi
-                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/$file?ref=main" \
+                      if ! gh api "repos/runedeck/skeleton/contents/templates/base/$file?ref=$canonical_sha" \
                           -H "Accept: application/vnd.github.raw" > "$baseline" 2>/dev/null; then
                           fetch_failed="$fetch_failed $file"
                           continue
