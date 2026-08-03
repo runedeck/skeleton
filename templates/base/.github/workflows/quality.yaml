@@ -93,18 +93,15 @@ jobs:
                       prior_ref="${{ github.event.before }}"
                   fi
                   if [ -n "$prior_ref" ]; then
+                      # Fail closed: force-pushing main is refused by the base
+                      # ruleset, so an unfetchable prior state is a CI anomaly
+                      # to rerun, never a license to self-trust HEAD's manifest.
                       if ! git cat-file -e "$prior_ref^{commit}" 2>/dev/null \
                           && ! git fetch --no-tags --depth=1 origin "$prior_ref"; then
-                          if [ "${{ github.event_name }}" = "push" ]; then
-                              # Force-pushing main is refused by the base ruleset,
-                              # so an unfetchable before is CI history pruning;
-                              # degrade to initial-adoption semantics.
-                              echo "Prior push state is unavailable; validating against HEAD's manifest."
-                          else
-                              echo "Prior ceremony state is unavailable at $prior_ref."
-                              exit 1
-                          fi
-                      elif git cat-file -e "$prior_ref:.ceremony-manifest" 2>/dev/null; then
+                          echo "Prior ceremony state is unavailable at $prior_ref; rerun with full history."
+                          exit 1
+                      fi
+                      if git cat-file -e "$prior_ref:.ceremony-manifest" 2>/dev/null; then
                           manifest_ref="$prior_ref"
                       fi
                   fi
@@ -141,7 +138,6 @@ jobs:
                   # stop a change from unlisting its own checks, and HEAD-only
                   # entries put newly added ceremony files under drift at once.
                   while IFS= read -r file || [ -n "$file" ]; do
-                      checked=$((checked + 1))
                       # A trusted-listed file the skeleton no longer ships is
                       # retirement in progress, not drift. Without a trusted
                       # prior state, an entry the baseline lacks is junk.
@@ -153,6 +149,10 @@ jobs:
                           fi
                           continue
                       fi
+                      # Only entries the baseline still ships count as checked:
+                      # a manifest whose every entry is retired must not pass
+                      # the lists-no-files guard on zero comparisons.
+                      checked=$((checked + 1))
                       if [ ! -f "$file" ]; then
                           drifted="$drifted $file(missing)"
                           continue

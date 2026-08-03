@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_directory=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+repository_root=$(cd "$script_directory/.." && pwd -P)
+temporary_root=${RUNNER_TEMP:-${TMPDIR:?TMPDIR must be set}}
+scratch_directory=$(mktemp -d "$temporary_root/copier-canary.XXXXXX")
+cd -P "$scratch_directory"
+scratch_directory=$PWD
+template_repository="$scratch_directory/template"
+consumer_repository="$scratch_directory/consumer"
+trap 'command rm -rf "$scratch_directory"' EXIT
+
+configure_repository() {
+    local repository=$1
+    local identity=$2
+
+    git -C "$repository" init -b main >/dev/null
+    git -C "$repository" config user.name "$identity"
+    git -C "$repository" config user.email "template-canary@example.com"
+    git -C "$repository" config commit.gpgSign false
+}
+
+commit_repository() {
+    local repository=$1
+    local message=$2
+
+    git -C "$repository" add .
+    git -C "$repository" commit -m "$message" >/dev/null
+}
+
+tag_repository() {
+    local repository=$1
+    local version=$2
+
+    git -C "$repository" -c tag.gpgSign=false tag "$version"
+}
+
+run_copier() {
+    if command -v copier >/dev/null 2>&1; then
+        copier "$@"
+    else
+        uvx --from "copier==${COPIER_VERSION:?COPIER_VERSION must be set}" copier "$@"
+    fi
+}
+
+mkdir -p "$template_repository"
+command cp "$repository_root/copier.yaml" "$template_repository/copier.yaml"
+command cp -R "$repository_root/templates" "$template_repository/templates"
+configure_repository "$template_repository" "Template Canary"
+commit_repository "$template_repository" "feat: add template fixture"
+tag_repository "$template_repository" v0.1.0
+
+run_copier copy --quiet --defaults --vcs-ref v0.1.0 "$template_repository" "$consumer_repository"
+configure_repository "$consumer_repository" "Consumer Canary"
+perl -0pi -e '$_ .= "\nDownstream policy.\n"' "$consumer_repository/CONTRIBUTING.md"
+commit_repository "$consumer_repository" "docs: add downstream policy"
+
+perl -0pi -e '$_ .= "\n- Template release marker.\n"' "$template_repository/templates/base/CHANGELOG.md.jinja"
+commit_repository "$template_repository" "feat: add release marker"
+tag_repository "$template_repository" v0.2.0
+update_status=$(run_copier check-update --answers-file answers.yaml --output-format json "$consumer_repository")
+printf '%s' "$update_status" \
+    | jq -e '.update_available == true and (.latest_version == "0.2.0" or .latest_version == "v0.2.0")' >/dev/null
+run_copier update --answers-file answers.yaml --quiet --defaults --vcs-ref v0.2.0 "$consumer_repository" >/dev/null
+grep -F "Downstream policy." "$consumer_repository/CONTRIBUTING.md" >/dev/null
+grep -F "Template release marker." "$consumer_repository/CHANGELOG.md" >/dev/null
+git -C "$consumer_repository" add -A
+RUFF_NO_CACHE=1 make -C "$consumer_repository" validate
+test -z "$(git -C "$consumer_repository" diff --name-only)"
+test -z "$(git -C "$consumer_repository" ls-files --others --exclude-standard)"
+git -C "$consumer_repository" diff --cached --binary --output="$scratch_directory/template-update.patch"
+test -s "$scratch_directory/template-update.patch"
+
+perl -0pi -e 's/- Initial scaffold\./- Downstream release note./' "$consumer_repository/CHANGELOG.md"
+commit_repository "$consumer_repository" "docs: customize release note"
+perl -0pi -e 's/- Initial scaffold\./- Template release note./' "$template_repository/templates/base/CHANGELOG.md.jinja"
+commit_repository "$template_repository" "feat: revise release note"
+tag_repository "$template_repository" v0.3.0
+run_copier update --answers-file answers.yaml --quiet --defaults --vcs-ref v0.3.0 "$consumer_repository" >/dev/null
+grep -Eq '^(<<<<<<< |>>>>>>> )' "$consumer_repository/CHANGELOG.md"

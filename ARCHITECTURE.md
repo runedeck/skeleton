@@ -4,7 +4,7 @@ This repository is the template and archetype for every repository in the organi
 
 | Repository | Role                                                                          |
 | ---------- | ----------------------------------------------------------------------------- |
-| `skeleton` | The archetype: `templates/` scaffold new repositories, `docs/specs/` carry the canonical ceremony specifications |
+| `skeleton` | The portable archetype: Copier installs `templates/base`, Rune composes optional layers, and `docs/specs/` carry the canonical ceremony specifications |
 | `seer`     | The review machinery: every lane body as a reusable workflow, the org dashboard |
 | `.github`  | The organization's face: profile and community defaults                        |
 
@@ -21,7 +21,7 @@ The bare `review` label runs the whole walk. Labels are one-round tokens, consum
 
 ## Subscription model
 
-A repository subscribes through its own workflow files: each carries a thin caller per lane that owns the triggers, concurrency, and permissions, and delegates the logic with `uses: runedeck/seer/.github/workflows/<lane>.yaml@main`. The `.ceremony-manifest` drift-checks the callers against this repository's baseline. Repo-local workflows stay local: quality, pr-lint, canary, and spec-drift review this repository's own content.
+A repository subscribes through its own workflow files: each carries a thin caller per lane that owns the triggers, concurrency, and permissions, and delegates the logic with `uses: runedeck/seer/.github/workflows/<lane>.yaml@main`. Copier records the skeleton release in `answers.yaml` and proposes later releases through ordinary pull requests. Repo-local workflows stay local: quality, pr-lint, canary, and spec-drift review this repository's own content. Rune is optional; direct Copier consumers run the same ceremony.
 
 ## Identities
 
@@ -33,4 +33,4 @@ Most lane checks compose as `caller job / called job`; the cascade reports as `c
 
 ## Secrets
 
-Org secrets with All-repositories visibility: `RUNESEER_APP_ID`, `RUNESEER_APP_KEY`, `RUNEWRIGHT_APP_ID`, `RUNEWRIGHT_APP_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`. Callers pass them to seer's bodies explicitly; a repository without access fails at first summon, not at scaffold time.
+Org secrets with All-repositories visibility: `RUNESEER_APP_ID`, `RUNESEER_APP_KEY`, `RUNEWRIGHT_APP_ID`, `RUNEWRIGHT_APP_KEY`, `RUNEWRIGHT_GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`. The `RUNEWRIGHT_GITHUB_TOKEN` is an owner-minted fine-grained token (issues write only) the cascade uses to post Cursor summons, because Cursor drops bot-authored trigger comments. Callers pass them to seer's bodies explicitly; a repository without access fails at first summon, not at scaffold time.
