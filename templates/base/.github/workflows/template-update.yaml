@@ -73,8 +73,10 @@ jobs:
                       fetch_url=$recorded_source
                       case "$fetch_url" in gh:*) fetch_url="https://github.com/${fetch_url#gh:}" ;; esac
                       bare=${target#v}
-                      resolved=$(git ls-remote --tags "$fetch_url" "refs/tags/v$bare" "refs/tags/$bare" \
-                          | grep -v '\^{}' | head -n 1 | sed 's|.*refs/tags/||') || resolved=""
+                      listing=$(git ls-remote --tags "$fetch_url" "refs/tags/v$bare" "refs/tags/$bare") \
+                          || { echo "could not list release tags on $recorded_source"; exit 1; }
+                      resolved=$(printf '%s\n' "$listing" \
+                          | grep -v '\^{}' | head -n 1 | sed 's|.*refs/tags/||')
                       [ -n "$resolved" ] \
                           || { echo "no release tag for $target on $recorded_source"; exit 1; }
                       target=$resolved
