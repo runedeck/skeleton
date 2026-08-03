@@ -50,29 +50,36 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
+                  set -o pipefail
                   if [ "${{ needs.review.result }}" != "success" ] && [ "${{ needs.review.result }}" != "skipped" ]; then
                       echo "the lane concluded: ${{ needs.review.result }}"
                       exit 1
                   fi
                   # A reusable workflow whose inner job skips its guard still
-                  # concludes success, so the caller result cannot green the
-                  # mirror alone: the inner job's own conclusion decides
-                  # whether the lane truly ran.
-                  inner=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=100" \
-                      --jq '[.jobs[] | select(.name == "review / correctness")] | first | .conclusion // "missing"')
-                  if [ "$inner" = "success" ]; then
-                      echo "the lane judged this head or stood down in scope."
-                      exit 0
-                  fi
-                  if [ "$inner" != "skipped" ] && [ "$inner" != "missing" ]; then
-                      echo "the lane concluded: $inner"
-                      exit 1
+                  # concludes success, so a successful caller result defers to
+                  # the inner job's own conclusion. A failed jobs read fails
+                  # this check rather than falling through to the approval
+                  # path, and an unknown conclusion stays red.
+                  if [ "${{ needs.review.result }}" = "success" ]; then
+                      inner=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=100" \
+                          --jq '[.jobs[] | select(.name == "review / correctness")] | first | .conclusion // "missing"') \
+                          || { echo "could not read this run's jobs; rerun the check"; exit 1; }
+                      if [ "$inner" = "success" ]; then
+                          echo "the lane judged this head or stood down in scope."
+                          exit 0
+                      fi
+                      if [ "$inner" != "skipped" ]; then
+                          echo "the lane concluded: $inner"
+                          exit 1
+                      fi
                   fi
                   # Per-page jq output merges through jq -s: the runner's gh
-                  # predates --slurp.
+                  # predates --slurp. pipefail keeps a failed reviews read from
+                  # reading as an absent approval.
                   latest_state=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews?per_page=100" \
                       --jq '[.[] | select(.user.login == "runeseer[bot]" and .commit_id == env.HEAD_SHA)]' \
-                      | jq -s -r 'add // [] | sort_by(.submitted_at) | last | .state // ""')
+                      | jq -s -r 'add // [] | sort_by(.submitted_at) | last | .state // ""') \
+                      || { echo "could not read the pull request reviews; rerun the check"; exit 1; }
                   if [ "$latest_state" = "APPROVED" ]; then
                       echo "Runeseer's latest review approves this head."
                       exit 0
