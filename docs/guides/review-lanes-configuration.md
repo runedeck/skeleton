@@ -12,7 +12,7 @@ Preferences page (the team tier; on an individual plan this page is the top tier
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Trigger Mode | Manual only | The cascade posts one standalone `@cursor review` comment per round; ambient pushes do not spend Cursor outside the ordered lanes. Cursor drops bot-authored trigger comments, so the summon rides the owner-minted `CURSOR_SUMMONER_TOKEN` org secret (fine-grained, issues write only) |
+| Trigger Mode | Manual only | The cascade posts one standalone `@cursor review` comment per round; ambient pushes do not spend Cursor outside the ordered lanes. Cursor drops bot-authored trigger comments, so the summon rides the owner-minted `RUNEWRIGHT_GITHUB_TOKEN` org secret (fine-grained, issues write only) |
 | Incremental Review | On | Each round reviews only the delta since the last; without it every round re-flags the full backlog |
 | Bugbot Effort Levels | Smart | Adequate; the adjudicating lane catches what a cheaper pass misses |
 
@@ -29,6 +29,8 @@ runedeck installation page:
 | Autofix Behavior | Off | Autofix in this org is suggestion-only through runewright; a bot pushing commits breaks commit attribution |
 
 A terminal cursor failure adds `issue:cursor`, a terminal macroscope failure adds `issue:macroscope`, and a correctness round that produces no verdict adds `issue:rune`. The workflow token applies these labels without emitting another cascade event, and the cascade refuses to re-summon a blocked lane. Fix the provider or billing problem before removing a blocker; a successful current-head round clears its lane's blocker automatically.
+
+Settled stages carry `stage:cursor` and `stage:macroscope`. Later rounds skip a settled stage while its findings stay resolved, so fix rounds spend only on the adjudicator. Remove a stage label to force that stage to re-run; the adjudicator's verdict does the same when a delta warrants it.
 
 Bugbot reads `.cursor/BUGBOT.md` from the repository root. It supports no include syntax, so the file stays self-contained; nested `.cursor/BUGBOT.md` files scope guidance to subtrees.
 

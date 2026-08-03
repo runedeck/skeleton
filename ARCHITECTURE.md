@@ -17,7 +17,7 @@ Same-repository pull requests run four stages, each spending only after the prev
 3. **runeseer** — summoned by the `review:runeseer` label; adjudicates the free lanes' findings and earns the approving review on an explicit clean verdict for the live head
 4. **the owner** — reviews only work carrying that approval; merging is always the owner's action
 
-The review cascade runs automatically for every ready same-repository pull request, and the bare `review` label re-summons it after fixes. Labels are one-round tokens, consumed when the round ends. Fork pull requests run the free lanes and merge through the owner's Repository-admin bypass, since the paid lane's secrets never reach fork-triggered runs.
+The review cascade runs automatically for every ready same-repository pull request, and the bare `review` label re-summons it after fixes. Summon labels are one-round tokens, consumed when the round ends. Stages settle once: a settled stage carries a `stage:` label and later rounds skip it while its findings stay resolved, so fix rounds go straight to the adjudicator, which judges only the delta since its previous verdict. The adjudicator's verdict can send the pull request back to an earlier stage, and the owner does the same by removing a `stage:` label. Fork pull requests run the free lanes and merge through the owner's Repository-admin bypass, since the paid lane's secrets never reach fork-triggered runs.
 
 ## Subscription model
 

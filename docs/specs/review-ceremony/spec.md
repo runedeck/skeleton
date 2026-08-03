@@ -43,12 +43,22 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-A lane that bills per run MUST run only inside a funnel round. The review cascade runs once automatically for every ready same-repository pull request, and the bare `review` label re-summons it after fixes; each lane also answers its owner-applied `review:` label. The cascade runs in escalation order: cursor, then macroscope, then the adjudicating correctness lane. Each stage spends only after the previous stage settles clean, so paid stages run only on work every cheaper stage has passed. Cursor runs manually from the cascade's standalone `@cursor review` comment. A terminal cursor or macroscope provider failure MUST stop immediately, clear the active summon, apply a persistent lane-specific blocked label, and refuse later summons until the blocker is cleared or a successful current-head check proves recovery. The cascade (`review / cascade`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
+A lane that bills per run MUST run only inside a funnel round. The review cascade runs once automatically for every ready same-repository pull request, and the bare `review` label re-summons it after fixes; each lane also answers its owner-applied `review:` label. The cascade runs in escalation order: cursor, then macroscope, then the adjudicating correctness lane. Each stage spends only after the previous stage settles clean, so paid stages run only on work every cheaper stage has passed. Cursor runs manually from the cascade's standalone `@cursor review` comment. Stages settle once per pull request: a settled stage is recorded as a `stage:` label and later rounds skip it, verifying only that its findings stay resolved, so fix rounds return straight to the adjudicator. The adjudicator's verdict MAY request a restart of an earlier stage when the accumulated delta is structurally large, and the owner restarts one by removing its stage label. Re-rounds judge only the range since the previous verdict. A terminal provider failure in any lane MUST stop immediately, clear the active summon, apply a persistent `issue:` blocked label, and refuse later summons until the blocker is cleared or a successful current-head round proves recovery. The cascade (`review / cascade`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
 
 #### Scenario: Full cascade from one label
 
 - **WHEN** the owner applies `review`
 - **THEN** the lanes run in escalation order and `review/correctness` adjudicates last, after the other lanes settle clean on the head
+
+#### Scenario: Fix round skips settled stages
+
+- **WHEN** the owner re-summons after fixes and earlier stages carry their `stage:` labels with all their findings resolved
+- **THEN** the cascade skips those stages without respending them and the adjudicator judges the delta since its previous verdict
+
+#### Scenario: Restart of an earlier stage
+
+- **WHEN** the adjudicator's verdict requests a restart, or the owner removes a `stage:` label
+- **THEN** the next round re-runs that stage onward
 
 #### Scenario: Push between rounds
 
