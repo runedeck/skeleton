@@ -24,6 +24,9 @@ jobs:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   fetch-depth: 0
+                  # The prek hooks execute code from the checked-out tree, which
+                  # must never find a usable token in the git config.
+                  persist-credentials: false
 
             # Specification validation joins this job once runedeck/cli
             # publishes a release for setup-rune to install.
@@ -54,7 +57,11 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq '.body // ""' \
+                  # The fetch and the parse fail separately: an API or
+                  # permission fault must not read as a missing section.
+                  body=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq '.body // ""') \
+                      || { echo "could not read the pull request body (API or permission failure)"; exit 1; }
+                  printf '%s\n' "$body" \
                       | awk '/^## Release Notes[[:space:]]*$/{in_section=1; next} /^## /{in_section=0} in_section && /^([-*+]|[0-9]+[.)]) /{found=1} END{exit !found}' \
                       && echo "Release Notes section present." \
                       || { echo "The pull request body needs a '## Release Notes' section with at least one entry ('- N/A' for non-user-facing work)."; exit 1; }

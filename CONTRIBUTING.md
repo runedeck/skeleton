@@ -14,7 +14,7 @@ prek run --all-files    # the checks CI runs at commit stage
 
 - 4-space indentation, no tab characters
 - Every text file ends with a newline
-- Keep `templates/base` copies and their root counterparts in step where `.ceremony-manifest` pairs them
+- Keep portable ceremony files in `templates/base`; Copier release updates propagate them to consumers
 - Shell scripts pass `shellcheck -S warning`
 
 ## Git

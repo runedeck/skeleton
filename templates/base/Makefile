@@ -15,5 +15,5 @@ install:
 	fi
 
 validate:
-	@bash .githooks/pre-commit
-	@bash .githooks/pre-push </dev/null
+	@bash .githooks/pre-commit --all-files
+	@bash .githooks/pre-push --all-files

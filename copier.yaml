@@ -1,0 +1,25 @@
+_subdirectory: templates/base
+_answers_file: answers.yaml
+_envops:
+    variable_start_string: "${"
+    variable_end_string: "}"
+
+NAME:
+    type: str
+    help: Repository slug.
+    default: "${_copier_conf.dst_path.name}"
+
+TITLE:
+    type: str
+    help: Human-readable repository title.
+    default: '${NAME | replace("-", " ") | title}'
+
+OWNER:
+    type: str
+    help: GitHub owner or organization.
+    default: owner
+
+BRIEF:
+    type: str
+    help: One-sentence repository description.
+    default: Repository scaffold.

@@ -1,0 +1,50 @@
+name: Dispatch Template Release
+
+on:
+    release:
+        types: [published]
+
+permissions:
+    contents: read
+
+concurrency:
+    group: dispatch-template-release-${{ github.event.release.tag_name }}
+    cancel-in-progress: false
+
+jobs:
+    dispatch:
+        if: vars.TEMPLATE_CONSUMERS != ''
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - id: runewright
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
+                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+                  owner: ${{ github.repository_owner }}
+                  repositories: ${{ vars.TEMPLATE_CONSUMERS }}
+
+            - name: Notify consumers
+              env:
+                  GH_TOKEN: ${{ steps.runewright.outputs.token }}
+                  TEMPLATE_CONSUMERS: ${{ vars.TEMPLATE_CONSUMERS }}
+                  TEMPLATE_REPOSITORY: ${{ github.repository }}
+                  TEMPLATE_TAG: ${{ github.event.release.tag_name }}
+              run: |
+                  set -eu
+                  # The token action accepts commas or newlines; normalize so
+                  # both list styles dispatch to every consumer.
+                  printf '%s\n' "$TEMPLATE_CONSUMERS" | tr ',' '\n' | while IFS= read -r repository; do
+                      repository=$(printf '%s' "$repository" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+                      [ -n "$repository" ] || continue
+                      if ! printf '%s' "$repository" | grep -Eq '^[A-Za-z0-9_.-]+$'; then
+                          echo "invalid consumer repository name: $repository"
+                          exit 1
+                      fi
+                      jq -n \
+                          --arg template "$TEMPLATE_REPOSITORY" \
+                          --arg tag "$TEMPLATE_TAG" \
+                          '{event_type: "template-released", client_payload: {template: $template, tag: $tag}}' \
+                          | gh api -X POST "repos/${{ github.repository_owner }}/$repository/dispatches" --input -
+                  done

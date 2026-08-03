@@ -14,6 +14,21 @@ repos:
 
     - repo: local
       hooks:
+          # A labeled begin or end marker is never legitimate text, so each
+          # blocks alone and a partially resolved conflict still fails; only
+          # a bare ======= is setext-ambiguous and passes.
+          - id: check-conflict-markers
+            name: conflict markers
+            entry: sh -c 'status=0; for file in "$@"; do if grep -n -E "^(<<<<<<< |>>>>>>> )" "$file"; then status=1; fi; done; exit "$status"' --
+            language: system
+            types: [text]
+
+          - id: check-reject-files
+            name: reject files
+            entry: sh -c 'rejects=$(git ls-files --cached --others --exclude-standard -- "*.rej"); [ -z "$rejects" ] || { printf "%s\n" "$rejects"; exit 1; }'
+            language: system
+            pass_filenames: false
+
           - id: shellcheck
             name: shellcheck
             entry: shellcheck -S warning
