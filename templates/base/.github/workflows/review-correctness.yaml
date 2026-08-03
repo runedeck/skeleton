@@ -1,14 +1,13 @@
 name: Review Correctness
 
 # Thin caller: the lane's body lives in runedeck/seer. The caller owns
-# the triggers, the concurrency, and the permissions; only review-label
-# events and new pushes may cancel an active run, so an unrelated label
-# never kills a billed review mid-flight. Round-end label consumption in
-# the lane rides the workflow token, whose removals emit no events, so a
-# clean round never re-enters here.
+# the triggers, the concurrency, and the permissions. Summon and stage
+# labels enter the lane, while only a fresh summon may cancel an active
+# run. Round-end label consumption in the lane rides the workflow token,
+# whose removals emit no events, so a clean round never re-enters here.
 on:
     pull_request:
-        types: [opened, ready_for_review, reopened, synchronize, labeled, unlabeled]
+        types: [labeled]
 
 permissions:
     contents: read
@@ -20,7 +19,7 @@ permissions:
 
 concurrency:
     group: review-correctness-${{ github.event.pull_request.number }}
-    cancel-in-progress: ${{ github.event.action == 'synchronize' || (contains(fromJSON('["labeled", "unlabeled"]'), github.event.action) && contains(fromJSON('["review", "review:runeseer"]'), github.event.label.name)) }}
+    cancel-in-progress: ${{ contains(fromJSON('["review", "review:runeseer"]'), github.event.label.name) }}
 
 jobs:
     review:
