@@ -50,9 +50,22 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
-                  [ "${{ needs.review.result }}" = "success" ] && exit 0
-                  if [ "${{ needs.review.result }}" != "skipped" ]; then
+                  if [ "${{ needs.review.result }}" != "success" ] && [ "${{ needs.review.result }}" != "skipped" ]; then
                       echo "the lane concluded: ${{ needs.review.result }}"
+                      exit 1
+                  fi
+                  # A reusable workflow whose inner job skips its guard still
+                  # concludes success, so the caller result cannot green the
+                  # mirror alone: the inner job's own conclusion decides
+                  # whether the lane truly ran.
+                  inner=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=100" \
+                      --jq '[.jobs[] | select(.name == "review / correctness")] | first | .conclusion // "missing"')
+                  if [ "$inner" = "success" ]; then
+                      echo "the lane judged this head or stood down in scope."
+                      exit 0
+                  fi
+                  if [ "$inner" != "skipped" ] && [ "$inner" != "missing" ]; then
+                      echo "the lane concluded: $inner"
                       exit 1
                   fi
                   # Per-page jq output merges through jq -s: the runner's gh
