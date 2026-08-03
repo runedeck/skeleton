@@ -132,12 +132,15 @@ jobs:
                       file=$(printf '%s\n' "$file" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
                       case "$file" in ''|'#'*) continue ;; esac
                       checked=$((checked + 1))
-                      if [ ! -f "$file" ]; then
-                          drifted="$drifted $file(missing)"
+                      # A file the skeleton no longer ships is retirement in
+                      # progress, not drift: enforcement ends when the baseline
+                      # drops the file, whether or not the local copy is gone.
+                      if ! grep -Fxq "templates/base/$file" "$canonical_paths"; then
+                          echo "skipping $file: the skeleton baseline no longer ships it"
                           continue
                       fi
-                      if ! grep -Fxq "templates/base/$file" "$canonical_paths"; then
-                          drifted="$drifted $file(baseline-missing)"
+                      if [ ! -f "$file" ]; then
+                          drifted="$drifted $file(missing)"
                           continue
                       fi
                       if ! gh api "repos/runedeck/skeleton/contents/templates/base/$file?ref=main" \
