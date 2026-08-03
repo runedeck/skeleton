@@ -126,18 +126,24 @@ jobs:
                   drifted=""
                   fetch_failed=""
                   checked=0
+                  # One normalized entry list per manifest: membership tests and
+                  # the union walk compare identical trimmed forms.
+                  trusted_entries=$(mktemp)
+                  union_entries=$(mktemp)
+                  sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$trusted_manifest" \
+                      | grep -v '^#' | grep -v '^$' | sort -u > "$trusted_entries"
+                  sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$trusted_manifest" .ceremony-manifest \
+                      | grep -v '^#' | grep -v '^$' | sort -u > "$union_entries"
                   # The union of the trusted and HEAD manifests: trusted entries
                   # stop a change from unlisting its own checks, and HEAD-only
                   # entries put newly added ceremony files under drift at once.
                   while IFS= read -r file || [ -n "$file" ]; do
-                      file=$(printf '%s\n' "$file" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-                      case "$file" in ''|'#'*) continue ;; esac
                       checked=$((checked + 1))
                       # A trusted-listed file the skeleton no longer ships is
                       # retirement in progress, not drift. Without a trusted
                       # prior state, an entry the baseline lacks is junk.
                       if ! grep -Fxq "templates/base/$file" "$canonical_paths"; then
-                          if [ "$manifest_ref" != "HEAD" ] && grep -Fxq "$file" "$trusted_manifest"; then
+                          if [ "$manifest_ref" != "HEAD" ] && grep -Fxq "$file" "$trusted_entries"; then
                               echo "skipping $file: the skeleton baseline no longer ships it"
                           else
                               drifted="$drifted $file(baseline-missing)"
@@ -156,7 +162,7 @@ jobs:
                       if ! diff -q "$baseline" "$file" >/dev/null; then
                           drifted="$drifted $file"
                       fi
-                  done < <(sort -u "$trusted_manifest" .ceremony-manifest)
+                  done < "$union_entries"
                   if [ "$checked" -eq 0 ]; then
                       echo "Trusted ceremony manifest lists no files."
                       exit 1
