@@ -34,8 +34,10 @@ jobs:
     # Mirrors the called lane's result under the stable check context the
     # rulesets require. Fail-closed: a head the lane did not judge reports
     # failure rather than skipping, because a skipped check satisfies a
-    # required status check. Unrelated label events preserve green only when
-    # Runeseer approved this exact head. Drafts skip the mirror because they
+    # required status check. When the lane does not run, green requires that
+    # Runeseer's LATEST review on this exact head is an approval: an approval
+    # a later review superseded stays red, and no event class can redden or
+    # green a head past that judgment. Drafts skip the mirror because they
     # cannot merge.
     review-context:
         name: review/correctness
@@ -45,26 +47,22 @@ jobs:
         timeout-minutes: 2
         steps:
             - env:
-                  EVENT_ACTION: ${{ github.event.action }}
-                  EVENT_LABEL: ${{ github.event.label.name }}
                   GH_TOKEN: ${{ github.token }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
-                  case "$EVENT_ACTION:$EVENT_LABEL" in
-                      labeled:review|labeled:review:runeseer|unlabeled:review|unlabeled:review:runeseer) ;;
-                      labeled:*|unlabeled:*)
-                          approval_ids=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews?per_page=100" \
-                              --jq '.[] | select(.user.login == "runeseer[bot]" and .state == "APPROVED" and .commit_id == env.HEAD_SHA) | .id')
-                          [ -n "$approval_ids" ] \
-                              && { echo "Runeseer already approved this head."; exit 0; }
-                          echo "no Runeseer approval exists for this head"
-                          exit 1
-                          ;;
-                  esac
                   [ "${{ needs.review.result }}" = "success" ] && exit 0
-                  if [ "${{ needs.review.result }}" = "skipped" ]; then
-                      echo "no verdict on this head; the funnel summons one, or re-apply the review label"
-                  else
+                  if [ "${{ needs.review.result }}" != "skipped" ]; then
                       echo "the lane concluded: ${{ needs.review.result }}"
+                      exit 1
                   fi
+                  # Per-page jq output merges through jq -s: the runner's gh
+                  # predates --slurp.
+                  latest_state=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews?per_page=100" \
+                      --jq '[.[] | select(.user.login == "runeseer[bot]" and .commit_id == env.HEAD_SHA)]' \
+                      | jq -s -r 'add // [] | sort_by(.submitted_at) | last | .state // ""')
+                  if [ "$latest_state" = "APPROVED" ]; then
+                      echo "Runeseer's latest review approves this head."
+                      exit 0
+                  fi
+                  echo "no standing Runeseer approval for this head; the funnel summons a round, or re-apply the review label"
                   exit 1
