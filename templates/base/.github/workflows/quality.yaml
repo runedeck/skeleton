@@ -123,7 +123,8 @@ jobs:
                           exit 1
                       fi
                   else
-                      git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest"
+                      git show "$manifest_ref:.ceremony-manifest" > "$trusted_manifest" \
+                          || { echo "Trusted ceremony manifest is unreadable at $manifest_ref."; exit 1; }
                   fi
                   drifted=""
                   fetch_failed=""
@@ -170,8 +171,8 @@ jobs:
               uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
 
             # Scan exactly the commits this event introduces. The rangeless
-            # fallback only fires on a repository's first push, where the
-            # full scan and the introduced commits are the same set.
+            # fallback fires when no prior ref resolves, a first push or an
+            # unfetchable before, and widens to the full tree, never narrower.
             - name: Pre-push-stage checks
               run: |
                   if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
