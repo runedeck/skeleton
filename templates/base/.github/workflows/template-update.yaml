@@ -68,9 +68,13 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  prefix="template-update/${{ steps.detect.outputs.tag }}"
+                  # Dispatch carries the release tag (v0.2.0) while Copier's
+                  # check reports the bare version (0.2.0); both branch forms
+                  # must count as the same open update.
+                  bare="${{ steps.detect.outputs.tag }}"
+                  bare=${bare#v}
                   url=$(gh pr list --state open --limit 1000 --json headRefName,url \
-                      --jq "[.[] | select(.headRefName | startswith(\"$prefix\"))][0].url // \"\"")
+                      --jq "[.[] | select(.headRefName | startswith(\"template-update/v$bare\") or startswith(\"template-update/$bare\"))][0].url // \"\"")
                   printf '%s\n' "url=$url" | tee -a "$GITHUB_OUTPUT" >/dev/null
                   [ -z "$url" ] || echo "an update pull request is already open: $url"
 
