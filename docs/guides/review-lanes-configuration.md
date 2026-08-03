@@ -12,7 +12,7 @@ Preferences page (the team tier; on an individual plan this page is the top tier
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Trigger Mode | Only when mentioned | Stage 1 fires when the review cascade posts `bugbot run`; ambient per-push reviewing is the largest storm source |
+| Trigger Mode | Manual only | The cascade posts one standalone `@cursor review` comment per round; ambient pushes do not spend Cursor outside the ordered lanes. Cursor drops bot-authored trigger comments, so the summon rides the owner-minted `RUNEWRIGHT_GITHUB_TOKEN` org secret (fine-grained, issues write only) |
 | Incremental Review | On | Each round reviews only the delta since the last; without it every round re-flags the full backlog |
 | Bugbot Effort Levels | Smart | Adequate; the adjudicating lane catches what a cheaper pass misses |
 
@@ -28,6 +28,10 @@ runedeck installation page:
 | Automatically Learn Rules | On | Suppressions accumulate across pull requests without re-teaching |
 | Autofix Behavior | Off | Autofix in this org is suggestion-only through runewright; a bot pushing commits breaks commit attribution |
 
+A terminal cursor failure adds `issue:cursor`, a terminal macroscope failure adds `issue:macroscope`, and a correctness round that produces no verdict adds `issue:rune`. The workflow token applies these labels without emitting another cascade event, and the cascade refuses to re-summon a blocked lane. Fix the provider or billing problem before removing a blocker; a successful current-head round clears its lane's blocker automatically.
+
+Settled stages carry `stage:cursor` and `stage:macroscope`. Later rounds skip a settled stage while its findings stay resolved, so fix rounds spend only on the adjudicator. Remove a stage label to force that stage to re-run; the adjudicator's verdict does the same when a delta warrants it.
+
 Bugbot reads `.cursor/BUGBOT.md` from the repository root. It supports no include syntax, so the file stays self-contained; nested `.cursor/BUGBOT.md` files scope guidance to subtrees.
 
 ## Macroscope, workspace level (macroscope.com → Settings)
@@ -41,13 +45,13 @@ Bugbot reads `.cursor/BUGBOT.md` from the repository root. It supports no includ
 
 Product Overview text:
 
-> runedeck builds rune, a CLI that assembles and deploys agent skills, rules, and hooks ("runes") across AI coding harnesses. Repositories follow a review ceremony: model-authored commits, owner-authored pull requests, label-summoned review lanes, and owner-signed release tags. The skeleton repository is the template every other repository is scaffolded from; changes to templates/ propagate to every scaffolded repository.
+> runedeck builds rune, a CLI that assembles and deploys agent skills, rules, and hooks ("runes") across AI coding harnesses. Repositories follow a review ceremony: model-authored commits, owner-authored pull requests, automatically ordered review lanes, and owner-signed release tags. The skeleton repository is the template every other repository is scaffolded from; changes to templates/ propagate to every scaffolded repository.
 
 ## Macroscope, per repository (Repos → select all → Edit settings)
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Correctness | On, plus the `review:macroscope` label trigger | Macroscope is flat-rate, so ambient review costs nothing per run; precision tuning keeps the volume humane, and the cascade's stage 2 finds the lane already settled |
+| Correctness | Off ambient; the `review:macroscope` label trigger only | Macroscope fires second in the funnel, after cursor settles clean; ambient runs would spend it ahead of the cheaper layer and out of funnel order |
 | Detection Mode | Prefer Precision | Ambient reviewing trades coverage for signal; runeseer still adjudicates whatever it reports |
 | Check Run Agents | On | Enables in-repo `.macroscope/` agents as check runs; ceremony-specific checks can be authored there |
 | Review Draft PRs | Off | Draft iteration is free |
@@ -57,7 +61,7 @@ Product Overview text:
 | Review Cross-Repo PRs | On | Fork pull requests must pass stage 2 or the contributor funnel dead-ends after cursor |
 | Skip PRs by Author | Empty | No exempt authors |
 | Skip PRs by Labels | `review:skip` | The ceremony waiver label silences the lane |
-| Approvability | On, medium threshold | A second approval authority beside runeseer's earned approval; either satisfies required review, the owner's merge click stays the final gate, and the dashboard counts only runeseer approvals |
+| Approvability | On, medium threshold | Advisory beneath the required verdict checks: its approval cannot outrank a red `review/correctness`, and the owner's merge click stays the final gate |
 | Release Ref Patterns | `v*` | Matches the signed-tag release ceremony |
 | Status features | On | Commit summaries and digests cost nothing in review terms |
 
@@ -74,8 +78,8 @@ One fewer comment per pull request, and the summary lands where a reader looks f
 
 ## Check names and secrets
 
-Check contexts, identities, and the org secret roster live in the skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md); this guide carries only the dashboard state. The one rule worth repeating here: never mark `review/correctness` as a required status check, the merge gate is the earned approval under required reviews.
+Check contexts, identities, and the org secret roster live in the skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md); this guide carries only the dashboard state. The rule worth repeating here: `review / cascade` and `review/correctness` are required status checks in the owner-veto ruleset, and the verdict mirror fails closed, so a head with no verdict stays red until a funnel round completes; fork pull requests merge through the owner's admin bypass.
 
 ## Verification
 
-After configuring, open a draft pull request in any scaffolded repository and push twice: no lane may comment while it is a draft. Mark it ready: only macroscope may review ambiently. Apply `review`: cursor must answer the cascade's `bugbot run` comment, and runeseer must run only after both free lanes settle.
+After configuring, open a draft pull request in any scaffolded repository and push twice: no lane may comment while it is a draft. Mark it ready: the cascade starts by itself, posts `@cursor review`, waits for cursor to settle, summons macroscope, and lets runeseer adjudicate last. `review/correctness` must hold red until the verdict lands and the clean verdict must post the earned approval. Apply `review` only to re-summon after fixes.
