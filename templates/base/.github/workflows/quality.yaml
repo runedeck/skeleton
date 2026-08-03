@@ -133,11 +133,15 @@ jobs:
                       file=$(printf '%s\n' "$file" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
                       case "$file" in ''|'#'*) continue ;; esac
                       checked=$((checked + 1))
-                      # A file the skeleton no longer ships is retirement in
-                      # progress, not drift: enforcement ends when the baseline
-                      # drops the file, whether or not the local copy is gone.
+                      # A trusted-listed file the skeleton no longer ships is
+                      # retirement in progress, not drift. Without a trusted
+                      # prior state, an entry the baseline lacks is junk.
                       if ! grep -Fxq "templates/base/$file" "$canonical_paths"; then
-                          echo "skipping $file: the skeleton baseline no longer ships it"
+                          if [ "$manifest_ref" != "HEAD" ] && grep -Fxq "$file" "$trusted_manifest"; then
+                              echo "skipping $file: the skeleton baseline no longer ships it"
+                          else
+                              drifted="$drifted $file(baseline-missing)"
+                          fi
                           continue
                       fi
                       if [ ! -f "$file" ]; then
