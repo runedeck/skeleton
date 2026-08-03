@@ -46,25 +46,38 @@ jobs:
                   update=$(printf '%s' "$result" | jq -r '.update_available')
                   latest=$(printf '%s' "$result" | jq -r '.latest_version')
                   target=$latest
+                  recorded_source=$(grep -E '^_src_path:' answers.yaml | sed 's/^_src_path:[[:space:]]*//')
 
                   if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
                       printf '%s' "$DISPATCH_TEMPLATE" \
                           | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' \
                           || { echo "invalid template repository: $DISPATCH_TEMPLATE"; exit 1; }
                       # A dispatch for another template must not advance this
-                      # repository: the payload names the template it released,
-                      # and the recorded source names the one adopted here.
-                      recorded_source=$(grep -E '^_src_path:' answers.yaml | sed 's/^_src_path:[[:space:]]*//')
-                      case "$recorded_source" in
-                          *"/$DISPATCH_TEMPLATE"|*"/$DISPATCH_TEMPLATE.git"|"$DISPATCH_TEMPLATE"|"$DISPATCH_TEMPLATE.git") ;;
-                          *) echo "dispatch names template $DISPATCH_TEMPLATE, but this repository adopted $recorded_source"; exit 1 ;;
-                      esac
+                      # repository. The recorded source's owner/repo tail
+                      # compares across https, ssh, gh:, and .git spellings.
+                      source_repo=$(printf '%s' "$recorded_source" | sed -E 's/\.git$//; s|^.*[:/]([^/:]+/[^/:]+)$|\1|')
+                      [ "$source_repo" = "$DISPATCH_TEMPLATE" ] \
+                          || { echo "dispatch names template $DISPATCH_TEMPLATE, but this repository adopted $recorded_source"; exit 1; }
                       git check-ref-format "refs/tags/$DISPATCH_TAG" \
                           || { echo "invalid template release tag: $DISPATCH_TAG"; exit 1; }
                       dispatch_version=${DISPATCH_TAG#v}
                       [ "$latest" = "$DISPATCH_TAG" ] || [ "$latest" = "$dispatch_version" ] \
                           || { echo "release dispatch $DISPATCH_TAG is superseded by $latest"; exit 1; }
                       target=$DISPATCH_TAG
+                  fi
+
+                  # Copier reports bare versions while release tags may carry a
+                  # v prefix; the template's own tag list settles the form, and
+                  # a target that matches no tag never reaches an update.
+                  if [ "$update" = "true" ]; then
+                      fetch_url=$recorded_source
+                      case "$fetch_url" in gh:*) fetch_url="https://github.com/${fetch_url#gh:}" ;; esac
+                      bare=${target#v}
+                      resolved=$(git ls-remote --tags "$fetch_url" "refs/tags/v$bare" "refs/tags/$bare" \
+                          | grep -v '\^{}' | head -n 1 | sed 's|.*refs/tags/||') || resolved=""
+                      [ -n "$resolved" ] \
+                          || { echo "no release tag for $target on $recorded_source"; exit 1; }
+                      target=$resolved
                   fi
 
                   printf '%s\n' "update=$update" "tag=$target" \
