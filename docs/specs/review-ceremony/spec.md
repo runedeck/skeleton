@@ -63,7 +63,7 @@ A lane that bills per run MUST run only inside a review funnel round. A review l
 #### Scenario: Push between rounds
 
 - **WHEN** a pull request is pushed carrying no `review` or `review:` label
-- **THEN** no paid lane runs for that push; the head holds a red verdict mirror and an unreported cascade context until the owner re-summons with `review`, so the required checks keep the merge closed
+- **THEN** no paid lane runs for that push; the previous head's verdict remains behind, and the current head's required checks stay unsatisfied until a maintainer applies a review label, holding the merge closed
 
 ### Requirement: External Lane Configuration
 
@@ -101,7 +101,7 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 ### Requirement: Draft Exemption
 
-A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. A review label applied while a pull request is draft SHALL wait until the pull request becomes ready, while readiness without a review label MUST NOT start a lane. A round is one cascade: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh `review` label.
+A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. The lane-request labels `review`, `review:runeseer`, `review:macroscope`, and `review:autofix` SHALL all wait when applied to a draft, release when the pull request becomes ready, and cancel their requested in-flight round when removed. Readiness without one of those labels MUST NOT start a lane. The `review:skip` label is a waiver rather than a lane request, so it neither starts nor cancels a round. A round is one cascade: the correctness lane consumes the lane-request labels when its round ends, and the next round starts with a fresh `review` label.
 
 #### Scenario: Draft iteration
 

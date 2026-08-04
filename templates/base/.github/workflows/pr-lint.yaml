@@ -45,9 +45,8 @@ jobs:
               with:
                   sync-labels: true
 
-    # A fresh repository provisions the ceremony's fixed label set on its
-    # first pull request, so review requests and waivers exist before anyone
-    # reaches for them.
+    # Every pull request synchronizes the ceremony's fixed label set, so review
+    # requests and waivers keep their configured names, colors, and descriptions.
     labels:
         runs-on: ubuntu-latest
         steps:
@@ -64,8 +63,11 @@ jobs:
                       ];
                       for (const [name, color, description] of wanted) {
                           try {
-                              await github.rest.issues.getLabel({ ...context.repo, name });
-                          } catch {
+                              await github.rest.issues.updateLabel({
+                                  ...context.repo, name, new_name: name, color, description,
+                              });
+                          } catch (error) {
+                              if (error.status !== 404) throw error;
                               await github.rest.issues.createLabel({ ...context.repo, name, color, description });
                           }
                       }
