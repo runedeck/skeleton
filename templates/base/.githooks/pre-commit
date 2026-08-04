@@ -26,6 +26,13 @@ scan_tracked_files() {
     local scan_failed=false
     local tracked_files
 
+    # One clear message beats one "command not found" per tracked file.
+    if ! command -v gitleaks >/dev/null 2>&1; then
+        echo "  ⚠  gitleaks not found — the tracked-file secret scan cannot run" >&2
+        echo "     install: brew install gitleaks" >&2
+        return 1
+    fi
+
     tracked_files=$(mktemp)
     git ls-files -z > "$tracked_files" || {
         echo "  ⚠  git ls-files failed — the tracked-file scan cannot run" >&2
