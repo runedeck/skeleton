@@ -1,5 +1,8 @@
 name: Spec Drift
 
+# Spec drift means the repository's canonical documents under docs/specs/ have
+# gone stale against code that merged, so a requirement now describes behavior
+# the tree no longer has.
 on:
     push:
         branches: [main]

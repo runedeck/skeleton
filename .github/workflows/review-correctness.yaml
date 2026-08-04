@@ -1,12 +1,12 @@
 name: Review Correctness
 
 # Thin caller: the lane's body lives in runedeck/seer. The caller owns
-# the triggers, the concurrency, and the permissions. Summon and stage
-# labels enter the lane. A fresh summon or removal of this workflow's own
-# summon label may cancel an active run; nothing else does. Round-end label
-# consumption in the lane rides the workflow token, whose removals emit no
-# events, so a clean round never re-enters here.
-# ready_for_review re-evaluates the mirror and releases a draft summon.
+# the triggers, the concurrency, and the permissions. Review labels request
+# rounds, while stage labels record settled work. Applying or removing this
+# workflow's review label may cancel an active run; nothing else does. The
+# lane consumes labels with the workflow token when a round ends, and those
+# removals emit no events, so a clean round never re-enters here.
+# ready_for_review re-evaluates the mirror and releases a pending review label.
 on:
     pull_request:
         types: [labeled, unlabeled, ready_for_review]
@@ -87,5 +87,5 @@ jobs:
                       echo "Runeseer's latest review approves this head."
                       exit 0
                   fi
-                  echo "no standing Runeseer approval for this head; the funnel summons a round, or re-apply the review label"
+                  echo "no standing Runeseer approval for this head; apply the review label to start a round"
                   exit 1

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Nothing reaches `main` on one opinion. An application opens every pull request so the sole human's approval counts, three vendor-diverse review lanes block as check runs, deterministic checks stay independent of them, secret scanning is scoped to what a push introduces, specifications bind to protected paths, and releases are sealed by an owner-signed tag.
+Nothing reaches `main` on one opinion. An application opens every pull request so the sole human's approval counts. Three vendor-diverse automated reviewers, called review lanes, examine each pull request in an ordered workflow called the review funnel; each lane reports a blocking check run, and later lanes start only after earlier lanes settle clean. Deterministic checks stay independent of them, secret scanning is scoped to what a push introduces, specifications bind to protected paths, and releases are sealed by an owner-signed tag. After code merges, the drift review compares the canonical documents under `docs/specs/` with the merged tree and reports any requirement that now describes behavior the tree no longer has.
 
 ## Requirements
 
@@ -39,11 +39,11 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 #### Scenario: Checks bind everyone
 
 - **WHEN** any same-repository pull request fails a required check
-- **THEN** the merge is refused regardless of who authored it; the review ruleset grants its admin bypass to the owner as an actor, and the ceremony reserves its use for fork pull requests, where the funnel cannot produce a verdict
+- **THEN** the merge is refused regardless of who authored it; the review ruleset grants its admin bypass to the owner as an actor, and the ceremony reserves its use for fork pull requests, where stripped credentials prevent the correctness lane from producing a verdict
 
 ### Requirement: Three Review Lanes
 
-A lane that bills per run MUST run only inside a funnel round. A review lane MUST NOT start from pull request lifecycle events alone; every round MUST answer a maintainer-applied summon label. Bare `review` MUST run the full funnel, cursor, then macroscope, then the adjudicating correctness lane, while each `review:` label MUST summon its single lane. A summon applied while the pull request is draft MUST remain pending and MUST release when the pull request is marked ready. Removing a summon label MUST cancel that summon's in-flight round. Each stage spends only after the previous stage settles clean, so paid stages run only on work every cheaper stage has passed. Cursor runs manually from the cascade's standalone `@cursor review` comment. Stages settle once per pull request: a settled stage is recorded as a `stage:` label and later rounds skip it, verifying only that its findings stay resolved, so fix rounds return straight to the adjudicator. The adjudicator's verdict MAY request a restart of an earlier stage when the accumulated delta is structurally large, and the owner restarts one by removing its stage label. Re-rounds judge only the range since the previous verdict. A terminal provider failure in any lane MUST stop immediately, clear the active summon, apply a persistent `issue:` blocked label, and refuse later summons until the blocker is cleared or a successful current-head round proves recovery. The cascade (`review / cascade`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
+A lane that bills per run MUST run only inside a review funnel round. A review lane MUST NOT start from pull request lifecycle events alone; every round MUST start only when a maintainer applies a review label that requests the round. Bare `review` MUST run the full funnel, cursor, then macroscope, then the adjudicating correctness lane, while each `review:` label MUST summon its single lane. A review label applied while the pull request is draft MUST remain pending and MUST release when the pull request is marked ready. Removing a review label MUST cancel the in-flight round it requested. Each stage spends only after the previous stage settles clean, so paid stages run only on work every cheaper stage has passed. Cursor runs manually from the cascade's standalone `@cursor review` comment. Stages settle once per pull request: a settled stage is recorded as a `stage:` label and later rounds skip it, verifying only that its findings stay resolved, so fix rounds return straight to the adjudicator. The adjudicator's verdict MAY request a restart of an earlier stage when the accumulated delta is structurally large, and the owner restarts one by removing its stage label. Re-rounds judge only the range since the previous verdict. A terminal provider failure in any lane MUST stop immediately, clear the active review label, apply a persistent `issue:` blocked label, and refuse later review requests until the blocker is cleared or a successful current-head round proves recovery. The cascade (`review / cascade`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
 
 #### Scenario: Full cascade from one label
 
@@ -82,17 +82,17 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 #### Scenario: Reviewer unavailable
 
 - **WHEN** cursor or macroscope reports a terminal provider failure
-- **THEN** the cascade stops immediately, clears that lane's summon, applies its blocked label without triggering another cascade, and refuses later summons until recovery
+- **THEN** the cascade stops immediately, clears that lane's review label, applies its blocked label without triggering another cascade, and refuses later review requests until recovery
 
 #### Scenario: Correctness lane scope
 
 - **WHEN** the owner summons the correctness lane on any same-repository, non-draft pull request
-- **THEN** the lane runs regardless of author; spend is bounded to one round per cascade, and further rounds cost a deliberate re-summon
+- **THEN** the lane runs regardless of author; spend is bounded to one round per cascade, and the owner must summon each further round deliberately
 
 #### Scenario: Fork pull request
 
 - **WHEN** a pull request comes from a fork
-- **THEN** the correctness lane cannot run, the platform strips its credentials from fork-triggered runs, the funnel ends at the free lanes, and the merge rides the owner's Repository-admin bypass once those lanes settle clean
+- **THEN** the correctness lane cannot run because the platform strips its credentials from fork-triggered runs, the ordered workflow stops after the free lanes, and the pull request merges through the owner's Repository-admin bypass once those lanes settle clean
 
 #### Scenario: Instructions read from the base branch
 
@@ -101,34 +101,34 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 ### Requirement: Draft Exemption
 
-A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. A summon applied while a pull request is draft SHALL wait until the pull request becomes ready, while readiness without a summon MUST NOT start a lane. A round is one cascade: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh `review` label.
+A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. A review label applied while a pull request is draft SHALL wait until the pull request becomes ready, while readiness without a review label MUST NOT start a lane. A round is one cascade: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh `review` label.
 
 #### Scenario: Draft iteration
 
 - **WHEN** an agent pushes repeatedly to a draft pull request
 - **THEN** no review lane runs for those pushes
 
-#### Scenario: Marked ready with a pending summon
+#### Scenario: Marked ready with a pending review request
 
 - **WHEN** a draft pull request carrying `review` is marked ready for review
 - **THEN** the cascade runs once in escalation order, answering the maintainer-applied label
 
-#### Scenario: Marked ready without a summon
+#### Scenario: Marked ready without a review request
 
 - **WHEN** a draft pull request carrying no `review` or `review:` label is marked ready for review
 - **THEN** no review lane starts
 
 #### Scenario: Reopened pull request
 
-- **WHEN** a pull request reopens without a fresh maintainer-applied summon label
+- **WHEN** a pull request reopens without a fresh maintainer-applied review label
 - **THEN** no review lane starts on the current head
 
-#### Scenario: Summon removed
+#### Scenario: Review request removed
 
-- **WHEN** the maintainer removes a summon label during its in-flight round
+- **WHEN** the maintainer removes a review label during the round it requested
 - **THEN** that round is canceled and the removal starts no lane
 
-#### Scenario: Summon consumed
+#### Scenario: Review request consumed
 
 - **WHEN** the correctness lane's round ends
 - **THEN** the review labels are removed, and a later push summons nothing until a fresh label lands
@@ -187,11 +187,11 @@ A pull request touching protected paths SHALL either carry a specification chang
 
 ### Requirement: Earned Approval
 
-A clean correctness verdict on a summoned pull request SHALL become the reviewer identity's approving review, and any later push SHALL dismiss it until a clean re-review re-grants it. The verdict SHALL be recorded machine-readably with a finding count of zero, bound to the commit id it judged, and approval SHALL fire only when the bound id is the live current head.
+A clean correctness verdict on a pull request whose review was requested SHALL become the reviewer identity's approving review, and any later push SHALL dismiss it until a clean re-review re-grants it. The verdict SHALL be recorded machine-readably with a finding count of zero, bound to the commit id it judged, and approval SHALL fire only when the bound id is the live current head.
 
 #### Scenario: Clean verdict approves
 
-- **WHEN** `review/correctness` posts a verdict of clean on a summoned pull request
+- **WHEN** `review/correctness` posts a verdict of clean after a review label requests a round
 - **THEN** the reviewer identity submits an approving review satisfying the required approval
 
 #### Scenario: Push dismisses

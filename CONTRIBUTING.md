@@ -37,4 +37,4 @@ Iterate in draft, collect fixes locally, push them as one batch, and request a f
 
 ## Review bots
 
-No bot reviews unsummoned: every lane answers a maintainer-applied label. Bare `review` runs the full funnel, cursor, then macroscope, then the adjudicating correctness lane, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. A summon is one round; the labels are consumed when it ends. Settled stages record `stage:` labels and are skipped on later rounds until a maintainer removes them. Every summon is visible in the pull request timeline.
+No bot reviews without a request: every lane starts only when a maintainer applies a review label. Bare `review` runs the full ordered sequence, cursor, then macroscope, then the adjudicating correctness lane, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. Each request runs one round, and the review labels are consumed when it ends. Settled stages record `stage:` labels and are skipped on later rounds until a maintainer removes them. Every requested round is visible in the pull request timeline.
