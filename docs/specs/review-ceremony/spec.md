@@ -101,7 +101,7 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 ### Requirement: Draft Exemption
 
-A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. The lane-request labels `review`, `review:runeseer`, `review:macroscope`, and `review:autofix` SHALL all wait when applied to a draft, release when the pull request becomes ready, and cancel their requested in-flight round when removed. Readiness without one of those labels MUST NOT start a lane. The `review:skip` label is a waiver rather than a lane request, so it neither starts nor cancels a round. A round is one cascade: the correctness lane consumes the lane-request labels when its round ends, and the next round starts with a fresh `review` label.
+A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. The lane-request labels this repository's own workflows answer, `review`, `review:runeseer`, and `review:autofix`, SHALL all wait when applied to a draft, release when the pull request becomes ready, and cancel their requested in-flight round when removed. The Macroscope app answers `review:macroscope` on its own trigger, which no workflow here controls; the cascade applies that label only to a ready pull request, and that is what keeps drafts free of it. Readiness without one of those labels MUST NOT start a lane. The `review:skip` label is a waiver rather than a lane request, so it neither starts nor cancels a round. A round is one cascade: the correctness lane consumes the lane-request labels when its round ends, and the next round starts with a fresh `review` label.
 
 #### Scenario: Draft iteration
 
