@@ -26,6 +26,13 @@ scan_tracked_files() {
     local scan_failed=false
     local tracked_files
 
+    # One clear message beats one "command not found" per tracked file.
+    if ! command -v gitleaks >/dev/null 2>&1; then
+        echo "  ⚠  gitleaks not found — the tracked-file secret scan cannot run" >&2
+        echo "     install: brew install gitleaks" >&2
+        return 1
+    fi
+
     tracked_files=$(mktemp)
     git ls-files -z > "$tracked_files" || {
         echo "  ⚠  git ls-files failed — the tracked-file scan cannot run" >&2
@@ -43,8 +50,14 @@ scan_tracked_files() {
 }
 
 if command -v prek >/dev/null 2>&1 && [ -f .pre-commit-config.yaml ]; then
-    prek run ${1+"$@"}
-    [ "$all_files" = "false" ] || scan_tracked_files
+    # Both stages run and both report before the hook decides: a secret
+    # in the sweep never hides a lint failure and a lint failure never
+    # hides a secret. The configured hooks own the gitleaks requirement,
+    # so a machine missing the binary fails there rather than here.
+    hook_failed=false
+    prek run ${1+"$@"} || hook_failed=true
+    [ "$all_files" = "false" ] || scan_tracked_files || hook_failed=true
+    [ "$hook_failed" = "false" ]
 elif command -v gitleaks >/dev/null 2>&1; then
     if [ "$all_files" = "true" ]; then
         scan_tracked_files
