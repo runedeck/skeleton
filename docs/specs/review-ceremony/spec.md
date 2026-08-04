@@ -43,7 +43,7 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 
 ### Requirement: Three Review Lanes
 
-A lane that bills per run MUST run only inside a funnel round. The review cascade runs once automatically for every ready same-repository pull request, and the bare `review` label re-summons it after fixes; each lane also answers its owner-applied `review:` label. The cascade runs in escalation order: cursor, then macroscope, then the adjudicating correctness lane. Each stage spends only after the previous stage settles clean, so paid stages run only on work every cheaper stage has passed. Cursor runs manually from the cascade's standalone `@cursor review` comment. Stages settle once per pull request: a settled stage is recorded as a `stage:` label and later rounds skip it, verifying only that its findings stay resolved, so fix rounds return straight to the adjudicator. The adjudicator's verdict MAY request a restart of an earlier stage when the accumulated delta is structurally large, and the owner restarts one by removing its stage label. Re-rounds judge only the range since the previous verdict. A terminal provider failure in any lane MUST stop immediately, clear the active summon, apply a persistent `issue:` blocked label, and refuse later summons until the blocker is cleared or a successful current-head round proves recovery. The cascade (`review / cascade`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
+A lane that bills per run MUST run only inside a funnel round. A review lane MUST NOT start from pull request lifecycle events alone; every round MUST answer a maintainer-applied summon label. Bare `review` MUST run the full funnel, cursor, then macroscope, then the adjudicating correctness lane, while each `review:` label MUST summon its single lane. A summon applied while the pull request is draft MUST remain pending and MUST release when the pull request is marked ready. Removing a summon label MUST cancel that summon's in-flight round. Each stage spends only after the previous stage settles clean, so paid stages run only on work every cheaper stage has passed. Cursor runs manually from the cascade's standalone `@cursor review` comment. Stages settle once per pull request: a settled stage is recorded as a `stage:` label and later rounds skip it, verifying only that its findings stay resolved, so fix rounds return straight to the adjudicator. The adjudicator's verdict MAY request a restart of an earlier stage when the accumulated delta is structurally large, and the owner restarts one by removing its stage label. Re-rounds judge only the range since the previous verdict. A terminal provider failure in any lane MUST stop immediately, clear the active summon, apply a persistent `issue:` blocked label, and refuse later summons until the blocker is cleared or a successful current-head round proves recovery. The cascade (`review / cascade`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
 
 #### Scenario: Full cascade from one label
 
@@ -62,7 +62,7 @@ A lane that bills per run MUST run only inside a funnel round. The review cascad
 
 #### Scenario: Push between rounds
 
-- **WHEN** a pull request is pushed carrying no `review` or `review:` label after its automatic cascade
+- **WHEN** a pull request is pushed carrying no `review` or `review:` label
 - **THEN** no paid lane runs for that push; the head holds a red verdict mirror and an unreported cascade context until the owner re-summons with `review`, so the required checks keep the merge closed
 
 ### Requirement: External Lane Configuration
@@ -101,22 +101,32 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 ### Requirement: Draft Exemption
 
-A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. The cascade starts when a pull request becomes ready. A round is one cascade: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh `review` label.
+A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. A summon applied while a pull request is draft SHALL wait until the pull request becomes ready, while readiness without a summon MUST NOT start a lane. A round is one cascade: the correctness lane consumes the review labels when its round ends, and the next round starts with a fresh `review` label.
 
 #### Scenario: Draft iteration
 
 - **WHEN** an agent pushes repeatedly to a draft pull request
 - **THEN** no review lane runs for those pushes
 
-#### Scenario: Marked ready, cascade starts
+#### Scenario: Marked ready with a pending summon
 
-- **WHEN** the pull request is marked ready for review
-- **THEN** the cascade runs once automatically, in escalation order, with no label required
+- **WHEN** a draft pull request carrying `review` is marked ready for review
+- **THEN** the cascade runs once in escalation order, answering the maintainer-applied label
+
+#### Scenario: Marked ready without a summon
+
+- **WHEN** a draft pull request carrying no `review` or `review:` label is marked ready for review
+- **THEN** no review lane starts
 
 #### Scenario: Reopened pull request
 
-- **WHEN** a pull request reopens
-- **THEN** the funnel restarts automatically on the current head
+- **WHEN** a pull request reopens without a fresh maintainer-applied summon label
+- **THEN** no review lane starts on the current head
+
+#### Scenario: Summon removed
+
+- **WHEN** the maintainer removes a summon label during its in-flight round
+- **THEN** that round is canceled and the removal starts no lane
 
 #### Scenario: Summon consumed
 
