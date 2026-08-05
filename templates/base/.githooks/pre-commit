@@ -76,8 +76,10 @@ scan_tracked_files() {
 }
 
 if command -v prek >/dev/null 2>&1 && [ -f .pre-commit-config.yaml ]; then
-    prek run ${1+"$@"}
-    [ "$all_files" = "false" ] || scan_tracked_files
+    hook_failed=false
+    prek run ${1+"$@"} || hook_failed=true
+    [ "$all_files" = "false" ] || scan_tracked_files || hook_failed=true
+    [ "$hook_failed" = "false" ]
 elif [ "$all_files" = "true" ]; then
     scan_tracked_files
 elif command -v gitleaks >/dev/null 2>&1; then
