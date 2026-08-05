@@ -65,6 +65,21 @@ Product Overview text:
 | Release Ref Patterns | `v*` | Matches the signed-tag release ceremony |
 | Status features | On | Commit summaries and digests cost nothing in review terms |
 
+## Owner overrides
+
+Two labels per lane, and the difference is what survives on the pull request.
+
+| Label | Effect | Reads it |
+| --- | --- | --- |
+| `skip:cursor` | Stage 1 never runs, so cursor is never asked | Cascade body |
+| `skip:macroscope` | Stage 2 never runs; Macroscope's dashboard is set to the same label | Cascade body, Macroscope dashboard |
+| `skip:runeseer` | The correctness lane is never summoned or invoked, and its required mirror clears | Cascade body, correctness caller and body |
+| `ignore:cursor` | Cursor runs and reports; its unresolved findings stop holding the funnel | Cascade body |
+| `ignore:macroscope` | Macroscope runs and reports; its unresolved findings stop holding the funnel | Cascade body |
+| `ignore:runeseer` | The correctness lane runs and records its verdict; the findings stop holding the merge | Correctness body and caller |
+
+A terminal provider failure still fails under `ignore:`, because a broken lane is not a judged one. Reach for `skip:` when a lane should not run at all.
+
 ## PR description markers
 
 Macroscope posts pull request summaries into the description instead of a comment when the body carries its markers. The pull request body template includes:

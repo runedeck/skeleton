@@ -88,21 +88,28 @@ jobs:
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
                   set -o pipefail
-                  # The overrides are read first, because they must hold however
-                  # the lane concluded. Gating is exactly what this mirror does,
-                  # so both clear it; they still differ where it counts, in that
-                  # skip: spends nothing and produces no findings while ignore:
-                  # leaves the lane's full record on the pull request. A failed
+                  # The overrides are read before any result check, because an
+                  # override must hold however the lane concluded. A failed
                   # label read must not read as an applied override.
                   labels=$(gh api --paginate "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels?per_page=100" \
                       --jq '[.[].name]' | jq -s -r 'add // [] | .[]') \
                       || { echo "could not read the live labels; rerun the check"; exit 1; }
-                  for override in skip:runeseer ignore:runeseer; do
-                      if printf '%s\n' "$labels" | grep -qx "$override"; then
-                          echo "$override present; the owner released this lane's hold on the merge."
-                          exit 0
-                      fi
-                  done
+                  # skip: means the lane is out of scope for this pull request,
+                  # so it clears whatever else happened.
+                  if printf '%s\n' "$labels" | grep -qx 'skip:runeseer'; then
+                      echo "skip:runeseer present; this lane is out of scope for this pull request."
+                      exit 0
+                  fi
+                  # ignore: releases a judged lane, never a broken one. A lane
+                  # that ran in this event carries its own verdict: with the
+                  # label set, its gate already passed the findings through, so
+                  # a failure here is a terminal fault and stays red. Only when
+                  # no lane ran does this clear a judgment already accepted.
+                  if printf '%s\n' "$labels" | grep -qx 'ignore:runeseer' \
+                      && [ "${{ needs.review.result }}" = "skipped" ]; then
+                      echo "ignore:runeseer present; the owner accepted this lane's standing findings."
+                      exit 0
+                  fi
                   if [ "${{ needs.review.result }}" != "success" ] && [ "${{ needs.review.result }}" != "skipped" ]; then
                       echo "the lane concluded: ${{ needs.review.result }}"
                       exit 1
