@@ -78,7 +78,7 @@ Two labels per lane, and the difference is what survives on the pull request.
 | `ignore:macroscope` | Macroscope runs and reports; its unresolved findings stop holding the funnel | Cascade body |
 | `ignore:runeseer` | The correctness lane runs and records its verdict; the findings stop holding the merge | Correctness body and caller |
 
-A terminal provider failure still fails under `ignore:`, because a broken lane is not a judged one. Reach for `skip:` when a lane should not run at all.
+A terminal provider failure still fails under `ignore:`, because a broken lane is not a judged one. For the correctness lane the evidence of a judgment is a Runeseer review on that exact head, so a lane that faulted before judging stays red however the label is applied afterwards. Reach for `skip:` when a lane should not run at all.
 
 ## PR description markers
 
