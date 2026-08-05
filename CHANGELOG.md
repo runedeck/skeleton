@@ -7,3 +7,12 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 ### Added
 
 - Portable Copier generation with release metadata for downstream template updates.
+
+### Changed
+
+- Review rounds begin only from explicit review labels.
+- Tracked-file secret scans use one repository-relative snapshot.
+
+### Removed
+
+- Consumer byte comparisons against the moving skeleton branch.

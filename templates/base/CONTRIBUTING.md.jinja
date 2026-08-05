@@ -33,4 +33,4 @@ Iterate in draft, collect fixes locally, push them as one batch, and request a f
 
 ## Review bots
 
-The review cascade runs automatically for every ready same-repository pull request: cursor, then macroscope, then the adjudicating correctness lane. Bare `review` re-summons the cascade after fixes, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. A round consumes its labels when it ends, and every round is visible in the pull request timeline.
+No bot reviews without a request: every lane starts only when a maintainer applies a review label. Bare `review` runs the full ordered sequence, cursor, then macroscope, then the adjudicating correctness lane, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. Each request runs one round, and the review labels are consumed when it ends. Settled stages record `stage:` labels and are skipped on later rounds until a maintainer removes them. Every requested round is visible in the pull request timeline.

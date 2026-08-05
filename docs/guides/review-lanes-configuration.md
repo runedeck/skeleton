@@ -2,7 +2,7 @@
 
 The dashboard state of the external review lanes is part of the ceremony: a wrong toggle reintroduces ambient reviewing, comment storms, or bot-driven merges no repository file can prevent. This guide records the required configuration for every lane and the reasoning behind each choice. It is destined for the provisioning deck; until that exists, it lives here beside the specs it serves.
 
-The funnel this configuration serves: a pull request passes cursor, then macroscope, then runeseer, and only then reaches the owner. Each stage spends only after the previous stage has settled clean.
+The review funnel is the ordered workflow this configuration serves: it triggers cursor, then macroscope, then runeseer, and presents the pull request to the owner only after those lanes settle clean. Each stage spends only after the previous stage has settled clean.
 
 ## Cursor Bugbot (cursor.com/dashboard → Bugbot)
 
@@ -12,7 +12,7 @@ Preferences page (the team tier; on an individual plan this page is the top tier
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Trigger Mode | Manual only | The cascade posts one standalone `@cursor review` comment per round; ambient pushes do not spend Cursor outside the ordered lanes. Cursor drops bot-authored trigger comments, so the summon rides the owner-minted `RUNEWRIGHT_GITHUB_TOKEN` org secret (fine-grained, issues write only) |
+| Trigger Mode | Manual only | The cascade posts one standalone `@cursor review` comment per round; ambient pushes do not spend Cursor outside the ordered lanes. Cursor drops bot-authored trigger comments, so the cascade posts the comment with the owner-minted `RUNEWRIGHT_GITHUB_TOKEN` org secret (fine-grained, issues write only) |
 | Incremental Review | On | Each round reviews only the delta since the last; without it every round re-flags the full backlog |
 | Bugbot Effort Levels | Smart | Adequate; the adjudicating lane catches what a cheaper pass misses |
 
@@ -51,14 +51,14 @@ Product Overview text:
 
 | Setting | Required value | Reason |
 | --- | --- | --- |
-| Correctness | Off ambient; the `review:macroscope` label trigger only | Macroscope fires second in the funnel, after cursor settles clean; ambient runs would spend it ahead of the cheaper layer and out of funnel order |
+| Correctness | Off ambient; the `review:macroscope` label trigger only | The `review:macroscope` label triggers Macroscope after cursor settles clean; ambient runs would spend it ahead of the cheaper layer and outside the ordered workflow |
 | Detection Mode | Prefer Precision | Ambient reviewing trades coverage for signal; runeseer still adjudicates whatever it reports |
 | Check Run Agents | On | Enables in-repo `.macroscope/` agents as check runs; ceremony-specific checks can be authored there |
 | Review Draft PRs | Off | Draft iteration is free |
 | Automatically Merge Macroscope's PRs | Off | Nothing merges itself in this org; every merge is the owner's action |
 | Auto-assign Reviewer | On | Routes a reviewer onto PRs opened without one |
 | Skip Dependabot | Off | No Dependabot; revisit if it arrives |
-| Review Cross-Repo PRs | On | Fork pull requests must pass stage 2 or the contributor funnel dead-ends after cursor |
+| Review Cross-Repo PRs | On | Fork pull requests must pass stage 2 or their review stops after cursor |
 | Skip PRs by Author | Empty | No exempt authors |
 | Skip PRs by Labels | `review:skip` | The ceremony waiver label silences the lane |
 | Approvability | On, medium threshold | Advisory beneath the required verdict checks: its approval cannot outrank a red `review/correctness`, and the owner's merge click stays the final gate |
