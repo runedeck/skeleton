@@ -60,7 +60,7 @@ Product Overview text:
 | Skip Dependabot | Off | No Dependabot; revisit if it arrives |
 | Review Cross-Repo PRs | On | Fork pull requests must pass stage 2 or their review stops after cursor |
 | Skip PRs by Author | Empty | No exempt authors |
-| Skip PRs by Labels | `review:skip` | The ceremony waiver label silences the lane |
+| Skip PRs by Labels | `skip:macroscope` | The owner override that stands this lane down |
 | Approvability | On, medium threshold | Advisory beneath the required verdict checks: its approval cannot outrank a red `review/correctness`, and the owner's merge click stays the final gate |
 | Release Ref Patterns | `v*` | Matches the signed-tag release ceremony |
 | Status features | On | Commit summaries and digests cost nothing in review terms |
