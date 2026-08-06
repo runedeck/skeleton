@@ -60,10 +60,25 @@ Product Overview text:
 | Skip Dependabot | Off | No Dependabot; revisit if it arrives |
 | Review Cross-Repo PRs | On | Fork pull requests must pass stage 2 or their review stops after cursor |
 | Skip PRs by Author | Empty | No exempt authors |
-| Skip PRs by Labels | `review:skip` | The ceremony waiver label silences the lane |
+| Skip PRs by Labels | `skip:macroscope` | The owner override that stands this lane down |
 | Approvability | On, medium threshold | Advisory beneath the required verdict checks: its approval cannot outrank a red `review/correctness`, and the owner's merge click stays the final gate |
 | Release Ref Patterns | `v*` | Matches the signed-tag release ceremony |
 | Status features | On | Commit summaries and digests cost nothing in review terms |
+
+## Owner overrides
+
+Two labels per lane, and the difference is what survives on the pull request.
+
+| Label | Effect | Reads it |
+| --- | --- | --- |
+| `skip:cursor` | Stage 1 never runs, so cursor is never asked | Cascade body |
+| `skip:macroscope` | Stage 2 never runs; Macroscope's dashboard is set to the same label | Cascade body, Macroscope dashboard |
+| `skip:runeseer` | The correctness lane is never summoned or invoked, and its required mirror clears | Cascade body, correctness caller and body |
+| `ignore:cursor` | Cursor runs and reports; its unresolved findings stop holding the funnel | Cascade body |
+| `ignore:macroscope` | Macroscope runs and reports; its unresolved findings stop holding the funnel | Cascade body |
+| `ignore:runeseer` | The correctness lane runs and records its verdict; the findings stop holding the merge | Correctness body and caller |
+
+A terminal provider failure still fails under `ignore:`, because a broken lane is not a judged one. For the correctness lane the evidence of a judgment is a Runeseer review on that exact head, so a lane that faulted before judging stays red however the label is applied afterwards. Reach for `skip:` when a lane should not run at all.
 
 ## PR description markers
 
