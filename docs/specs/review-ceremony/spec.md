@@ -39,7 +39,7 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 #### Scenario: Checks bind everyone
 
 - **WHEN** any same-repository pull request fails a required check
-- **THEN** the merge is refused regardless of who authored it; the review ruleset grants its admin bypass to the owner as an actor, and the ceremony reserves its use for fork pull requests, where stripped credentials prevent the correctness lane from producing a verdict
+- **THEN** the merge is refused regardless of who authored it; the review ruleset grants its admin bypass to the owner as an actor, and the ceremony reserves its use for fork pull requests, where the correctness lane stands down on the same-repository guard and produces no verdict
 
 ### Requirement: Three Review Lanes
 
@@ -92,7 +92,7 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 #### Scenario: Fork pull request
 
 - **WHEN** a pull request comes from a fork
-- **THEN** the correctness lane cannot run because the platform strips its credentials from fork-triggered runs, the ordered workflow stops after the free lanes, and the pull request merges through the owner's Repository-admin bypass once those lanes settle clean
+- **THEN** the correctness lane stands down because its caller and its body each refuse fork heads before any secret-bearing step, the ordered workflow stops after the free lanes, and the pull request merges through the owner's Repository-admin bypass once those lanes settle clean
 
 #### Scenario: Instructions read from the base branch
 
