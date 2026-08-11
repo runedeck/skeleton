@@ -117,8 +117,11 @@ jobs:
             # ignore:runeseer withdraws the findings' power to hold the
             # merge, the mirror completes both halves of that hold, the
             # required check and the approving review, as the runeseer app.
+            # Minted unconditionally so the acceptance path never diverges
+            # from the live labels the script reads, and non-fatally so a
+            # mint fault cannot redden a check the overrides must clear.
             - id: runeseer
-              if: contains(github.event.pull_request.labels.*.name, 'ignore:runeseer')
+              continue-on-error: true
               uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
               with:
                   app-id: ${{ secrets.RUNESEER_APP_ID }}
@@ -179,8 +182,11 @@ jobs:
                           approved=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews?per_page=100" \
                               --jq '[.[] | select(.user.login == "runeseer[bot]") | select(.state == "APPROVED") | select(.commit_id == env.HEAD_SHA)]' \
                               | jq -s -r 'add // [] | length') || approved=0
-                          if [ "$approved" = "0" ] && [ -n "$RUNESEER_TOKEN" ]; then
+                          if [ "$approved" = "0" ] && [ -z "$RUNESEER_TOKEN" ]; then
+                              echo "the acceptance withdrawal is half-complete: the check clears, but the app token was unavailable so no acceptance approval exists; rerun this workflow to submit it."
+                          elif [ "$approved" = "0" ]; then
                               GH_TOKEN="$RUNESEER_TOKEN" gh api -X POST "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
+                                  -f commit_id="$HEAD_SHA" \
                                   -f event=APPROVE \
                                   -f body="Approval records the owner's ignore:runeseer acceptance; the verdict for this head stands on the pull request." \
                                   >/dev/null && echo "acceptance approval submitted for this head." \
@@ -217,8 +223,12 @@ jobs:
                   # Per-page jq output merges through jq -s: the runner's gh
                   # predates --slurp. pipefail keeps a failed reviews read from
                   # reading as an absent approval.
+                  # Acceptance approvals record an owner override, not a lane
+                  # judgment: once ignore:runeseer is gone, only judgment
+                  # reviews may green this mirror, so the findings regain
+                  # their hold when the owner withdraws the acceptance.
                   latest_state=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews?per_page=100" \
-                      --jq '[.[] | select(.user.login == "runeseer[bot]" and .commit_id == env.HEAD_SHA)]' \
+                      --jq '[.[] | select(.user.login == "runeseer[bot]" and .commit_id == env.HEAD_SHA) | select((.body // "") | contains("ignore:runeseer acceptance") | not)]' \
                       | jq -s -r 'add // [] | sort_by(.submitted_at) | last | .state // ""') \
                       || { echo "could not read the pull request reviews; rerun the check"; exit 1; }
                   if [ "$latest_state" = "APPROVED" ]; then
