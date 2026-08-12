@@ -4,9 +4,12 @@ name: Review Cursor
 # deliberately: the lane is API-only and checks out nothing, and fork pull
 # requests need the base-context secrets. Never add a head checkout here or
 # in the body.
+# ready_for_review releases a summon that was applied while the pull
+# request was a draft: the lane body skips drafts and re-reads the live
+# labels, so the label waits until readiness.
 on:
     pull_request_target:
-        types: [labeled]
+        types: [labeled, ready_for_review]
 
 permissions:
     contents: read
@@ -23,7 +26,7 @@ concurrency:
 
 jobs:
     summon:
-        if: github.event.action == 'labeled' && github.event.label.name == 'review:cursor'
+        if: github.event.pull_request.draft == false && ((github.event.action == 'labeled' && github.event.label.name == 'review:cursor') || (github.event.action == 'ready_for_review' && contains(github.event.pull_request.labels.*.name, 'review:cursor')))
         uses: runedeck/seer/.github/workflows/review-cursor.yaml@main
         secrets:
             RUNEWRIGHT_APP_ID: ${{ secrets.RUNEWRIGHT_APP_ID }}
