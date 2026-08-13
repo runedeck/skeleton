@@ -58,8 +58,8 @@ jobs:
                   failures=0
                   while IFS=$'\t' read -r commit author; do
                       [ -n "$commit" ] || continue
-                      if ! listed "$author"; then
-                          echo "$commit: author '$author' is not in authors.yaml (expected 'Display Name (model-id) <address>')"
+                      if ! listed "$author" || [ "$author" = 'Claude <noreply@anthropic.com>' ]; then
+                          echo "$commit: author '$author' is not an allowed model author (expected 'Display Name (model-id) <address>')"
                           failures=1
                       fi
                       trailers=$(git show -s --format='%(trailers:key=Co-Authored-By,valueonly)' "$commit") \
