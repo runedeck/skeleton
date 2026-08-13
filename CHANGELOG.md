@@ -7,6 +7,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 ### Added
 
 - Portable Copier generation with release metadata for downstream template updates.
+- Portable repository setup installs the complete check toolchain on macOS and supported Linux distributions.
 - Per-lane owner overrides: `skip:<lane>` stands a lane down, and `ignore:<lane>` lets it report without holding the merge.
 - The `review:cursor` label summons a standalone Cursor round through the seer lane.
 - The provisioned label set carries the full ceremony taxonomy: the `stage:` round records and the `issue:` provider blockers the cascade applies.

@@ -22,15 +22,13 @@ Repository hooks active, validation tools installed, and the Copier base templat
 ## Steps
 
 ```sh
-for tool in prek gitleaks shellcheck copier; do
-    command -v "$tool" >/dev/null || brew install "$tool"
-done
+bash scripts/install-tools
 git config core.hooksPath .githooks
 prek run --all-files
 scratch=$(mktemp -d)
 copier copy --defaults . "$scratch/skeleton-smoke"
 ```
 
-Without Homebrew, install each missing tool with the platform's package manager. Use the pinned Copier version from the update workflow when reproducing CI. Copier renders a git template from its last commit, so the smoke test covers committed template state; commit (or `jj` snapshot and describe) working-tree edits before smoke-testing them.
+The installer supports macOS with Homebrew and Linux with Homebrew, apt, dnf, or pacman. Downloaded release archives are checked against their upstream checksum manifests. Copier renders a git template from its last commit, so the smoke test covers committed template state; commit (or `jj` snapshot and describe) working-tree edits before smoke-testing them.
 
 EXECUTE NOW: Complete the TODO list to achieve: hooks active, checks green, and the portable template rendered.
