@@ -27,7 +27,7 @@ Every non-merge commit reaching `main` SHALL carry an author identity listed in 
 
 ### Requirement: Contributor Trailers
 
-A commit produced by several models SHALL name the orchestrator as author and every other model contributor as a `Co-Authored-By` trailer in the same identity format, without repeating the author. The standard `Claude <noreply@anthropic.com>` tooling-attribution trailer MAY also appear when required by the authoring environment.
+A commit produced by several models SHALL name the orchestrator as author and every other model contributor as a `Co-Authored-By` trailer in the same identity format, without repeating the author. The standard `Claude <noreply@anthropic.com>` tooling-attribution trailer MAY also appear when required by the authoring environment, but it SHALL NOT be accepted as a commit author. Context-window suffixes such as `[1m]` SHALL NOT create separate model identities.
 
 #### Scenario: Distinct contributors
 
