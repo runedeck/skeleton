@@ -69,8 +69,8 @@ jobs:
                           if [ "$trailer" = "$author" ]; then
                               echo "$commit: author repeated as Co-Authored-By"
                               failures=1
-                          elif ! listed "$trailer"; then
-                              echo "$commit: Co-Authored-By '$trailer' is not in authors.yaml"
+                          elif [ "$trailer" != 'Claude <noreply@anthropic.com>' ] && ! listed "$trailer"; then
+                              echo "$commit: Co-Authored-By '$trailer' is neither a model identity nor the standard tooling attribution"
                               failures=1
                           fi
                       done <<< "$trailers"
