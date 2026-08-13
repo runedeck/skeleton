@@ -222,26 +222,24 @@ main() {
     local original_path=$PATH
     export PATH="$INSTALL_DIRECTORY:$PATH"
 
-    if all_tools_match; then
-        log "Pinned repository check tools are installed."
-        return
+    if ! all_tools_match; then
+        if command_exists brew; then
+            install_with_brew
+        else
+            [ "$(platform)" = "linux" ] \
+                || fail "macOS setup requires Homebrew: https://brew.sh"
+            install_linux_prerequisites
+            install_python_tool prek "$PREK_VERSION"
+            install_python_tool copier "$COPIER_VERSION"
+            install_python_tool ruff "$RUFF_VERSION"
+            install_python_tool semgrep "$SEMGREP_VERSION"
+            install_gitleaks
+            install_mdschema
+        fi
+
+        verify_tools
     fi
 
-    if command_exists brew; then
-        install_with_brew
-    else
-        [ "$(platform)" = "linux" ] \
-            || fail "macOS setup requires Homebrew: https://brew.sh"
-        install_linux_prerequisites
-        install_python_tool prek "$PREK_VERSION"
-        install_python_tool copier "$COPIER_VERSION"
-        install_python_tool ruff "$RUFF_VERSION"
-        install_python_tool semgrep "$SEMGREP_VERSION"
-        install_gitleaks
-        install_mdschema
-    fi
-
-    verify_tools
     log "Pinned repository check tools are installed."
     case ":$original_path:" in
         *":$INSTALL_DIRECTORY:"*) ;;
