@@ -36,12 +36,11 @@ tag_repository() {
     git -C "$repository" -c tag.gpgSign=false tag "$version"
 }
 
+# shellcheck source=../templates/base/scripts/tool-versions
+source "$repository_root/templates/base/scripts/tool-versions"
+
 run_copier() {
-    if command -v copier >/dev/null 2>&1; then
-        copier "$@"
-    else
-        uvx --from "copier==${COPIER_VERSION:?COPIER_VERSION must be set}" copier "$@"
-    fi
+    uvx --from "copier==${COPIER_VERSION:?COPIER_VERSION must be set}" copier "$@"
 }
 
 mkdir -p "$template_repository"
