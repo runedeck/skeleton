@@ -168,7 +168,7 @@ Secret scanning SHALL examine only the commits a push or pull request introduces
 
 ### Requirement: Specification Presence on Protected Paths
 
-A pull request touching protected paths SHALL either carry a specification change or a `spec:none` label with a stated reason in the body.
+A pull request touching protected paths SHALL either carry a specification change or an `ignore:spec` label with a stated reason in the body. `ignore:spec` belongs to the ignore family of allowed defects: the change lands unspecified, and the label records that the owner accepted that.
 
 #### Scenario: Protected path with a specification
 
@@ -177,7 +177,7 @@ A pull request touching protected paths SHALL either carry a specification chang
 
 #### Scenario: Protected path without either
 
-- **WHEN** a pull request modifies a protected path with no specification change and no `spec:none` label
+- **WHEN** a pull request modifies a protected path with no specification change and no `ignore:spec` label
 - **THEN** the specification check fails
 
 #### Scenario: Unprotected path
