@@ -7,6 +7,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 ### Added
 
 - Portable Copier generation with release metadata for downstream template updates.
+- Signed release publication verifies tags against root `KEYS` and compiles pull request Release Notes.
 - Per-lane owner overrides: `skip:<lane>` stands a lane down, and `ignore:<lane>` lets it report without holding the merge.
 - The `review:cursor` label summons a standalone Cursor round through the seer lane.
 - The provisioned label set carries the full ceremony taxonomy: the `stage:` round records and the `issue:` provider blockers the cascade applies.

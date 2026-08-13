@@ -201,7 +201,7 @@ A clean correctness verdict on a pull request whose review was requested SHALL b
 
 ### Requirement: Owner Attestation on Tags
 
-The owner's hardware key SHALL enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor today. The release workflow, when releases begin, SHALL verify the tag against `KEYS` before anything publishes; until it exists, verification is the operator's `git verify-tag`. Merging SHALL demand no signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
+The owner's hardware key SHALL enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor. The release workflow verifies the tag against `KEYS` before publication. Merging SHALL demand no signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
 
 #### Scenario: Signed tag vouches for merged history
 
@@ -238,7 +238,7 @@ A fix commit MAY name the review thread it answers with a `Resolves-Thread:` tra
 
 ### Requirement: Release Notes Attestation
 
-Every pull request body SHALL carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow SHALL compile the sections of merged pull requests into the release body the owner signs over.
+Every pull request body SHALL carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow SHALL compile the merge-time sections of merged pull requests into the release body the owner signs over. Post-merge body edits SHALL not change the compiled release notes.
 
 #### Scenario: Missing section
 
