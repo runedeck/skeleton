@@ -66,6 +66,10 @@ jobs:
                           ["ignore:macroscope", "d93f0b", "Owner override: the macroscope lane reports but does not hold the merge"],
                           ["ignore:runeseer", "d93f0b", "Owner override: the runeseer lane reports but does not hold the merge"],
                           ["ignore:spec", "d93f0b", "Allowed defect: protected paths change without a specification, reason in body"],
+                          // The seer cascade and correctness bodies apply and
+                          // read the stage records and provider blockers;
+                          // provisioning pins their names, colors, and
+                          // descriptions.
                           ["stage:cursor", "ededed", "Round record: the cursor stage settled on this head"],
                           ["stage:macroscope", "ededed", "Round record: the macroscope stage settled on this head"],
                           ["issue:cursor", "e99695", "Provider blocker: clear the cursor problem before re-summoning"],
