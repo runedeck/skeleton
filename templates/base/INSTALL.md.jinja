@@ -21,10 +21,17 @@ Hooks active (git `core.hooksPath` plus the jj `push` alias when the repo is col
 ## Steps
 
 ```sh
+set -e
 make install
+export PATH="$HOME/.local/bin:$PATH"
+missing=false
 for tool in prek gitleaks shellcheck copier ruff semgrep mdschema; do
-    command -v "$tool"
+    if ! command -v "$tool"; then
+        printf 'missing tool: %s\n' "$tool" >&2
+        missing=true
+    fi
 done
+[ "$missing" = false ]
 make validate
 ```
 

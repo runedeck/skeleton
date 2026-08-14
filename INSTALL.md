@@ -22,8 +22,19 @@ Repository hooks active, validation tools installed, and the Copier base templat
 ## Steps
 
 ```sh
-bash scripts/install-tools
+set -e
 git config core.hooksPath .githooks
+chmod +x .githooks/* scripts/* 2>/dev/null || true
+bash scripts/install-tools
+export PATH="$HOME/.local/bin:$PATH"
+missing=false
+for tool in prek gitleaks shellcheck copier ruff semgrep mdschema; do
+    if ! command -v "$tool"; then
+        printf 'missing tool: %s\n' "$tool" >&2
+        missing=true
+    fi
+done
+[ "$missing" = false ]
 prek run --all-files
 scratch=$(mktemp -d)
 copier copy --defaults . "$scratch/skeleton-smoke"

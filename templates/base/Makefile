@@ -5,7 +5,6 @@ help:
 	@echo "  make validate   run commit-stage checks"
 
 install:
-	@bash scripts/install-tools
 	git config core.hooksPath .githooks
 	chmod +x .githooks/* scripts/* 2>/dev/null || true
 	@if [ -d .jj ] && command -v jj >/dev/null 2>&1; then \
@@ -14,6 +13,7 @@ install:
 	elif [ -d .jj ]; then \
 	    echo "warn: .jj/ present but jj not on PATH; 'jj push' checks are not wired"; \
 	fi
+	@bash scripts/install-tools
 
 validate:
 	@bash .githooks/pre-commit --all-files
