@@ -9,9 +9,6 @@ permissions:
     contents: read
     issues: write
 
-env:
-    GITLEAKS_VERSION: "8.30.1"
-
 jobs:
     canary:
         runs-on: ubuntu-latest
@@ -30,13 +27,7 @@ jobs:
               continue-on-error: true
               run: |
                   set -x
-                  sudo apt-get install -y shellcheck
-                  pipx install prek ruff semgrep
-                  curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-                  curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
-                  sha256sum --check --ignore-missing "gitleaks_${GITLEAKS_VERSION}_checksums.txt"
-                  tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
-                  sudo install gitleaks /usr/local/bin/gitleaks
+                  bash scripts/install-tools
                   shellcheck -S warning templates/base/.githooks/*
                   prek run --all-files
                   # Feed the hook a genuine ref-update line so it exercises a
@@ -51,9 +42,7 @@ jobs:
             - name: Exercise Copier updates
               id: copier
               continue-on-error: true
-              run: |
-                  pipx install uv
-                  bash tests/copier-update-canary
+              run: bash tests/copier-update-canary
 
             - name: Report breakage
               if: steps.run.outcome == 'failure' || steps.copier.outcome == 'failure'

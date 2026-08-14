@@ -36,11 +36,16 @@ tag_repository() {
     git -C "$repository" -c tag.gpgSign=false tag "$version"
 }
 
-# shellcheck source=../templates/base/scripts/tool-versions
+# shellcheck source=templates/base/scripts/tool-versions
 source "$repository_root/templates/base/scripts/tool-versions"
+command -v copier >/dev/null 2>&1 \
+    || { printf 'fatal: copier is unavailable; run scripts/install-tools\n' >&2; exit 1; }
+installed_copier_version=$(copier --version | awk '{print $NF}')
+[ "$installed_copier_version" = "$COPIER_VERSION" ] \
+    || { printf 'fatal: copier %s is installed; expected %s from tool-versions\n' "$installed_copier_version" "$COPIER_VERSION" >&2; exit 1; }
 
 run_copier() {
-    uvx --from "copier==${COPIER_VERSION:?COPIER_VERSION must be set}" copier "$@"
+    copier "$@"
 }
 
 mkdir -p "$template_repository"
