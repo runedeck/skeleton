@@ -201,7 +201,7 @@ A clean correctness verdict on a pull request whose review was requested SHALL b
 
 ### Requirement: Owner Attestation on Tags
 
-The owner's hardware key SHALL enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor. The release workflow verifies the tag against `KEYS` before publication. Merging SHALL demand no signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
+The owner's hardware key MUST enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor. The release workflow MUST verify the tag against `KEYS` before publication. Merging MUST NOT demand any additional signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
 
 #### Scenario: Signed tag vouches for merged history
 
@@ -238,7 +238,7 @@ A fix commit MAY name the review thread it answers with a `Resolves-Thread:` tra
 
 ### Requirement: Release Notes Attestation
 
-Every pull request body SHALL carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow SHALL compile the merge-time sections of merged pull requests into the release body the owner signs over. Post-merge body edits SHALL not change the compiled release notes.
+Every pull request body MUST carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow MUST compile the sections of merged pull requests into the release body the owner signs over. A pull request body MUST NOT change at or after merge; if it does, release compilation MUST fail because the public API cannot attest the merge-time body.
 
 #### Scenario: Missing section
 
@@ -247,7 +247,7 @@ Every pull request body SHALL carry a Release Notes section with at least one en
 
 ### Requirement: Merge and Release Ceremony
 
-Approved work SHALL enter `main` as a GitHub merge commit, and release tags SHALL be annotated, signed by the owner, and verified before any release publishes.
+Approved work MUST enter `main` as a GitHub merge commit, and release tags MUST be annotated, signed by the owner, and verified before any release publishes.
 
 #### Scenario: Merge preserves authorship
 

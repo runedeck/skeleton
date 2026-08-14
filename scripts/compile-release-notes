@@ -39,7 +39,7 @@ for merge_commit in "${merge_commits[@]}"; do
     # GraphQL variable names are literal.
     # shellcheck disable=SC2016
     pull_request_json=$(gh api graphql \
-        -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){body mergedAt userContentEdits(first:100){pageInfo{hasNextPage} nodes{editedAt diff}}}}}' \
+        -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){body mergedAt lastEditedAt}}}' \
         -f owner="${repository%%/*}" \
         -f name="${repository#*/}" \
         -F number="$pull_request") \
@@ -47,23 +47,27 @@ for merge_commit in "${merge_commits[@]}"; do
     merged_at=$(printf '%s\n' "$pull_request_json" | jq -r '.data.repository.pullRequest.mergedAt // empty')
     [ -n "$merged_at" ] \
         || { printf 'fatal: pull request %s is not merged\n' "$pull_request" >&2; exit 1; }
-    printf '%s\n' "$pull_request_json" \
-        | jq -e '.data.repository.pullRequest.userContentEdits.pageInfo.hasNextPage == false' >/dev/null \
-        || { printf 'fatal: pull request %s has too many body edits to attest\n' "$pull_request" >&2; exit 1; }
-    pull_request_body=$(printf '%s\n' "$pull_request_json" | jq -r --arg merged "$merged_at" '
-        .data.repository.pullRequest as $pull |
-        [$pull.userContentEdits.nodes[] | select(.editedAt > $merged)] as $later |
-        if ($later | length) == 0 then $pull.body
-        else [$pull.userContentEdits.nodes[] | select(.editedAt <= $merged)]
-            | sort_by(.editedAt) | last | .diff // empty
-        end
-    ')
-    [ -n "$pull_request_body" ] \
-        || { printf 'fatal: pull request %s changed after merge and its merge-time body is unavailable\n' "$pull_request" >&2; exit 1; }
+    last_edited_at=$(printf '%s\n' "$pull_request_json" | jq -r '.data.repository.pullRequest.lastEditedAt // empty')
+    # GitHub exposes both timestamps only to the second. Equality cannot prove
+    # that the edit preceded the merge, so signed publication fails closed.
+    if [ -n "$last_edited_at" ] && [[ ! "$last_edited_at" < "$merged_at" ]]; then
+        printf 'fatal: pull request %s was edited in or after its merge timestamp; its merge-time body cannot be attested\n' \
+            "$pull_request" >&2
+        exit 1
+    fi
+    pull_request_body=$(printf '%s\n' "$pull_request_json" \
+        | jq -r '.data.repository.pullRequest.body // empty')
+    printf '%s\n' "$pull_request_body" \
+        | tr -d '\r' \
+        | grep -Eq '^## Release Notes[[:space:]]*$' \
+        || { printf 'fatal: pull request %s has no Release Notes section\n' "$pull_request" >&2; exit 1; }
     mapfile -t release_note_entries < <(
         printf '%s\n' "$pull_request_body" \
+            | tr -d '\r' \
             | awk '/^## Release Notes[[:space:]]*$/{in_section=1; next} /^## /{in_section=0} in_section && /^([-*+]|[0-9]+[.)]) /{print}'
     )
+    [ "${#release_note_entries[@]}" -gt 0 ] \
+        || { printf 'fatal: pull request %s has no Release Notes entries\n' "$pull_request" >&2; exit 1; }
 
     for release_note_entry in "${release_note_entries[@]}"; do
         note_text=$(printf '%s\n' "$release_note_entry" \
