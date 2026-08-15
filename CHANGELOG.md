@@ -19,6 +19,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 - The single `review:skip` waiver becomes the per-lane `skip:` and `ignore:` families, covering the adjudicating lane as well as the external ones.
 - Tracked-file secret scans use one repository-relative snapshot.
 - The specification waiver is the allowed defect `ignore:spec`, in the ignore family with a mandatory body reason.
+- The authorship check reads separate author and trailer lists from `authors.yaml`. A trailer attribution can no longer validate an author field. The hardcoded tooling-attribution exception moved into the `trailers:` list.
 
 ### Removed
 
