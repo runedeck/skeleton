@@ -20,6 +20,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 - Tracked-file secret scans use one repository-relative snapshot.
 - The specification waiver is the allowed defect `ignore:spec`, in the ignore family with a mandatory body reason.
 - The authorship check reads separate author and trailer lists from `authors.yaml`. A trailer attribution can no longer validate an author field. The hardcoded tooling-attribution exception moved into the `trailers:` list.
+- The template payload carries the same two-list authorship check as the repository root, so generated and Copier-updated consumers receive it.
 
 ### Removed
 
