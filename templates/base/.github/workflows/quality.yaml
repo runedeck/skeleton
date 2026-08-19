@@ -64,8 +64,10 @@ jobs:
             - name: Install tools
               run: bash scripts/install-tools
 
+            # The prek CLI is called directly: the wrapper action logs at
+            # TRACE level and buries the failing hook's output.
             - name: Commit-stage checks
-              uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
+              run: prek run --all-files
 
             # Scan exactly the commits this event introduces. Without a usable
             # base, gitleaks scans the target history and other hooks inspect all files.
