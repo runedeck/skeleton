@@ -8,7 +8,9 @@ Every commit in a runedeck repository answers who wrote it, which model, from th
 
 ### Requirement: Allowlisted Model Identities
 
-Every non-merge commit reaching `main` SHALL carry an author identity listed in `authors.yaml`, formatted as a display name ending in a parenthesized model id and a per-model non-routable address.
+Every commit reaching `main` SHALL carry an author identity listed in `authors.yaml`.
+
+Each model identity SHALL use a display name with a parenthesized model ID and a per-model non-routable address.
 
 #### Scenario: Allowlisted author
 
@@ -22,7 +24,7 @@ Every non-merge commit reaching `main` SHALL carry an author identity listed in 
 
 #### Scenario: Missing model id
 
-- **WHEN** a commit's author display name carries no parenthesized model id
+- **WHEN** a model-authored commit's author display name carries no parenthesized model ID
 - **THEN** the `ci/authorship` check fails and names the expected format
 
 ### Requirement: Contributor Trailers
@@ -46,7 +48,7 @@ The `ci/authorship` check SHALL read commits from the merge base of the pull req
 #### Scenario: Range resolved
 
 - **WHEN** the check runs on a pull request whose merge base resolves
-- **THEN** it examines every non-merge commit in that range and no commit outside it
+- **THEN** it examines every commit in that range and no commit outside it
 
 #### Scenario: Unresolvable merge base
 
@@ -78,14 +80,28 @@ Every repository built from this template SHALL contain `scripts/check-authorshi
 
 ### Requirement: Worktree Identity Provisioning
 
-`make worktree BRANCH=<branch> IDENTITY=<model-id>` SHALL create a git worktree on the named branch. The target SHALL set a listed model identity as the local `user.name` and `user.email` of that worktree. The target SHALL refuse an identity that the `authors:` list of `authors.yaml` does not contain.
+`make worktree BRANCH=<branch> IDENTITY=<model-id> [HARNESS=<harness>]` SHALL create a git worktree on the named branch.
 
-#### Scenario: Listed identity provisioned
+The target SHALL set the selected identity as the worktree `user.name` and `user.email` values.
 
-- **WHEN** `make worktree` runs with a model id that appears in `authors.yaml`
-- **THEN** commits made in the new worktree carry that identity with no per-command environment exports
+The selected identity SHALL occur once in the `authors:` list of `authors.yaml`.
 
-#### Scenario: Unlisted identity refused
+#### Scenario: Unique identity provisioned
 
-- **WHEN** `make worktree` runs with a model id absent from `authors.yaml`
-- **THEN** the target fails and no worktree is created
+- **WHEN** one listed identity matches the specified model ID and the supplied harness, if any
+- **THEN** the new worktree uses that identity without per-command environment exports
+
+#### Scenario: Ambiguous identity refused
+
+- **WHEN** multiple listed identities have the specified model ID and `HARNESS` is absent
+- **THEN** the target fails before it creates a branch or worktree
+
+#### Scenario: Harness selects one identity
+
+- **WHEN** multiple listed identities have the specified model ID and `HARNESS` selects one address domain
+- **THEN** the new worktree uses the selected identity
+
+#### Scenario: Unknown identity refused
+
+- **WHEN** no listed identity matches the specified model ID and the supplied harness, if any
+- **THEN** the target fails and creates no worktree
