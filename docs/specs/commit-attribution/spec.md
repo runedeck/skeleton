@@ -8,7 +8,9 @@ Every commit in a runedeck repository answers who wrote it, which model, from th
 
 ### Requirement: Allowlisted Model Identities
 
-Every non-merge commit reaching `main` SHALL carry an author identity listed in `authors.yaml`, formatted as a display name ending in a parenthesized model id and a per-model non-routable address.
+Every commit reaching `main` SHALL carry an author identity listed in `authors.yaml`.
+
+Each model identity SHALL use a display name with a parenthesized model ID and a per-model non-routable address.
 
 #### Scenario: Allowlisted author
 
@@ -22,12 +24,12 @@ Every non-merge commit reaching `main` SHALL carry an author identity listed in 
 
 #### Scenario: Missing model id
 
-- **WHEN** a commit's author display name carries no parenthesized model id
+- **WHEN** a model-authored commit's author display name carries no parenthesized model ID
 - **THEN** the `ci/authorship` check fails and names the expected format
 
 ### Requirement: Contributor Trailers
 
-A commit produced by several models SHALL name the orchestrator as author and every other model contributor as a `Co-Authored-By` trailer in the same identity format, without repeating the author. The standard `Claude <noreply@anthropic.com>` tooling-attribution trailer MAY also appear when required by the authoring environment, but it SHALL NOT be accepted as a commit author. Context-window suffixes such as `[1m]` SHALL NOT create separate model identities.
+A commit produced by several models SHALL name the orchestrator as author and every other model contributor as a `Co-Authored-By` trailer in the same identity format, without repeating the author. Tooling-attribution trailers listed under `trailers:` in `authors.yaml` MAY also appear, but a `trailers:` entry SHALL NOT be accepted as a commit author. Context-window suffixes such as `[1m]` SHALL NOT create separate model identities.
 
 #### Scenario: Distinct contributors
 
@@ -46,7 +48,7 @@ The `ci/authorship` check SHALL read commits from the merge base of the pull req
 #### Scenario: Range resolved
 
 - **WHEN** the check runs on a pull request whose merge base resolves
-- **THEN** it examines every non-merge commit in that range and no commit outside it
+- **THEN** it examines every commit in that range and no commit outside it
 
 #### Scenario: Unresolvable merge base
 
@@ -61,3 +63,45 @@ Commits authored by models SHALL be unsigned, and no branch rule SHALL require c
 
 - **WHEN** an allowlisted model pushes an unsigned commit to a pull request branch
 - **THEN** no check rejects the commit for lacking a signature
+
+### Requirement: Local Pre-Push Attribution Check
+
+Every repository built from this template SHALL contain `scripts/check-authorship`. The script SHALL run as a prek hook at the pre-push stage. The script SHALL apply the same attribution rules as the `ci/authorship` check to the outgoing commit range. A violation SHALL block the push before the commits leave the machine.
+
+#### Scenario: Bad identity blocked locally
+
+- **WHEN** a push range contains a commit whose author repeats as a `Co-Authored-By` trailer
+- **THEN** the pre-push hook fails, names the commit and the rule, and the push does not happen
+
+#### Scenario: New branch push
+
+- **WHEN** the push creates the remote branch and prek reports the zero object id as the from-ref
+- **THEN** the check falls back to the merge base with `origin/main` and examines that range
+
+### Requirement: Worktree Identity Provisioning
+
+`make worktree BRANCH=<branch> IDENTITY=<model-id> [HARNESS=<harness>]` SHALL create a git worktree on the named branch.
+
+The target SHALL set the selected identity as the worktree `user.name` and `user.email` values.
+
+The selected identity SHALL occur once in the `authors:` list of `authors.yaml`.
+
+#### Scenario: Unique identity provisioned
+
+- **WHEN** one listed identity matches the specified model ID and the supplied harness, if any
+- **THEN** the new worktree uses that identity without per-command environment exports
+
+#### Scenario: Ambiguous identity refused
+
+- **WHEN** multiple listed identities have the specified model ID and `HARNESS` is absent
+- **THEN** the target fails before it creates a branch or worktree
+
+#### Scenario: Harness selects one identity
+
+- **WHEN** multiple listed identities have the specified model ID and `HARNESS` selects one address domain
+- **THEN** the new worktree uses the selected identity
+
+#### Scenario: Unknown identity refused
+
+- **WHEN** no listed identity matches the specified model ID and the supplied harness, if any
+- **THEN** the target fails and creates no worktree
