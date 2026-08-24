@@ -1,9 +1,10 @@
-.PHONY: help install validate worktree
+.PHONY: help install validate worktree worktree-done
 
 help:
 	@echo "  make install    install check tools and activate hooks"
 	@echo "  make validate   run commit-stage checks"
 	@echo "  make worktree   create an agent worktree: make worktree BRANCH=change/x IDENTITY=<model-id> [HARNESS=<harness>]"
+	@echo "  make worktree-done   remove a merged worktree and its branch: make worktree-done BRANCH=change/x"
 
 install:
 	git config core.hooksPath .githooks
@@ -48,3 +49,21 @@ worktree:
 	git -C ".worktrees/$$name" config --worktree user.name "$$author"; \
 	git -C ".worktrees/$$name" config --worktree user.email "$$address"; \
 	echo "worktree .worktrees/$$name on $(BRANCH) authors as $$identity"
+
+# Remove a worktree whose branch holds no unmerged commits, then
+# delete the branch. Landing the work includes this step.
+worktree-done:
+	@[ -n "$(BRANCH)" ] || { echo "usage: make worktree-done BRANCH=change/x"; exit 2; }
+	@set -e; \
+	name=$$(printf '%s' "$(BRANCH)" | tr '/' '-'); \
+	path=".worktrees/$$name"; \
+	[ -d "$$path" ] || { echo "no worktree at $$path"; exit 1; }; \
+	dirty=$$(git -C "$$path" status --porcelain); \
+	[ -z "$$dirty" ] || { echo "the worktree at $$path is dirty; commit or discard first"; exit 1; }; \
+	git fetch origin; \
+	default=$$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main); \
+	count=$$(git rev-list --count "$$default..$(BRANCH)"); \
+	[ "$$count" -eq 0 ] || { echo "$(BRANCH) carries $$count commits that are not on $$default"; exit 1; }; \
+	git worktree remove "$$path"; \
+	git branch -d "$(BRANCH)"; \
+	echo "removed $$path and deleted $(BRANCH)"

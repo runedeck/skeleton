@@ -6,6 +6,8 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Added
 
+- The worktree-done Makefile target: verify the merge state, then remove the worktree and delete its branch.
+
 - Portable Copier generation with release metadata for downstream template updates.
 - Portable repository setup installs the complete check toolchain on macOS and supported Linux distributions.
 - Signed release publication verifies tags against root `KEYS` and compiles pull request Release Notes.
