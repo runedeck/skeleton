@@ -4,6 +4,10 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ## [Unreleased]
 
+### Changed
+
+- CONTRIBUTING: no generation footer, tool badge, or session link in pull request bodies and commit messages.
+
 ### Added
 
 - Portable Copier generation with release metadata for downstream template updates.

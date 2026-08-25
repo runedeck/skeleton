@@ -29,7 +29,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 2. Make changes following the conventions above
 3. Open a PR against `main` **as a draft**, and mark it ready when the tree is stable
 
-The body carries `## Plan`, `## Changes`, `## Testing`, and `## Release Notes` sections (`- N/A` when nothing is user-facing); the template pre-fills the shape. Write PR text the way a diff summarizer would: verb-first, factual, file-anchored bullets, claims the diff upholds, no narrative.
+The body carries `## Plan`, `## Changes`, `## Testing`, and `## Release Notes` sections (`- N/A` when nothing is user-facing); the template pre-fills the shape. Write PR text the way a diff summarizer would: verb-first, factual, file-anchored bullets, claims the diff upholds, no narrative. Do not append a generation footer, a tool badge, or a session link to the body or to a commit message. Attribution lives in the author line and the `authors.yaml` trailers.
 
 ## Review etiquette
 
