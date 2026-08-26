@@ -45,6 +45,7 @@ worktree:
 	author=$${identity% <*}; \
 	address=$${identity##*<}; address=$${address%>}; \
 	if [ -d .jj ]; then \
+	    mkdir -p .workspaces; \
 	    jj workspace add --name "$$name" ".workspaces/$$name"; \
 	    echo "jj workspace .workspaces/$$name for $(BRANCH)"; \
 	    echo "author with: export JJ_USER='$$author' JJ_EMAIL='$$address'"; \
@@ -66,21 +67,56 @@ worktree-done:
 	if [ -d .jj ]; then \
 	    path=".workspaces/$$name"; \
 	    [ -d "$$path" ] || { echo "no workspace at $$path"; exit 1; }; \
-	    unmerged=$$(jj log --no-graph -T 'change_id.short() ++ " "' -r "mutable() & ::$$name@ & ~empty() & ~::trunk()" 2>/dev/null); \
+	    target_commit=$$(jj -R "$$path" log --no-graph -T 'commit_id' -r @); \
+	    unmerged=$$(jj -R "$$path" log --no-graph -T 'change_id.short() ++ " "' -r 'mutable() & ::@ & ~empty() & ~::trunk()' 2>/dev/null); \
 	    [ -z "$$unmerged" ] || { echo "workspace $$name holds unmerged changes: $$unmerged"; exit 1; }; \
-	    jj workspace forget "$$name"; \
+	    git_directory=$$(git rev-parse --git-dir); \
+	    target_index=$$(mktemp); \
+	    rm -f "$$target_index"; \
+	    trap 'rm -f "$$target_index"' 0 HUP INT TERM; \
+	    GIT_INDEX_FILE="$$target_index" git --git-dir="$$git_directory" read-tree "$$target_commit"; \
+	    ignored=$$(GIT_INDEX_FILE="$$target_index" git --git-dir="$$git_directory" --work-tree="$$path" ls-files --others -i --exclude-standard -- ':(top,exclude).jj/**'); \
+	    rm -f "$$target_index"; \
+	    trap - 0 HUP INT TERM; \
+	    [ -z "$$ignored" ] || { echo "Workspace $$name contains ignored files. Preserve or remove them first."; exit 1; }; \
+	    bookmarks=$$(jj -R "$$path" bookmark list -T 'if(remote, "", name ++ "\n")'); \
+	    bookmark_exists=false; \
+	    if printf '%s\n' "$$bookmarks" | grep -Fqx "$(BRANCH)"; then \
+	        bookmark_exists=true; \
+	    fi; \
+	    if [ "$$bookmark_exists" = true ]; then \
+	        bookmark_targets=$$(jj -R "$$path" bookmark list "exact:$(BRANCH)" -T 'if(remote, "", added_targets.map(|commit| commit.commit_id()).join("\n") ++ "\n")'); \
+	        bookmark_unmerged=""; \
+	        for bookmark_target in $$bookmark_targets; do \
+	            target_unmerged=$$(jj -R "$$path" log --no-graph -T 'commit_id ++ "\n"' -r "::$$bookmark_target & ~empty() & ~::trunk()"); \
+	            bookmark_unmerged="$$bookmark_unmerged$$target_unmerged"; \
+	        done; \
+	        [ -z "$$bookmark_unmerged" ] \
+	            || { echo "Bookmark $(BRANCH) has commits that are not on trunk: $$bookmark_unmerged"; exit 1; }; \
+	    fi; \
 	    (command -v trash >/dev/null 2>&1 && trash "$$path") || rm -rf "$$path"; \
+	    [ ! -e "$$path" ] || { echo "Could not remove workspace $$path."; exit 1; }; \
+	    jj --ignore-working-copy workspace forget "$$name"; \
+	    if [ "$$bookmark_exists" = true ]; then \
+	        jj --ignore-working-copy bookmark forget "exact:$(BRANCH)"; \
+	    fi; \
 	    echo "removed workspace $$path"; \
 	else \
 	    path=".worktrees/$$name"; \
 	    [ -d "$$path" ] || { echo "no worktree at $$path"; exit 1; }; \
-	    dirty=$$(git -C "$$path" status --porcelain); \
-	    [ -z "$$dirty" ] || { echo "the worktree at $$path is dirty; commit or discard first"; exit 1; }; \
+	    dirty=$$(git -C "$$path" status --porcelain --ignored); \
+	    [ -z "$$dirty" ] || { echo "The worktree at $$path has tracked, untracked, or ignored changes. Preserve them first."; exit 1; }; \
+	    worktree_branch=$$(git -C "$$path" branch --show-current); \
+	    [ -z "$$worktree_branch" ] || [ "$$worktree_branch" = "$(BRANCH)" ] \
+	        || { echo "The worktree at $$path uses branch $$worktree_branch, not $(BRANCH)."; exit 1; }; \
 	    git fetch origin; \
 	    default=$$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main); \
-	    count=$$(git rev-list --count "$$default..$(BRANCH)"); \
-	    [ "$$count" -eq 0 ] || { echo "$(BRANCH) carries $$count commits that are not on $$default"; exit 1; }; \
+	    worktree_head=$$(git -C "$$path" rev-parse HEAD); \
+	    worktree_count=$$(git rev-list --count "$$default..$$worktree_head"); \
+	    [ "$$worktree_count" -eq 0 ] || { echo "The worktree at $$path carries $$worktree_count commits that are not on $$default."; exit 1; }; \
+	    branch_count=$$(git rev-list --count "$$default..$(BRANCH)"); \
+	    [ "$$branch_count" -eq 0 ] || { echo "$(BRANCH) carries $$branch_count commits that are not on $$default"; exit 1; }; \
 	    git worktree remove "$$path"; \
-	    git branch -d "$(BRANCH)"; \
+	    git branch -D "$(BRANCH)"; \
 	    echo "removed $$path and deleted $(BRANCH)"; \
 	fi
