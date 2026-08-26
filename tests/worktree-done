@@ -283,8 +283,9 @@ new_git_fixture() {
     git_remote="$git_case_directory/remote.git"
     git_repository="$git_case_directory/repo"
     git_worktree="$git_repository/.worktrees/${branch//\//-}"
+    git_bin="$git_case_directory/bin"
     git_output="$git_case_directory/output"
-    command mkdir -p "$git_case_directory" "$git_repository"
+    command mkdir -p "$git_case_directory" "$git_repository" "$git_bin"
     git init --bare --initial-branch=main "$git_remote" >/dev/null
     git -C "$git_repository" init -b main >/dev/null
     git -C "$git_repository" config user.name "Worktree Test"
@@ -298,6 +299,32 @@ new_git_fixture() {
     git -C "$git_repository" push -u origin main >/dev/null
     command mkdir -p "$git_repository/.worktrees"
     git -C "$git_repository" worktree add ".worktrees/${branch//\//-}" -b "$branch" >/dev/null
+    write_fake_gh "$git_bin"
+}
+
+write_fake_gh() {
+    local destination=$1
+
+    command cat > "$destination/gh" <<'EOF'
+#!/bin/sh
+set -eu
+
+[ "${GH_FAIL:-false}" != true ] || exit 42
+[ "${1:-}" = pr ] && [ "${2:-}" = list ] || exit 64
+[ -z "${GH_PR_RECORDS:-}" ] || printf '%s\n' "$GH_PR_RECORDS"
+EOF
+    command chmod +x "$destination/gh"
+}
+
+run_git_cleanup() {
+    local branch=$1
+    shift
+
+    env \
+        PATH="$git_bin:$PATH" \
+        "$@" \
+        make -C "$git_repository" -f "$makefile" worktree-done BRANCH="$branch" \
+        >"$git_output" 2>&1
 }
 
 test_git_checks_detached_head() {
@@ -308,11 +335,10 @@ test_git_checks_detached_head() {
     printf 'detached change\n' >> "$git_worktree/seed.txt"
     git -C "$git_worktree" add seed.txt
     git -C "$git_worktree" commit -m "test: add detached change" >/dev/null
-    if make -C "$git_repository" -f "$makefile" worktree-done BRANCH="$branch" \
-        >"$git_output" 2>&1; then
+    if run_git_cleanup "$branch"; then
         fail "Cleanup removed an unmerged detached worktree."
     fi
-    assert_output "$git_output" "carries 1 commits that are not on"
+    assert_output "$git_output" "different unmerged heads"
     assert_exists "$git_worktree"
     git -C "$git_repository" show-ref --verify --quiet "refs/heads/$branch" \
         || fail "Cleanup deleted the named branch."
@@ -323,12 +349,77 @@ test_git_removes_merged_detached_head() {
 
     new_git_fixture git-detached-merged "$branch"
     git -C "$git_worktree" switch --detach >/dev/null
-    make -C "$git_repository" -f "$makefile" worktree-done BRANCH="$branch" \
-        >"$git_output" 2>&1
+    run_git_cleanup "$branch"
     assert_missing "$git_worktree"
     if git -C "$git_repository" show-ref --verify --quiet "refs/heads/$branch"; then
         fail "Cleanup kept the merged named branch."
     fi
+}
+
+test_git_removes_squash_merged_branch() {
+    local branch=change/squash-merged
+
+    new_git_fixture git-squash-merged "$branch"
+    printf 'feature\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add squash candidate" >/dev/null
+    feature_head=$(git -C "$git_worktree" rev-parse HEAD)
+    git -C "$git_repository" merge --squash "$branch" >/dev/null
+    git -C "$git_repository" commit -m "test: squash feature" >/dev/null
+    git -C "$git_repository" push origin main >/dev/null
+    run_git_cleanup "$branch" GH_PR_RECORDS="$feature_head MERGED"
+    assert_missing "$git_worktree"
+    if git -C "$git_repository" show-ref --verify --quiet "refs/heads/$branch"; then
+        fail "Cleanup kept the squash-merged branch."
+    fi
+}
+
+test_git_rejects_open_squash_candidate() {
+    local branch=change/open
+
+    new_git_fixture git-open "$branch"
+    printf 'feature\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add open feature" >/dev/null
+    feature_head=$(git -C "$git_worktree" rev-parse HEAD)
+    if run_git_cleanup "$branch" GH_PR_RECORDS="$feature_head OPEN"; then
+        fail "Cleanup removed a branch with an open pull request."
+    fi
+    assert_output "$git_output" "still has an open pull request"
+    assert_exists "$git_worktree"
+}
+
+test_git_rejects_stale_merged_pull_request() {
+    local branch=change/stale-merge
+
+    new_git_fixture git-stale-merge "$branch"
+    printf 'first\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add merged head" >/dev/null
+    merged_head=$(git -C "$git_worktree" rev-parse HEAD)
+    printf 'second\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: advance branch" >/dev/null
+    current_head=$(git -C "$git_worktree" rev-parse HEAD)
+    if run_git_cleanup "$branch" GH_PR_RECORDS="$merged_head MERGED"; then
+        fail "Cleanup accepted a merged pull request for a stale head."
+    fi
+    assert_output "$git_output" "is not merged at $current_head"
+    assert_exists "$git_worktree"
+}
+
+test_git_rejects_pull_request_query_failure() {
+    local branch=change/query-failure
+
+    new_git_fixture git-query-failure "$branch"
+    printf 'feature\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add query candidate" >/dev/null
+    if run_git_cleanup "$branch" GH_FAIL=true; then
+        fail "Cleanup ignored a pull request query failure."
+    fi
+    assert_output "$git_output" "Could not read pull requests"
+    assert_exists "$git_worktree"
 }
 
 test_jj_uses_target_index
@@ -340,4 +431,8 @@ test_jj_allows_empty_bookmark
 test_jj_forgets_bookmark_after_workspace
 test_git_checks_detached_head
 test_git_removes_merged_detached_head
+test_git_removes_squash_merged_branch
+test_git_rejects_open_squash_candidate
+test_git_rejects_stale_merged_pull_request
+test_git_rejects_pull_request_query_failure
 printf 'worktree-done tests passed\n'

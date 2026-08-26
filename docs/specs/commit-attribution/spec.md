@@ -105,3 +105,39 @@ The selected identity SHALL occur once in the `authors:` list of `authors.yaml`.
 
 - **WHEN** no listed identity matches the specified model ID and the supplied harness, if any
 - **THEN** the target fails and creates no worktree
+
+### Requirement: Worktree Cleanup
+
+`make worktree-done BRANCH=<branch>` SHALL remove only a clean worktree or workspace whose work is merged.
+
+The target SHALL preserve tracked, untracked, and ignored files when it cannot verify safe removal.
+
+#### Scenario: Git branch merged by ancestry
+
+- **WHEN** the worktree and branch heads are reachable from the default branch
+- **THEN** the target removes the worktree and deletes the local branch
+
+#### Scenario: Git branch squash merged
+
+- **WHEN** GitHub reports a merged pull request whose head equals the worktree and branch head
+- **THEN** the target removes the worktree and deletes the local branch
+
+#### Scenario: Git merge state is not safe
+
+- **WHEN** the matching pull request is open, stale, absent, or unavailable
+- **THEN** the target fails and preserves the worktree and branch
+
+#### Scenario: Jujutsu workspace contains unmerged work
+
+- **WHEN** the workspace or its local bookmark contains nonempty work that is not on trunk
+- **THEN** the target fails and preserves the workspace and bookmark
+
+#### Scenario: Workspace contains ignored data
+
+- **WHEN** the worktree or workspace contains ignored files
+- **THEN** the target fails and identifies the data that requires preservation
+
+#### Scenario: Jujutsu workspace is safe
+
+- **WHEN** the workspace is clean and its local bookmark has no work outside trunk
+- **THEN** the target removes the workspace directory before it forgets the workspace and bookmark

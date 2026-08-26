@@ -112,10 +112,26 @@ worktree-done:
 	    git fetch origin; \
 	    default=$$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo origin/main); \
 	    worktree_head=$$(git -C "$$path" rev-parse HEAD); \
+	    branch_head=$$(git rev-parse "$(BRANCH)"); \
 	    worktree_count=$$(git rev-list --count "$$default..$$worktree_head"); \
-	    [ "$$worktree_count" -eq 0 ] || { echo "The worktree at $$path carries $$worktree_count commits that are not on $$default."; exit 1; }; \
 	    branch_count=$$(git rev-list --count "$$default..$(BRANCH)"); \
-	    [ "$$branch_count" -eq 0 ] || { echo "$(BRANCH) carries $$branch_count commits that are not on $$default"; exit 1; }; \
+	    if [ "$$worktree_count" -ne 0 ] || [ "$$branch_count" -ne 0 ]; then \
+	        [ "$$worktree_head" = "$$branch_head" ] \
+	            || { echo "The detached worktree and $(BRANCH) have different unmerged heads."; exit 1; }; \
+	        command -v gh >/dev/null 2>&1 \
+	            || { echo "GitHub CLI is required to verify a possible squash merge."; exit 1; }; \
+	        pr_records=$$(gh pr list --head "$(BRANCH)" --state all --limit 100 \
+	            --json headRefOid,state --jq '.[] | "\(.headRefOid) \(.state)"') \
+	            || { echo "Could not read pull requests for $(BRANCH)."; exit 1; }; \
+	        matching_states=$$(printf '%s\n' "$$pr_records" \
+	            | awk -v head="$$branch_head" '$$1 == head { print $$2 }'); \
+	        if printf '%s\n' "$$matching_states" | grep -Fqx OPEN; then \
+	            echo "$(BRANCH) still has an open pull request for $$branch_head."; \
+	            exit 1; \
+	        fi; \
+	        printf '%s\n' "$$matching_states" | grep -Fqx MERGED \
+	            || { echo "$(BRANCH) is not merged at $$branch_head."; exit 1; }; \
+	    fi; \
 	    git worktree remove "$$path"; \
 	    git branch -D "$(BRANCH)"; \
 	    echo "removed $$path and deleted $(BRANCH)"; \
