@@ -1,0 +1,438 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_directory=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+repository_root=$(cd "$script_directory/.." && pwd -P)
+makefile="$repository_root/templates/base/Makefile"
+temporary_root=${RUNNER_TEMP:-${TMPDIR:?TMPDIR must be set}}
+scratch_directory=$(mktemp -d "$temporary_root/worktree-done.XXXXXX")
+trap 'command rm -rf "$scratch_directory"' EXIT
+
+fail() {
+    printf 'FAIL: %s\n' "$1" >&2
+    exit 1
+}
+
+assert_exists() {
+    [ -e "$1" ] || fail "Expected $1 to exist."
+}
+
+assert_missing() {
+    [ ! -e "$1" ] || fail "Expected $1 to be absent."
+}
+
+assert_output() {
+    grep -F "$2" "$1" >/dev/null || fail "Expected output to contain: $2"
+}
+
+write_fake_jj() {
+    local destination=$1
+
+    command mkdir -p "$destination"
+    command cat > "$destination/jj" <<'EOF'
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "--ignore-working-copy" ]; then
+    shift
+fi
+if [ "${1:-}" = "-R" ]; then
+    shift 2
+fi
+
+case "${1:-}" in
+    log)
+        case "$*" in
+            *mutable*)
+                exit 0
+                ;;
+            *'~::trunk()'*)
+                if [ "${JJ_EMPTY_BOOKMARK:-false}" = true ]; then
+                    case "$*" in
+                        *'-r ::'*'~empty()'*) ;;
+                        *) printf '%s\n' "$JJ_BOOKMARK_TARGETS" ;;
+                    esac
+                elif [ "${JJ_UNMERGED_BOOKMARK:-false}" = true ]; then
+                    printf '%s\n' "$JJ_BOOKMARK_TARGETS"
+                fi
+                exit 0
+                ;;
+        esac
+        for argument in "$@"; do
+            if [ "$argument" = "commit_id" ]; then
+                printf '%s\n' "$TARGET_COMMIT"
+                exit 0
+            fi
+        done
+        exit 0
+        ;;
+    bookmark)
+        case "${2:-}" in
+            list)
+                if [ -n "${JJ_QUERY_MARKER:-}" ]; then
+                    printf 'queried\n' > "$JJ_QUERY_MARKER"
+                fi
+                [ "${JJ_FAIL_BOOKMARK_LIST:-false}" != true ] || exit 42
+                case "$*" in
+                    *added_targets*)
+                        [ -z "${JJ_BOOKMARK_TARGETS:-}" ] \
+                            || printf '%s\n' "$JJ_BOOKMARK_TARGETS"
+                        ;;
+                    *)
+                        [ -z "${JJ_BOOKMARKS:-}" ] || printf '%s\n' "$JJ_BOOKMARKS"
+                        ;;
+                esac
+                ;;
+            forget)
+                if [ "${JJ_REQUIRE_WORKSPACE_FORGET_FIRST:-false}" = true ]; then
+                    [ -s "$JJ_WORKSPACE_FORGET_MARKER" ] || exit 65
+                fi
+                printf '%s\n' "${3:-}" >> "$JJ_BOOKMARK_FORGET_MARKER"
+                ;;
+            *)
+                exit 64
+                ;;
+        esac
+        ;;
+    workspace)
+        [ "${2:-}" = "forget" ] || exit 64
+        printf '%s\n' "${3:-}" >> "$JJ_WORKSPACE_FORGET_MARKER"
+        ;;
+    *)
+        exit 64
+        ;;
+esac
+EOF
+    command chmod +x "$destination/jj"
+}
+
+new_jj_fixture() {
+    local fixture_name=$1
+
+    jj_case_directory="$scratch_directory/$fixture_name"
+    jj_repository="$jj_case_directory/repo"
+    jj_workspace="$jj_repository/.workspaces/change-test"
+    jj_bin="$jj_case_directory/bin"
+    command mkdir -p "$jj_repository"
+    git -C "$jj_repository" init -b main >/dev/null
+    git -C "$jj_repository" config user.name "Worktree Test"
+    git -C "$jj_repository" config user.email "worktree-test@example.com"
+    git -C "$jj_repository" config commit.gpgSign false
+    printf '.jj/\n.workspaces/\nbuild/\n' > "$jj_repository/.gitignore"
+    printf 'base\n' > "$jj_repository/seed.txt"
+    git -C "$jj_repository" add .gitignore seed.txt
+    git -C "$jj_repository" commit -m "test: add target tree" >/dev/null
+    jj_target_commit=$(git -C "$jj_repository" rev-parse HEAD)
+    command mkdir -p "$jj_repository/build"
+    printf 'primary index\n' > "$jj_repository/build/cache.bin"
+    git -C "$jj_repository" add -f build/cache.bin
+    git -C "$jj_repository" commit -m "test: diverge primary index" >/dev/null
+    command mkdir -p "$jj_repository/.jj" "$jj_workspace"
+    command cp "$jj_repository/.gitignore" "$jj_workspace/.gitignore"
+    command cp "$jj_repository/seed.txt" "$jj_workspace/seed.txt"
+    write_fake_jj "$jj_bin"
+    jj_query_marker="$jj_case_directory/query"
+    jj_bookmark_forget_marker="$jj_case_directory/bookmark-forget"
+    jj_workspace_forget_marker="$jj_case_directory/workspace-forget"
+    jj_output="$jj_case_directory/output"
+}
+
+run_jj_cleanup() {
+    env \
+        PATH="$jj_bin:$PATH" \
+        TARGET_COMMIT="$jj_target_commit" \
+        JJ_QUERY_MARKER="$jj_query_marker" \
+        JJ_BOOKMARK_FORGET_MARKER="$jj_bookmark_forget_marker" \
+        JJ_WORKSPACE_FORGET_MARKER="$jj_workspace_forget_marker" \
+        "$@" \
+        make -C "$jj_repository" -f "$makefile" worktree-done BRANCH=change/test \
+        >"$jj_output" 2>&1
+}
+
+test_jj_uses_target_index() {
+    new_jj_fixture jj-target-index
+    command mkdir -p "$jj_workspace/build"
+    printf 'ignored workspace data\n' > "$jj_workspace/build/cache.bin"
+    git -C "$jj_repository" ls-files --error-unmatch build/cache.bin >/dev/null
+    if git -C "$jj_repository" ls-tree -r --name-only "$jj_target_commit" \
+        | grep -Fqx build/cache.bin; then
+        fail "The target tree must not track build/cache.bin."
+    fi
+    if run_jj_cleanup; then
+        fail "Cleanup accepted an ignored file from a divergent workspace."
+    fi
+    assert_output "$jj_output" "contains ignored files"
+    assert_exists "$jj_workspace/build/cache.bin"
+    assert_missing "$jj_query_marker"
+    assert_missing "$jj_workspace_forget_marker"
+}
+
+test_jj_reports_bookmark_query_failure() {
+    new_jj_fixture jj-bookmark-failure
+    if run_jj_cleanup JJ_FAIL_BOOKMARK_LIST=true; then
+        fail "Cleanup ignored a bookmark query failure."
+    fi
+    assert_exists "$jj_query_marker"
+    assert_exists "$jj_workspace"
+    assert_missing "$jj_workspace_forget_marker"
+}
+
+test_jj_ignores_workspace_metadata() {
+    new_jj_fixture jj-workspace-metadata
+    command mkdir -p "$jj_workspace/.jj/working_copy"
+    printf 'metadata\n' > "$jj_workspace/.jj/working_copy/state"
+    if run_jj_cleanup JJ_FAIL_BOOKMARK_LIST=true; then
+        fail "The bookmark failure test must stop cleanup."
+    fi
+    assert_exists "$jj_query_marker"
+    if grep -F "contains ignored files" "$jj_output" >/dev/null; then
+        fail "Cleanup reported jj workspace metadata as user data."
+    fi
+    assert_exists "$jj_workspace/.jj/working_copy/state"
+    assert_missing "$jj_workspace_forget_marker"
+}
+
+test_jj_rejects_unmerged_bookmark() {
+    new_jj_fixture jj-unmerged-bookmark
+    if run_jj_cleanup \
+        JJ_BOOKMARKS=change/test \
+        JJ_BOOKMARK_TARGETS="$jj_target_commit" \
+        JJ_UNMERGED_BOOKMARK=true; then
+        fail "Cleanup accepted an unmerged bookmark target."
+    fi
+    assert_output "$jj_output" "Bookmark change/test has commits that are not on trunk"
+    assert_exists "$jj_workspace"
+    assert_missing "$jj_bookmark_forget_marker"
+    assert_missing "$jj_workspace_forget_marker"
+}
+
+write_failed_removal_commands() {
+    local destination=$1
+
+    command cat > "$destination/trash" <<'EOF'
+#!/bin/sh
+exit 41
+EOF
+    command cat > "$destination/rm" <<'EOF'
+#!/bin/sh
+if [ "${1:-}" = "-rf" ] && [ "${2:-}" = ".workspaces/change-test" ]; then
+    exit 43
+fi
+exec "$REAL_RM" "$@"
+EOF
+    command chmod +x "$destination/trash" "$destination/rm"
+}
+
+test_jj_keeps_registration_after_remove_failure() {
+    new_jj_fixture jj-remove-failure
+    real_rm=$(command -v rm)
+    write_failed_removal_commands "$jj_bin"
+    if run_jj_cleanup REAL_RM="$real_rm"; then
+        fail "Cleanup accepted a filesystem removal failure."
+    fi
+    assert_exists "$jj_query_marker"
+    assert_exists "$jj_workspace"
+    assert_missing "$jj_bookmark_forget_marker"
+    assert_missing "$jj_workspace_forget_marker"
+}
+
+write_successful_trash() {
+    local destination=$1
+
+    command cat > "$destination/trash" <<'EOF'
+#!/bin/sh
+exec "$REAL_RM" -rf "$@"
+EOF
+    command chmod +x "$destination/trash"
+}
+
+test_jj_allows_empty_bookmark() {
+    new_jj_fixture jj-empty-bookmark
+    real_rm=$(command -v rm)
+    write_successful_trash "$jj_bin"
+    run_jj_cleanup \
+        REAL_RM="$real_rm" \
+        JJ_BOOKMARKS=change/test \
+        JJ_BOOKMARK_TARGETS="$jj_target_commit" \
+        JJ_EMPTY_BOOKMARK=true \
+        JJ_REQUIRE_WORKSPACE_FORGET_FIRST=true
+    assert_missing "$jj_workspace"
+    assert_output "$jj_workspace_forget_marker" "change-test"
+    assert_output "$jj_bookmark_forget_marker" "exact:change/test"
+}
+
+test_jj_forgets_bookmark_after_workspace() {
+    new_jj_fixture jj-successful-forget
+    real_rm=$(command -v rm)
+    write_successful_trash "$jj_bin"
+    run_jj_cleanup \
+        REAL_RM="$real_rm" \
+        JJ_BOOKMARKS=change/test \
+        JJ_BOOKMARK_TARGETS="$jj_target_commit" \
+        JJ_REQUIRE_WORKSPACE_FORGET_FIRST=true
+    assert_missing "$jj_workspace"
+    assert_output "$jj_workspace_forget_marker" "change-test"
+    assert_output "$jj_bookmark_forget_marker" "exact:change/test"
+}
+
+new_git_fixture() {
+    local fixture_name=$1
+    local branch=$2
+
+    git_case_directory="$scratch_directory/$fixture_name"
+    git_remote="$git_case_directory/remote.git"
+    git_repository="$git_case_directory/repo"
+    git_worktree="$git_repository/.worktrees/${branch//\//-}"
+    git_bin="$git_case_directory/bin"
+    git_output="$git_case_directory/output"
+    command mkdir -p "$git_case_directory" "$git_repository" "$git_bin"
+    git init --bare --initial-branch=main "$git_remote" >/dev/null
+    git -C "$git_repository" init -b main >/dev/null
+    git -C "$git_repository" config user.name "Worktree Test"
+    git -C "$git_repository" config user.email "worktree-test@example.com"
+    git -C "$git_repository" config commit.gpgSign false
+    printf '.worktrees/\n' > "$git_repository/.gitignore"
+    printf 'base\n' > "$git_repository/seed.txt"
+    git -C "$git_repository" add .gitignore seed.txt
+    git -C "$git_repository" commit -m "test: add base" >/dev/null
+    git -C "$git_repository" remote add origin "$git_remote"
+    git -C "$git_repository" push -u origin main >/dev/null
+    command mkdir -p "$git_repository/.worktrees"
+    git -C "$git_repository" worktree add ".worktrees/${branch//\//-}" -b "$branch" >/dev/null
+    write_fake_gh "$git_bin"
+}
+
+write_fake_gh() {
+    local destination=$1
+
+    command cat > "$destination/gh" <<'EOF'
+#!/bin/sh
+set -eu
+
+[ "${GH_FAIL:-false}" != true ] || exit 42
+[ "${1:-}" = pr ] && [ "${2:-}" = list ] || exit 64
+[ -z "${GH_PR_RECORDS:-}" ] || printf '%s\n' "$GH_PR_RECORDS"
+EOF
+    command chmod +x "$destination/gh"
+}
+
+run_git_cleanup() {
+    local branch=$1
+    shift
+
+    env \
+        PATH="$git_bin:$PATH" \
+        "$@" \
+        make -C "$git_repository" -f "$makefile" worktree-done BRANCH="$branch" \
+        >"$git_output" 2>&1
+}
+
+test_git_checks_detached_head() {
+    local branch=change/test
+
+    new_git_fixture git-detached-unmerged "$branch"
+    git -C "$git_worktree" switch --detach >/dev/null
+    printf 'detached change\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add detached change" >/dev/null
+    if run_git_cleanup "$branch"; then
+        fail "Cleanup removed an unmerged detached worktree."
+    fi
+    assert_output "$git_output" "different unmerged heads"
+    assert_exists "$git_worktree"
+    git -C "$git_repository" show-ref --verify --quiet "refs/heads/$branch" \
+        || fail "Cleanup deleted the named branch."
+}
+
+test_git_removes_merged_detached_head() {
+    local branch=change/merged
+
+    new_git_fixture git-detached-merged "$branch"
+    git -C "$git_worktree" switch --detach >/dev/null
+    run_git_cleanup "$branch"
+    assert_missing "$git_worktree"
+    if git -C "$git_repository" show-ref --verify --quiet "refs/heads/$branch"; then
+        fail "Cleanup kept the merged named branch."
+    fi
+}
+
+test_git_removes_squash_merged_branch() {
+    local branch=change/squash-merged
+
+    new_git_fixture git-squash-merged "$branch"
+    printf 'feature\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add squash candidate" >/dev/null
+    feature_head=$(git -C "$git_worktree" rev-parse HEAD)
+    git -C "$git_repository" merge --squash "$branch" >/dev/null
+    git -C "$git_repository" commit -m "test: squash feature" >/dev/null
+    git -C "$git_repository" push origin main >/dev/null
+    run_git_cleanup "$branch" GH_PR_RECORDS="$feature_head MERGED"
+    assert_missing "$git_worktree"
+    if git -C "$git_repository" show-ref --verify --quiet "refs/heads/$branch"; then
+        fail "Cleanup kept the squash-merged branch."
+    fi
+}
+
+test_git_rejects_open_squash_candidate() {
+    local branch=change/open
+
+    new_git_fixture git-open "$branch"
+    printf 'feature\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add open feature" >/dev/null
+    feature_head=$(git -C "$git_worktree" rev-parse HEAD)
+    if run_git_cleanup "$branch" GH_PR_RECORDS="$feature_head OPEN"; then
+        fail "Cleanup removed a branch with an open pull request."
+    fi
+    assert_output "$git_output" "still has an open pull request"
+    assert_exists "$git_worktree"
+}
+
+test_git_rejects_stale_merged_pull_request() {
+    local branch=change/stale-merge
+
+    new_git_fixture git-stale-merge "$branch"
+    printf 'first\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add merged head" >/dev/null
+    merged_head=$(git -C "$git_worktree" rev-parse HEAD)
+    printf 'second\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: advance branch" >/dev/null
+    current_head=$(git -C "$git_worktree" rev-parse HEAD)
+    if run_git_cleanup "$branch" GH_PR_RECORDS="$merged_head MERGED"; then
+        fail "Cleanup accepted a merged pull request for a stale head."
+    fi
+    assert_output "$git_output" "is not merged at $current_head"
+    assert_exists "$git_worktree"
+}
+
+test_git_rejects_pull_request_query_failure() {
+    local branch=change/query-failure
+
+    new_git_fixture git-query-failure "$branch"
+    printf 'feature\n' >> "$git_worktree/seed.txt"
+    git -C "$git_worktree" add seed.txt
+    git -C "$git_worktree" commit -m "test: add query candidate" >/dev/null
+    if run_git_cleanup "$branch" GH_FAIL=true; then
+        fail "Cleanup ignored a pull request query failure."
+    fi
+    assert_output "$git_output" "Could not read pull requests"
+    assert_exists "$git_worktree"
+}
+
+test_jj_uses_target_index
+test_jj_reports_bookmark_query_failure
+test_jj_ignores_workspace_metadata
+test_jj_rejects_unmerged_bookmark
+test_jj_keeps_registration_after_remove_failure
+test_jj_allows_empty_bookmark
+test_jj_forgets_bookmark_after_workspace
+test_git_checks_detached_head
+test_git_removes_merged_detached_head
+test_git_removes_squash_merged_branch
+test_git_rejects_open_squash_candidate
+test_git_rejects_stale_merged_pull_request
+test_git_rejects_pull_request_query_failure
+printf 'worktree-done tests passed\n'

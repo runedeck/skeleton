@@ -10,6 +10,8 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Added
 
+- The worktree and worktree-done Makefile targets: create and remove an agent work tree. In a jj colocated repo the targets use jj workspaces; in a git-only repo they use git worktrees. Removal verifies the merge state first.
+
 - Portable Copier generation with release metadata for downstream template updates.
 - Portable repository setup installs the complete check toolchain on macOS and supported Linux distributions.
 - Signed release publication verifies tags against root `KEYS` and compiles pull request Release Notes.
