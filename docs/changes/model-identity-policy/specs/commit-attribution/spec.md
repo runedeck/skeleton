@@ -1,11 +1,4 @@
-# Commit Attribution Specification
-
-## Purpose
-
-Commit metadata records the declared author and model contributors.
-The trusted repository policy validates this attribution without a model-version catalog.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Allowlisted Model Identities
 
@@ -98,43 +91,6 @@ Other IDs ending in `1m` MUST retain their identity.
 - **WHEN** an ID ends in `1m` and differs from both historical aliases
 - **THEN** normalization preserves that ID
 
-### Requirement: Attribution Check Range
-
-The `ci/authorship` check SHALL read commits from the merge base of the pull request to its head, and SHALL fail when the merge base cannot be resolved.
-
-#### Scenario: Range resolved
-
-- **WHEN** the check runs on a pull request whose merge base resolves
-- **THEN** it examines every commit in that range and no commit outside it
-
-#### Scenario: Unresolvable merge base
-
-- **WHEN** the merge base cannot be resolved from the fetched history
-- **THEN** the check fails rather than examining a partial range
-
-### Requirement: Unsigned Model Commits
-
-Commits authored by models SHALL be unsigned, and no branch rule SHALL require commit signatures on `main`.
-
-#### Scenario: Unsigned commit accepted
-
-- **WHEN** an allowlisted model pushes an unsigned commit to a pull request branch
-- **THEN** no check rejects the commit for lacking a signature
-
-### Requirement: Local Pre-Push Attribution Check
-
-Every repository built from this template SHALL contain `scripts/check-authorship`. The script SHALL run as a prek hook at the pre-push stage. The script SHALL apply the same attribution rules as the `ci/authorship` check to the outgoing commit range. A violation SHALL block the push before the commits leave the machine.
-
-#### Scenario: Bad identity blocked locally
-
-- **WHEN** a push range contains a commit whose author repeats as a `Co-Authored-By` trailer
-- **THEN** the pre-push hook fails, names the commit and the rule, and the push does not happen
-
-#### Scenario: New branch push
-
-- **WHEN** the push creates the remote branch and prek reports the zero object id as the from-ref
-- **THEN** the check falls back to the merge base with `origin/main` and examines that range
-
 ### Requirement: Worktree Identity Provisioning
 
 `make worktree BRANCH=<branch> IDENTITY=<model-id> [HARNESS=<harness>]` MUST resolve identity before it creates a worktree or workspace.
@@ -172,41 +128,7 @@ Jujutsu workspaces MUST report the selected `JJ_USER` and `JJ_EMAIL` values.
 - **WHEN** the supplied harness selects no approved domain or existing identity
 - **THEN** the target fails before it creates a workspace or branch
 
-### Requirement: Worktree Cleanup
-
-`make worktree-done BRANCH=<branch>` SHALL remove only a clean worktree or workspace whose work is merged.
-
-The target SHALL preserve tracked, untracked, and ignored files when it cannot verify safe removal.
-
-#### Scenario: Git branch merged by ancestry
-
-- **WHEN** the worktree and branch heads are reachable from the default branch
-- **THEN** the target removes the worktree and deletes the local branch
-
-#### Scenario: Git branch squash merged
-
-- **WHEN** GitHub reports a merged pull request whose head equals the worktree and branch head
-- **THEN** the target removes the worktree and deletes the local branch
-
-#### Scenario: Git merge state is not safe
-
-- **WHEN** the matching pull request is open, stale, absent, or unavailable
-- **THEN** the target fails and preserves the worktree and branch
-
-#### Scenario: Jujutsu workspace contains unmerged work
-
-- **WHEN** the workspace or its local bookmark contains nonempty work that is not on trunk
-- **THEN** the target fails and preserves the workspace and bookmark
-
-#### Scenario: Workspace contains ignored data
-
-- **WHEN** the worktree or workspace contains ignored files
-- **THEN** the target fails and identifies the data that requires preservation
-
-#### Scenario: Jujutsu workspace is safe
-
-- **WHEN** the workspace is clean and its local bookmark has no work outside trunk
-- **THEN** the target removes the workspace directory before it forgets the workspace and bookmark
+## ADDED Requirements
 
 ### Requirement: Trusted Attribution Inputs
 

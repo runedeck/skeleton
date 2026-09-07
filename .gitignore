@@ -10,3 +10,4 @@ dist/
 
 # Parallel work: one jj workspace per agent, ignored before any exists.
 .workspaces/
+__pycache__/

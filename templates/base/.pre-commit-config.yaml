@@ -88,7 +88,7 @@ repos:
 
           - id: semgrep
             name: semgrep OWASP
-            entry: semgrep scan --config=p/owasp-top-ten --metrics=off --quiet .
+            entry: semgrep scan --config=p/owasp-top-ten --metrics=off --disable-version-check --quiet .
             language: system
             pass_filenames: false
             stages: [pre-push]
