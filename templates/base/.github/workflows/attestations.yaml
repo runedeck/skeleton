@@ -94,7 +94,7 @@ jobs:
                       --jq '[.[] | .filename, (.previous_filename // empty)]' | jq -s -r 'add // [] | .[]') \
                       || { echo "could not read the changed files; rerun the check"; exit 1; }
                   protected='^(\.github/workflows/|\.githooks/|templates/|schemas/|\.macroscope/)|^(\.pre-commit-config\.yaml|\.gitleaks\.toml)$'
-                  spec_tree='^docs/(specs|openspec)/'
+                  spec_tree='^docs/(specs|openspec)/|^docs/changes/[^/]+/specs/[^/]+/spec\.md$'
                   touched=$(printf '%s\n' "$files" | grep -E "$protected" || true)
                   if [ -z "$touched" ]; then
                       echo "no protected paths touched; no specification is required."

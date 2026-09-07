@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Exercise each workflow's actual pattern instead of a copied test pattern.
+cd "$(dirname "$0")/.."
+checks=0
+
+check_path() {
+    local expected=$1 path=$2 actual=1
+    if printf '%s\n' "$path" | grep -qE "$pattern"; then
+        actual=0
+    fi
+    if [ "$actual" -ne "$expected" ]; then
+        printf '%s: unexpected specification match (%s) for %s\n' "$workflow" "$actual" "$path" >&2
+        exit 1
+    fi
+    checks=$((checks + 1))
+}
+
+for workflow in .github/workflows/attestations.yaml templates/base/.github/workflows/attestations.yaml; do
+    pattern=$(sed -n "s/^[[:space:]]*spec_tree='\(.*\)'$/\1/p" "$workflow")
+    [ -n "$pattern" ] || { printf '%s: missing specification pattern\n' "$workflow" >&2; exit 1; }
+    check_path 0 docs/specs/review-ceremony/spec.md
+    check_path 0 docs/openspec/review-ceremony.md
+    check_path 0 docs/changes/review-tooling/specs/review-ceremony/spec.md
+    check_path 0 'docs/changes/review tooling/specs/review ceremony/spec.md'
+    check_path 1 docs/changes/review-tooling/proposal.md
+    check_path 1 docs/changes/review-tooling/design.md
+    check_path 1 docs/changes/review-tooling/tasks.md
+    check_path 1 docs/changes/review-tooling/specs/review-ceremony/README.md
+    check_path 1 docs/changes/review-tooling/specs/spec.md
+    check_path 1 docs/changes/review-tooling/specs/review-ceremony/spec.md.bak
+    check_path 1 docs/changes/archive/2026-09-01-review-tooling/specs/review-ceremony/spec.md
+    check_path 1 other/docs/changes/review-tooling/specs/review-ceremony/spec.md
+done
+
+printf 'Specification path tests passed (%s checks).\n' "$checks"
