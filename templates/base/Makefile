@@ -20,27 +20,14 @@ install:
 validate:
 	@bash .githooks/pre-commit --all-files
 
-# Create a worktree whose commits carry a listed model identity.
-# HARNESS selects one identity when a model ID has multiple harness entries.
+# Create a worktree whose commits satisfy the model identity policy.
+# HARNESS selects an approved domain for a new model.
 worktree:
 	@[ -n "$(BRANCH)" ] && [ -n "$(IDENTITY)" ] \
 	    || { echo "usage: make worktree BRANCH=change/x IDENTITY=<model-id> [HARNESS=<harness>]"; exit 2; }
 	@set -e; \
-	identities=$$(awk -v model='$(IDENTITY)' -v harness='$(HARNESS)' '\
-	    /^[^ #]/ { in_authors = ($$0 == "authors:") } \
-	    in_authors && /^    - / { \
-	        identity = $$0; sub(/^    - /, "", identity); \
-	        suffix = "@" harness ".noreply.nexus.local>"; \
-	        if (index(identity, "(" model ") <") \
-	            && (harness == "" || substr(identity, length(identity) - length(suffix) + 1) == suffix)) \
-	            print identity; \
-	    }' authors.yaml); \
-	count=$$(printf '%s\n' "$$identities" | awk 'NF { count++ } END { print count + 0 }'); \
-	[ "$$count" -gt 0 ] \
-	    || { echo "identity '$(IDENTITY)' with harness '$(HARNESS)' is not in authors.yaml"; exit 1; }; \
-	[ "$$count" -eq 1 ] \
-	    || { echo "identity '$(IDENTITY)' is ambiguous; set HARNESS=<harness>"; exit 1; }; \
-	identity=$$identities; \
+	identity=$$(python3 scripts/author-identity.py resolve --policy authors.yaml \
+	    --model '$(IDENTITY)' --harness '$(HARNESS)'); \
 	name=$$(printf '%s' "$(BRANCH)" | tr '/' '-'); \
 	author=$${identity% <*}; \
 	address=$${identity##*<}; address=$${address%>}; \
