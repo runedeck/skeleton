@@ -6,7 +6,7 @@ I want you to prepare this checkout for template development and run its checks 
 
 ## OBJECTIVE
 
-Repository hooks active, validation tools installed, and the Copier base template rendered successfully.
+Validation tools installed, repository checks green, and the Copier base template rendered successfully.
 
 ## DONE WHEN
 
@@ -15,22 +15,29 @@ Repository hooks active, validation tools installed, and the Copier base templat
 ## TODO
 
 - [ ] Install the repository tools
-- [ ] Activate the git hooks
+- [ ] Confirm the repository check tools are available
 - [ ] Run the repository checks
 - [ ] Render a Copier smoke-test repository
 
 ## Steps
 
 ```sh
-for tool in prek gitleaks shellcheck copier; do
-    command -v "$tool" >/dev/null || brew install "$tool"
+set -e
+bash scripts/install-tools
+export PATH="$HOME/.local/bin:$PATH"
+missing=false
+for tool in prek gitleaks shellcheck copier ruff semgrep mdschema; do
+    if ! command -v "$tool"; then
+        printf 'missing tool: %s\n' "$tool" >&2
+        missing=true
+    fi
 done
-git config core.hooksPath .githooks
+[ "$missing" = false ]
 prek run --all-files
 scratch=$(mktemp -d)
 copier copy --defaults . "$scratch/skeleton-smoke"
 ```
 
-Without Homebrew, install each missing tool with the platform's package manager. Use the pinned Copier version from the update workflow when reproducing CI. Copier renders a git template from its last commit, so the smoke test covers committed template state; commit (or `jj` snapshot and describe) working-tree edits before smoke-testing them.
+The installer supports macOS with Homebrew and Linux with Homebrew, apt, dnf, or pacman. Downloaded release archives are checked against their upstream checksum manifests. Copier renders a git template from its last commit, so the smoke test covers committed template state; commit (or `jj` snapshot and describe) working-tree edits before smoke-testing them.
 
-EXECUTE NOW: Complete the TODO list to achieve: hooks active, checks green, and the portable template rendered.
+EXECUTE NOW: Complete the TODO list to achieve: tools available, checks green, and the portable template rendered.
