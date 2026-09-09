@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Nothing reaches `main` on one opinion. An application opens every pull request so the sole human's approval counts. Three vendor-diverse automated reviewers, called review lanes, examine each pull request in an ordered workflow called the review funnel; each lane reports a blocking check run, and later lanes start only after earlier lanes settle clean. Deterministic checks stay independent of them, secret scanning is scoped to what a push introduces, specifications bind to protected paths, and releases are sealed by an owner-signed tag. After code merges, the drift review compares the canonical documents under `docs/specs/` with the merged tree and reports any requirement that now describes behavior the tree no longer has.
+Nothing reaches `main` on one opinion. An application opens every pull request so the sole human's approval counts. The default review funnel runs Macroscope, then Runeseer. Cursor and CodeRabbit provide optional standalone reviews. A skipped optional review does not approve the pull request. Runeseer still requires a verdict on the current head. Deterministic checks stay independent of them, secret scanning is scoped to what a push introduces, specifications bind to protected paths, and releases are sealed by an owner-signed tag. After code merges, the drift review compares the canonical documents under `docs/specs/` with the merged tree and reports any requirement that now describes behavior the tree no longer has.
 
 ## Requirements
 
@@ -41,24 +41,69 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 - **WHEN** any same-repository pull request fails a required check
 - **THEN** the merge is refused regardless of who authored it; the review ruleset grants its admin bypass to the owner as an actor, and the ceremony reserves its use for fork pull requests, where the correctness lane stands down on the same-repository guard and produces no verdict
 
-### Requirement: Three Review Lanes
+### Requirement: Default and Optional Review Lanes
 
-A lane that bills per run MUST run only inside a review funnel round. A review lane MUST NOT start from pull request lifecycle events alone; every round MUST start only when a maintainer applies a review label that requests the round. Bare `review` MUST run the full funnel, cursor, then macroscope, then the adjudicating correctness lane, while each `review:` label MUST summon its single lane. A review label handled by this repository's workflows and applied while the pull request is draft MUST remain pending and MUST release when the pull request is marked ready. Removing such a label MUST cancel the in-flight round it requested. Each stage spends only after the previous stage settles clean, so paid stages run only on work every cheaper stage has passed. Cursor runs manually from the cascade's standalone `@cursor review` comment. Stages settle once per pull request: a settled stage is recorded as a `stage:` label and later rounds skip it, verifying only that its findings stay resolved, so fix rounds return straight to the adjudicator. The adjudicator's verdict MAY request a restart of an earlier stage when the accumulated delta is structurally large, and the owner restarts one by removing its stage label. Re-rounds judge only the range since the previous verdict. A terminal provider failure in any lane MUST stop immediately, clear the active review label, apply a persistent `issue:` blocked label, and refuse later review requests until the blocker is cleared or a successful current-head round proves recovery. The cascade (`review / cascade`) and the verdict mirror (`review/correctness`) SHALL be required status checks, and the mirror SHALL fail closed: a head with no verdict reports failure until a round completes. Fork pull requests, where the correctness lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
+A lane that bills per run MUST run only inside a requested review round.
+A review lane MUST NOT start from pull request lifecycle events alone.
+A maintainer MUST apply a review label to request each round.
+Bare `review` MUST request Macroscope, then the adjudicating correctness lane.
+Each `review:` label MUST request its single lane.
+Cursor and CodeRabbit SHALL remain optional standalone lanes outside the default funnel.
+The default funnel MUST proceed without an optional lane request or an optional provider credential.
+An unavailable or skipped optional lane MUST NOT count as a clean review.
+The owner MUST resolve genuine findings from optional lanes before merge or explicitly accept them.
+
+A review label handled by this repository's workflows MUST remain pending while the pull request is a draft.
+The pending request MUST start when the pull request becomes ready.
+Removing a pending request label MUST prevent dispatch.
+Consuming a dispatched request label MUST preserve the active round.
+An infrastructure failure before dispatch MUST preserve the request label.
+The cascade MUST verify the configured Macroscope correctness check on the current head in every round.
+A completed `success` or `neutral` check MUST permit Runeseer to adjudicate the reported findings.
+The cascade MAY reuse that completed check without requesting another Macroscope review.
+The `stage:macroscope` label SHALL record completion without replacing current-head evidence.
+Removing that label SHALL NOT require another review when the current head already has a qualifying completed check.
+Further rounds MUST judge only the range since the previous verdict.
+
+A terminal provider failure in a default lane MUST stop the cascade immediately.
+The failure handler MUST preserve an undelivered review request and apply a persistent `issue:` label.
+It MUST refuse another request for that lane until the blocker clears or a qualifying current-head round proves recovery.
+The verdict mirror (`review/correctness`) SHALL remain the single required review status check.
+The `quality` check SHALL enforce deterministic validation independently.
+The cascade SHALL report orchestration progress without acting as a second required review status check.
+The mirror MUST report failure for a head without a verdict until a round completes.
+Fork pull requests SHALL use the owner's Repository-admin bypass after the available free default lanes settle clean.
 
 #### Scenario: Full cascade from one label
 
 - **WHEN** the owner applies `review`
-- **THEN** the lanes run in escalation order and `review/correctness` adjudicates last, after the other lanes settle clean on the head
+- **THEN** the cascade verifies completed Macroscope correctness evidence on the current head before Runeseer adjudicates
 
-#### Scenario: Fix round skips settled stages
+#### Scenario: Optional lane does not participate
 
-- **WHEN** the owner re-summons after fixes and earlier stages carry their `stage:` labels with all their findings resolved
-- **THEN** the cascade skips those stages without respending them and the adjudicator judges the delta since its previous verdict
+- **WHEN** Cursor or CodeRabbit does not review the pull request
+- **THEN** the default funnel proceeds without treating that absence as approval
+- **AND** `review/correctness` still requires a verdict on the current head
 
-#### Scenario: Restart of an earlier stage
+#### Scenario: Optional lane reports a finding
 
-- **WHEN** the adjudicator's verdict requests a restart, or the owner removes a `stage:` label
-- **THEN** the next round re-runs that stage onward
+- **WHEN** a requested Cursor or CodeRabbit round reports a genuine finding
+- **THEN** a fix or an explicit owner acceptance resolves the finding before merge
+
+#### Scenario: Review round reuses current-head evidence
+
+- **WHEN** the configured Macroscope correctness check completed with `success` or `neutral` on the current head
+- **THEN** the cascade reuses that check and sends its findings to Runeseer without another Macroscope request
+
+#### Scenario: Stage label removal preserves valid evidence
+
+- **WHEN** the owner removes `stage:macroscope` while a qualifying completed check remains on the current head
+- **THEN** the next cascade verifies and reuses that check
+
+#### Scenario: Stage label cannot approve a changed head
+
+- **WHEN** `stage:macroscope` remains after a head change without a qualifying completed check on the new head
+- **THEN** the cascade waits for an existing current-head run or requests a new Macroscope review
 
 #### Scenario: Push between rounds
 
@@ -67,22 +112,67 @@ A lane that bills per run MUST run only inside a review funnel round. A review l
 
 ### Requirement: External Lane Configuration
 
-The dashboard state of externally hosted lanes is ceremony configuration: Cursor MUST run manually from a standalone `@cursor review` comment with incremental review enabled, draft reviews off, and autofix off; Macroscope MUST review only by its stage label with draft review and auto-merge off, its approvability approval advisory beneath the required verdict checks, and honoring `skip:macroscope`, which stands down only that stage. The cascade still delivers the adjudication, so the required verdict mirror clears normally. The configuration guide records the full required state, and a misconfigured lane is a ceremony defect even though no repository file changes.
+The dashboard state of externally hosted lanes SHALL form part of the ceremony configuration.
+Optional Cursor reviews MUST use a standalone `@cursor review` comment.
+Cursor MUST enable incremental review and disable draft reviews and autofix.
+Optional CodeRabbit reviews MUST use the organization-defined `review:coderabbit` request label.
+The repository MUST provision that label without applying it to pull requests.
+The repository and base template MUST preserve inherited CodeRabbit review settings.
+They MUST disable CodeRabbit review-status messages without suppressing findings.
+The adjudicator MUST attribute requested CodeRabbit findings to their provider and source thread.
+Macroscope MUST review only after a `review:macroscope` request.
+Macroscope MUST disable draft reviews and auto-merge.
+Its approvability approval SHALL remain advisory beneath the required verdict checks.
+Macroscope MUST honor `skip:macroscope`, which skips only that stage.
+The cascade MUST retain Runeseer adjudication and the required verdict mirror.
+The configuration guide SHALL record the required state.
+A misconfigured lane SHALL remain a ceremony defect even when repository files do not change.
+
+#### Scenario: Review products share an app identity
+
+- **WHEN** Cursor Security Agent or Macroscope Approvability completes a check
+- **THEN** the pipeline records that product without counting it as Bugbot or Macroscope correctness review
+
+#### Scenario: Macroscope correctness identity is absent
+
+- **WHEN** the repository variable `MACROSCOPE_CORRECTNESS_CHECK` is empty
+- **THEN** the cascade reports a configuration error instead of accepting an arbitrary Macroscope check
+
+#### Scenario: Optional review findings reach adjudication
+
+- **WHEN** a requested CodeRabbit review reports findings
+- **THEN** Runeseer receives the findings with their provider identity and source thread
 
 #### Scenario: Ambient reviewer detected
 
 - **WHEN** a lane reviews outside its sanctioned trigger or reviews a draft
 - **THEN** the lane's dashboard configuration is corrected before the next round is summoned
 
-#### Scenario: Lane blocks a merge
+#### Scenario: Adjudicated finding blocks a merge
 
-- **WHEN** a lane reports a blocking finding
-- **THEN** its check fails and `main` refuses the merge until the finding is resolved
+- **WHEN** Runeseer records an unresolved finding in its current-head verdict
+- **THEN** `review/correctness` blocks the merge until a clean verdict or the specified owner acceptance clears the finding
 
-#### Scenario: Reviewer unavailable
+#### Scenario: Provider findings reach adjudication
 
-- **WHEN** cursor or macroscope reports a terminal provider failure
-- **THEN** the cascade stops immediately, clears that lane's review label, applies its blocked label without triggering another cascade, and refuses later review requests until recovery
+- **WHEN** Macroscope correctness completes with `neutral` on the current head
+- **THEN** Runeseer adjudicates its findings before the review gate can approve the head
+
+#### Scenario: Default reviewer unavailable
+
+- **WHEN** Macroscope reports a terminal provider failure
+- **THEN** the cascade stops immediately, preserves an undelivered request, applies its blocked label without another cascade event, and refuses requests until recovery
+
+#### Scenario: Optional reviewer unavailable
+
+- **WHEN** Cursor or CodeRabbit reports a terminal provider failure
+- **THEN** its failure remains visible without blocking the default funnel or replacing Runeseer's required verdict
+
+#### Scenario: CodeRabbit skips an unrequested review
+
+- **WHEN** the inherited label policy excludes a pull request from CodeRabbit review
+- **THEN** CodeRabbit posts no review-status message
+- **AND** the configuration preserves the inherited request policy and finding reports
 
 #### Scenario: Correctness lane scope
 
@@ -101,7 +191,33 @@ The dashboard state of externally hosted lanes is ceremony configuration: Cursor
 
 ### Requirement: Draft Exemption
 
-A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are free. The lane-request labels this repository's own workflows answer, `review`, `review:runeseer`, `review:cursor`, and `review:autofix`, SHALL all wait when applied to a draft, release when the pull request becomes ready, and cancel their requested in-flight round when removed. `review:cursor` is consumed the moment its summon posts, so removal cancels only a summon that has not yet fired; the Cursor round itself, once requested, runs on the app's own trigger and no workflow here cancels it. The Macroscope app answers `review:macroscope` on its own trigger, which no workflow here controls; the cascade applies that label only to a ready pull request, and that is what keeps drafts free of it. Readiness without one of those labels MUST NOT start a lane. The owner override labels `skip:<lane>` and `ignore:<lane>` are overrides rather than lane requests, so they neither start nor cancel a round. `skip:<lane>` MUST prevent that lane from running at all, so it produces no finding and spends nothing. `ignore:<lane>` MUST let the lane run and report in full, and MUST withdraw only the power of its findings to hold the merge, so its record stays on the pull request. Both MUST clear that lane's required mirror check; for the correctness lane the withdrawal is complete: with `ignore:runeseer` present and a verdict bound to the judged head, the mirror MUST also submit the lane's approving review recording the owner's acceptance, so an accepted verdict satisfies the review requirement without a ruleset bypass. The mirror MUST NOT approve a head the lane never judged. A terminal provider failure MUST still fail the cascade under `ignore:<lane>`, since a broken lane is not a judged one. A round is one cascade: the correctness lane consumes the lane-request labels when its round ends, and the next round starts with a fresh `review` label.
+A review lane SHALL NOT run on drafts.
+Draft iteration and unlabeled pushes SHALL remain free.
+The repository handles `review`, `review:runeseer`, `review:cursor`, and `review:autofix` request labels.
+These requests SHALL wait while the pull request remains a draft.
+They SHALL start when the pull request becomes ready.
+Removing a pending request SHALL prevent dispatch.
+Removing a dispatched `review` or `review:cursor` label SHALL preserve the active round.
+The Cursor workflow SHALL consume `review:cursor` after the summon succeeds.
+Cursor SHALL control the posted review through its app trigger.
+The Macroscope app SHALL control `review:macroscope` through its own trigger.
+The cascade SHALL apply that label only to a ready pull request.
+Readiness without a request label MUST NOT start a lane.
+
+The `skip:<lane>` and `ignore:<lane>` labels SHALL act as overrides, not round requests.
+An override SHALL neither start nor cancel a round.
+The `skip:<lane>` label MUST prevent that lane from running, reporting findings, or spending money.
+The `ignore:<lane>` label MUST preserve the lane's full report while releasing its findings from the merge gate.
+Both overrides MUST clear the lane's required mirror check.
+The correctness mirror MUST record owner acceptance through an approving review when `ignore:runeseer` accompanies a verdict on the judged head.
+This acceptance SHALL satisfy the review requirement without a ruleset bypass.
+The mirror MUST NOT approve a head the lane never judged.
+A terminal default-lane failure MUST still fail the cascade under `ignore:<lane>`.
+A failed provider does not establish a completed review.
+A round SHALL consist of one cascade.
+The cascade SHALL consume `review` after it dispatches the correctness round.
+The correctness lane SHALL consume its own request label when its round ends.
+The next round SHALL require a fresh `review` label.
 
 #### Scenario: Draft iteration
 
@@ -123,10 +239,15 @@ A review lane SHALL NOT run on drafts; draft iteration and unlabeled pushes are 
 - **WHEN** a pull request reopens without a fresh maintainer-applied review label
 - **THEN** no review lane starts on the current head
 
-#### Scenario: Review request removed
+#### Scenario: Pending review request removed
 
-- **WHEN** the maintainer removes a review label during the round it requested
-- **THEN** that round is canceled and the removal starts no lane
+- **WHEN** the maintainer removes `review` or `review:cursor` before dispatch
+- **THEN** the workflow prevents the pending dispatch and starts no new lane
+
+#### Scenario: Dispatched review request removed
+
+- **WHEN** `review` or `review:cursor` is removed after successful dispatch
+- **THEN** the active round continues and the removal starts no new lane
 
 #### Scenario: Review request consumed
 
