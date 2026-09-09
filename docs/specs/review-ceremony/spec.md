@@ -67,7 +67,7 @@ Further rounds MUST judge only the range since the previous verdict.
 
 A terminal provider failure in a default lane MUST stop the cascade immediately.
 The failure handler MUST preserve an undelivered review request and apply a persistent `issue:` label.
-It MUST refuse another request for that lane until the blocker clears or a successful current-head round proves recovery.
+It MUST refuse another request for that lane until the blocker clears or a qualifying current-head round proves recovery.
 The verdict mirror (`review/correctness`) SHALL remain the single required review status check.
 The `quality` check SHALL enforce deterministic validation independently.
 The cascade SHALL report orchestration progress without acting as a second required review status check.

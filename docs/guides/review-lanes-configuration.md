@@ -28,7 +28,11 @@ runedeck installation page:
 | Automatically Learn Rules | On | Suppressions accumulate across pull requests without re-teaching |
 | Autofix Behavior | Off | Autofix in this org is suggestion-only through runewright; a bot pushing commits breaks commit attribution |
 
-A terminal Macroscope failure adds `issue:macroscope`. A correctness round without a verdict adds `issue:rune`. The workflow token applies these labels without starting another cascade. The cascade refuses another request for a blocked default lane. Correct the provider or billing problem before removing its blocker. A successful current-head round clears its lane's blocker automatically. An existing `issue:cursor` label does not block the default cascade.
+A terminal Macroscope failure adds `issue:macroscope`. A correctness round without a verdict adds `issue:rune`. The workflow token applies these labels without starting another cascade. The cascade refuses another request for a blocked default lane. Correct the provider or billing problem before removing its blocker.
+
+A completed current-head Macroscope correctness check clears `issue:macroscope` when its conclusion is `success` or `neutral`.
+A successful current-head correctness round clears `issue:rune`.
+An existing `issue:cursor` label does not block the default cascade.
 
 The cascade verifies the exact Macroscope correctness check on the current head in every round.
 It reuses a completed `success` or `neutral` check and sends its findings to Runeseer.
