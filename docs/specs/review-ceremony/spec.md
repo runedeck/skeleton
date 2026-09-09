@@ -296,6 +296,16 @@ A pull request touching protected paths SHALL either carry a specification chang
 - **WHEN** a pull request modifies a protected path and includes a specification change
 - **THEN** the specification check passes
 
+#### Scenario: Protected path with an active delta specification
+
+- **WHEN** a pull request modifies a protected path and includes `docs/changes/<change>/specs/<capability>/spec.md`
+- **THEN** the specification check accepts that delta as a specification change
+
+#### Scenario: Proposal without a specification
+
+- **WHEN** a protected-path pull request includes only proposal, design, or task documents and has no `ignore:spec` label
+- **THEN** the specification check fails
+
 #### Scenario: Protected path without either
 
 - **WHEN** a pull request modifies a protected path with no specification change and no `ignore:spec` label
