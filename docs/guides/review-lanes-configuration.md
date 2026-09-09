@@ -30,7 +30,11 @@ runedeck installation page:
 
 A terminal Macroscope failure adds `issue:macroscope`. A correctness round without a verdict adds `issue:rune`. The workflow token applies these labels without starting another cascade. The cascade refuses another request for a blocked default lane. Correct the provider or billing problem before removing its blocker. A successful current-head round clears its lane's blocker automatically. An existing `issue:cursor` label does not block the default cascade.
 
-Settled Macroscope rounds carry `stage:macroscope`. Later rounds skip that stage while its findings remain resolved. Remove the label to request another Macroscope round. The adjudicator can also request a restart. Cursor stage records do not create a required default stage.
+The cascade verifies the exact Macroscope correctness check on the current head in every round.
+It reuses a completed `success` or `neutral` check and sends its findings to Runeseer.
+An informational `stage:macroscope` label records completion.
+Removing that label does not force another review while reusable current-head evidence remains.
+Cursor stage records do not create a required default stage.
 
 Bugbot reads `.cursor/BUGBOT.md` from the repository root. It supports no include syntax, so the file stays self-contained; nested `.cursor/BUGBOT.md` files scope guidance to subtrees.
 
@@ -81,6 +85,8 @@ Product Overview text:
 | Skip PRs by Author | Empty | No exempt authors |
 | Skip PRs by Labels | `skip:macroscope` | The owner override that stands this lane down |
 | Approvability | On, medium threshold | Advisory beneath the required verdict checks: its approval cannot outrank a red `review/correctness`, and the owner's merge click stays the final gate |
+| Release Ref Patterns | `v*` | Matches the signed-tag release ceremony |
+| Status features | On | Commit summaries and digests cost nothing in review terms |
 
 Set the repository variable `MACROSCOPE_CORRECTNESS_CHECK` to an observed correctness check name.
 Use the exact name from a real Macroscope correctness run on the current head.
@@ -88,8 +94,6 @@ Approvability and custom-agent checks do not establish correctness review.
 An empty variable stops the default cascade with a configuration error.
 The caller passes this value to Seer as `macroscope_correctness_check`.
 See the Macroscope [label configuration](https://docs.macroscope.com/bug-detection-and-fixes.md).
-| Release Ref Patterns | `v*` | Matches the signed-tag release ceremony |
-| Status features | On | Commit summaries and digests cost nothing in review terms |
 
 ## Owner overrides
 
@@ -118,7 +122,8 @@ One fewer comment per pull request, and the summary lands where a reader looks f
 
 ## Check names and secrets
 
-Check contexts, identities, and the org secret roster live in the skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md); this guide carries only the dashboard state. The rule worth repeating here: `review / cascade` and `review/correctness` are required status checks in the owner-veto ruleset, and the verdict mirror fails closed, so a head with no verdict stays red until a funnel round completes; fork pull requests merge through the owner's admin bypass.
+The skeleton's [ARCHITECTURE.md](../../ARCHITECTURE.md#check-names) defines check contexts, identities, and the organization secret list.
+Use its authoritative review-gate description when you configure branch rules.
 
 ## Verification
 

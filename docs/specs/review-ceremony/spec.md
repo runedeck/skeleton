@@ -58,24 +58,26 @@ The pending request MUST start when the pull request becomes ready.
 Removing a pending request label MUST prevent dispatch.
 Consuming a dispatched request label MUST preserve the active round.
 An infrastructure failure before dispatch MUST preserve the request label.
-Each default stage MUST wait until the previous stage settles clean.
-A settled default stage MUST retain a `stage:` label.
-Later rounds MUST verify that the stage's findings remain resolved before they skip it.
-The adjudicator MAY request a stage restart when the accumulated delta changes the structure.
-The owner MAY remove a stage label to restart that stage.
+The cascade MUST verify the configured Macroscope correctness check on the current head in every round.
+A completed `success` or `neutral` check MUST permit Runeseer to adjudicate the reported findings.
+The cascade MAY reuse that completed check without requesting another Macroscope review.
+The `stage:macroscope` label SHALL record completion without replacing current-head evidence.
+Removing that label SHALL NOT require another review when the current head already has a qualifying completed check.
 Further rounds MUST judge only the range since the previous verdict.
 
 A terminal provider failure in a default lane MUST stop the cascade immediately.
 The failure handler MUST preserve an undelivered review request and apply a persistent `issue:` label.
 It MUST refuse another request for that lane until the blocker clears or a successful current-head round proves recovery.
-The cascade (`review / cascade`) and verdict mirror (`review/correctness`) SHALL remain required status checks.
+The verdict mirror (`review/correctness`) SHALL remain the single required review status check.
+The `quality` check SHALL enforce deterministic validation independently.
+The cascade SHALL report orchestration progress without acting as a second required review status check.
 The mirror MUST report failure for a head without a verdict until a round completes.
 Fork pull requests SHALL use the owner's Repository-admin bypass after the available free default lanes settle clean.
 
 #### Scenario: Full cascade from one label
 
 - **WHEN** the owner applies `review`
-- **THEN** Macroscope runs first and Runeseer adjudicates after Macroscope settles clean on the head
+- **THEN** the cascade verifies completed Macroscope correctness evidence on the current head before Runeseer adjudicates
 
 #### Scenario: Optional lane does not participate
 
@@ -88,15 +90,20 @@ Fork pull requests SHALL use the owner's Repository-admin bypass after the avail
 - **WHEN** a requested Cursor or CodeRabbit round reports a genuine finding
 - **THEN** a fix or an explicit owner acceptance resolves the finding before merge
 
-#### Scenario: Fix round skips settled stages
+#### Scenario: Review round reuses current-head evidence
 
-- **WHEN** the owner re-summons after fixes and earlier stages carry their `stage:` labels with all their findings resolved
-- **THEN** the cascade skips those stages without respending them and the adjudicator judges the delta since its previous verdict
+- **WHEN** the configured Macroscope correctness check completed with `success` or `neutral` on the current head
+- **THEN** the cascade reuses that check and sends its findings to Runeseer without another Macroscope request
 
-#### Scenario: Restart of an earlier stage
+#### Scenario: Stage label removal preserves valid evidence
 
-- **WHEN** the adjudicator's verdict requests a restart, or the owner removes a `stage:` label
-- **THEN** the next round re-runs that stage onward
+- **WHEN** the owner removes `stage:macroscope` while a qualifying completed check remains on the current head
+- **THEN** the next cascade verifies and reuses that check
+
+#### Scenario: Stage label cannot approve a changed head
+
+- **WHEN** `stage:macroscope` remains after a head change without a qualifying completed check on the new head
+- **THEN** the cascade waits for an existing current-head run or requests a new Macroscope review
 
 #### Scenario: Push between rounds
 
@@ -113,7 +120,7 @@ The repository MUST provision that label without applying it to pull requests.
 The repository and base template MUST preserve inherited CodeRabbit review settings.
 They MUST disable CodeRabbit review-status messages without suppressing findings.
 The adjudicator MUST attribute requested CodeRabbit findings to their provider and source thread.
-Macroscope MUST review only by its stage label.
+Macroscope MUST review only after a `review:macroscope` request.
 Macroscope MUST disable draft reviews and auto-merge.
 Its approvability approval SHALL remain advisory beneath the required verdict checks.
 Macroscope MUST honor `skip:macroscope`, which skips only that stage.
@@ -141,10 +148,15 @@ A misconfigured lane SHALL remain a ceremony defect even when repository files d
 - **WHEN** a lane reviews outside its sanctioned trigger or reviews a draft
 - **THEN** the lane's dashboard configuration is corrected before the next round is summoned
 
-#### Scenario: Lane blocks a merge
+#### Scenario: Adjudicated finding blocks a merge
 
-- **WHEN** a lane reports a blocking finding
-- **THEN** its check fails and `main` refuses the merge until the finding is resolved
+- **WHEN** Runeseer records an unresolved finding in its current-head verdict
+- **THEN** `review/correctness` blocks the merge until a clean verdict or the specified owner acceptance clears the finding
+
+#### Scenario: Provider findings reach adjudication
+
+- **WHEN** Macroscope correctness completes with `neutral` on the current head
+- **THEN** Runeseer adjudicates its findings before the review gate can approve the head
 
 #### Scenario: Default reviewer unavailable
 
@@ -227,10 +239,15 @@ The next round SHALL require a fresh `review` label.
 - **WHEN** a pull request reopens without a fresh maintainer-applied review label
 - **THEN** no review lane starts on the current head
 
-#### Scenario: Review request removed
+#### Scenario: Pending review request removed
 
-- **WHEN** the maintainer removes a review label during the round it requested
-- **THEN** that round is canceled and the removal starts no lane
+- **WHEN** the maintainer removes `review` or `review:cursor` before dispatch
+- **THEN** the workflow prevents the pending dispatch and starts no new lane
+
+#### Scenario: Dispatched review request removed
+
+- **WHEN** `review` or `review:cursor` is removed after successful dispatch
+- **THEN** the active round continues and the removal starts no new lane
 
 #### Scenario: Review request consumed
 

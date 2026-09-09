@@ -10,14 +10,19 @@ This repository is the template and archetype for every repository in the organi
 
 ## Review funnel
 
-The review funnel is the ordered workflow for same-repository pull requests. It runs four stages, each spending only after the previous settles clean:
+The default review funnel serves same-repository pull requests.
 
-1. **cursor** — summoned by an `@cursor review` comment the cascade posts
-2. **macroscope** — summoned by the `review:macroscope` label
-3. **runeseer** — summoned by the `review:runeseer` label; adjudicates the free lanes' findings and earns the approving review on an explicit clean verdict for the live head
-4. **the owner** — reviews only work carrying that approval; merging is always the owner's action
+1. Macroscope provides correctness evidence on the current head, including any findings.
+2. Runeseer adjudicates the findings and records a current-head verdict.
+3. The owner reviews the result and decides whether to merge.
 
-Review starts only when a maintainer applies a review label. Bare `review` summons the full cascade, while each `review:` label summons its single lane. A review label applied to a draft waits until the pull request becomes ready, and removing the label cancels the round it requested. Review labels request one round and are consumed when that round ends. Stages settle once: a settled stage carries a `stage:` label and later rounds skip it while its findings stay resolved, so fix rounds go straight to the adjudicator, which judges only the delta since its previous verdict. The adjudicator's verdict can send the pull request back to an earlier stage, and the owner does the same by removing a `stage:` label. Fork pull requests run the free lanes and merge through the owner's Repository-admin bypass; the paid lane's caller and body each refuse fork heads before any secret-bearing step runs.
+Cursor Bugbot and CodeRabbit provide optional standalone reviews.
+Their absence does not prevent the default funnel from running.
+Their absence also does not establish approval.
+The [review ceremony specification](docs/specs/review-ceremony/spec.md#requirement-default-and-optional-review-lanes) defines request handling and current-head evidence reuse.
+The [configuration guide](docs/guides/review-lanes-configuration.md) defines provider settings and exact check identification.
+Fork pull requests use the available free lanes and the owner's Repository-admin bypass.
+The correctness caller and body refuse fork heads before any secret-bearing step.
 
 ## Subscription model
 
@@ -29,8 +34,20 @@ A repository subscribes through its own workflow files: each carries a thin call
 
 ## Check names
 
-Most lane checks compose as `caller job / called job`; the cascade reports as `review / cascade`. The correctness lane is mirrored by a caller-side job under the stable name `review/correctness`, and the mirror fails closed: a head with no verdict reports failure, never a satisfiable skip. Both contexts are required status checks in the owner-veto ruleset, and a same-repository pull request satisfies them only after a maintainer summons a clean round; merging also requires the earned approval under required reviews. Fork pull requests, where the paid lane cannot run, merge through the owner's Repository-admin bypass after the free lanes settle.
+Most lane checks compose as `caller job / called job`.
+Their display names can vary with the caller job name.
+The stable `review/correctness` mirror is the single required review status check.
+The separate required `quality` check enforces deterministic validation.
+The cascade reports orchestration progress, not a second merge decision.
+A head without a verdict fails the review gate.
+A clean, no-restart verdict on the current head earns Runeseer's approval.
+The specification defines owner acceptance and fork exceptions.
+Branch review requirements remain separate from these status checks.
 
 ## Secrets
 
-Org secrets with All-repositories visibility: `RUNESEER_APP_ID`, `RUNESEER_APP_KEY`, `RUNEWRIGHT_APP_ID`, `RUNEWRIGHT_APP_KEY`, `RUNEWRIGHT_GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`. The `RUNEWRIGHT_GITHUB_TOKEN` is an owner-minted fine-grained token (issues write only) the cascade uses to post Cursor review requests, because Cursor drops bot-authored trigger comments. Callers pass them to seer's bodies explicitly; a repository without access fails when a review is first requested, not at scaffold time.
+Organization secrets: `RUNESEER_APP_ID`, `RUNESEER_APP_KEY`, `RUNEWRIGHT_APP_ID`, `RUNEWRIGHT_APP_KEY`, `RUNEWRIGHT_GITHUB_TOKEN`, and `CLAUDE_CODE_OAUTH_TOKEN`.
+The optional Bugbot summon uses the owner-minted `RUNEWRIGHT_GITHUB_TOKEN` because Cursor ignores bot-authored review requests.
+The default cascade does not need that token.
+Callers pass the secrets their reusable workflows need.
+Repository access to those secrets remains a deployment prerequisite.
