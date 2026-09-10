@@ -40,6 +40,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKIP = {".git", ".jj", "answers.yaml"}
 REGISTER = ".ceremony-divergences.yaml"
+COPIER_CONFIG = "copier.yaml"
 STE_RECORD = Path(".vale", "ste-source.yaml")
 
 
@@ -136,13 +137,34 @@ def render(skeleton: Path, ref: str, answers: dict[str, str], destination: Path)
     )
 
 
-def walk(root: Path) -> dict[str, Path]:
+def seeded_paths(skeleton: Path) -> set[str]:
+    """Paths under ``_skip_if_exists`` in copier.yaml: seeded once, owned by the consumer."""
+    seeded: set[str] = set()
+    config = skeleton / COPIER_CONFIG
+    if not config.is_file():
+        return seeded
+    inside = False
+    for raw in config.read_text(encoding="utf-8").splitlines():
+        line = raw.rstrip()
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if not line.startswith(" "):
+            inside = line.startswith("_skip_if_exists:")
+            continue
+        if inside and line.strip().startswith("- "):
+            seeded.add(line.strip()[2:].strip().strip("'\""))
+    return seeded
+
+
+def walk(root: Path, seeded: set[str] = frozenset()) -> dict[str, Path]:
     files: dict[str, Path] = {}
     for path in root.rglob("*"):
         if path.is_dir():
             continue
         relative = path.relative_to(root)
         if relative.parts[0] in SKIP or relative.name in SKIP:
+            continue
+        if relative.as_posix() in seeded:
             continue
         files[relative.as_posix()] = path
     return files
@@ -168,10 +190,11 @@ def compare_files(
     rendered: Path,
     baseline: Path | None,
     entries: list[dict],
+    seeded: set[str] = frozenset(),
 ) -> tuple[list[str], list[str]]:
     drift: list[str] = []
     declared: list[str] = []
-    template_files = walk(rendered)
+    template_files = walk(rendered, seeded)
     for relative, template_path in sorted(template_files.items()):
         consumer_path = consumer / relative
         if symlink_in_path(consumer, relative) or template_path.is_symlink():
@@ -192,7 +215,7 @@ def compare_files(
         else:
             drift.append(f"`{relative}`: differs")
     if baseline is not None:
-        for relative in sorted(set(walk(baseline)) - set(template_files)):
+        for relative in sorted(set(walk(baseline, seeded)) - set(template_files)):
             if (consumer / relative).exists():
                 drift.append(f"`{relative}`: removed from the template, still present")
     return drift, declared
@@ -275,7 +298,7 @@ def audit_files(skeleton: Path, name: str, consumer: Path, central: list[dict], 
         if resolved_pin is not None and resolved_pin != main:
             baseline = Path(directory, "pin")
             render(skeleton, resolved_pin, answers, baseline)
-        drift, declared = compare_files(name, consumer, rendered, baseline, entries)
+        drift, declared = compare_files(name, consumer, rendered, baseline, entries, seeded_paths(skeleton))
     if declared:
         lines.append("- declared divergences: " + ", ".join(declared))
     if drift:

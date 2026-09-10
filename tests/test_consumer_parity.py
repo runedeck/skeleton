@@ -80,6 +80,25 @@ class RegisterTests(unittest.TestCase):
             self.assertIn("not approved centrally", problem)
 
 
+class SeededPathTests(unittest.TestCase):
+    def test_copier_skip_list_is_read(self):
+        seeded = parity.seeded_paths(ROOT)
+        self.assertIn("CHANGELOG.md", seeded)
+        self.assertIn(".gitignore", seeded)
+        self.assertNotIn(".pre-commit-config.yaml", seeded)
+
+    def test_seeded_files_are_not_compared(self):
+        with tempfile.TemporaryDirectory() as directory:
+            rendered = Path(directory, "main")
+            consumer = Path(directory, "consumer")
+            write(rendered / "CHANGELOG.md", "template\n")
+            write(consumer / "CHANGELOG.md", "downstream\n")
+            write(rendered / "managed.txt", "x\n")
+            write(consumer / "managed.txt", "x\n")
+            drift, _ = parity.compare_files("cli", consumer, rendered, None, [], {"CHANGELOG.md"})
+        self.assertEqual(drift, [])
+
+
 class FileComparisonTests(unittest.TestCase):
     def test_modes_removals_and_declarations(self):
         with tempfile.TemporaryDirectory() as directory:

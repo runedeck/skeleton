@@ -19,6 +19,11 @@ Generated repositories SHALL record the skeleton source, release reference, and 
 - **WHEN** the recorded reference is a commit and skeleton has no newer tag
 - **THEN** `copier update --vcs-ref <commit>` applies the template at that commit and records it
 
+#### Scenario: Consumer-owned file exists
+
+- **WHEN** an update reaches a file that `copier.yaml` lists under `_skip_if_exists` and the consumer already has it
+- **THEN** Copier leaves the consumer's file untouched and the parity audit does not compare it
+
 ## ADDED Requirements
 
 ### Requirement: Shared Pinned Lint Tools

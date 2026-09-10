@@ -54,7 +54,7 @@ The nightly machinery canary SHALL run every probe step to completion, name each
 
 ### Requirement: Consumer Parity Audit
 
-Skeleton SHALL run a scheduled parity audit that renders `templates/base` at each consumer's recorded release and at skeleton main, compares every rendered file with the consumer's copy, compares the consumer's labels with the provisioned set, and posts one report per run on the standing audit issue.
+Skeleton SHALL run a scheduled parity audit that renders `templates/base` at each consumer's recorded release and at skeleton main, compares every rendered file except the seed-once files with the consumer's copy, compares the consumer's labels with the provisioned set, and posts one report per run on the standing audit issue.
 
 #### Scenario: Consumer lags the template
 

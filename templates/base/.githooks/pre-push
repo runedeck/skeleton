@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Git exports repository variables into hooks. Child git commands in prek
+# hooks and test suites must not inherit them, or they target this
+# repository instead of the fixture repositories they create.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+
 zero=0000000000000000000000000000000000000000
 hook_directory=$(dirname "$0")
 

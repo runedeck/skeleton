@@ -1,5 +1,15 @@
 _subdirectory: templates/base
 _answers_file: answers.yaml
+# Seeded once, then owned by the consumer: a changelog, agent brief, and
+# contributor guide describe that repository, not the ceremony. Copier
+# never rewrites them on update, and the parity audit does not compare them.
+_skip_if_exists:
+    - CHANGELOG.md
+    - AGENTS.md
+    - CONTRIBUTING.md
+    - INSTALL.md
+    - CODEOWNERS
+    - .gitignore
 _envops:
     variable_start_string: "${"
     variable_end_string: "}"

@@ -13,6 +13,8 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 - `make install` requires the full pinned toolchain, Copier included. `make validate` and the review lanes run without Copier.
 - `template-update.yaml` compares skeleton main by hand when the recorded pin is a commit, because Copier only compares tags.
 - The attestation spec-presence check protects the lint configs, `scripts/`, `.vale/`, and the divergence register.
+- `copier.yaml` seeds `CHANGELOG.md`, `AGENTS.md`, `CONTRIBUTING.md`, `INSTALL.md`, `CODEOWNERS`, and `.gitignore` once. Updates never rewrite them and the parity audit skips them.
+- The cursor caller passes the app secrets the seer body requires. The attestations checkout drops persisted credentials. The pre-push hook unsets inherited git environment. The Vale hook skips archived changes.
 - The worktree target's jj path is the specified behavior: a jj workspace plus `JJ_USER` and `JJ_EMAIL` exports.
 - The skeleton-local decision record `DECK-0001` is `SKEL-0001`.
 - Review rounds begin only from explicit review labels.
