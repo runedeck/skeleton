@@ -1,0 +1,22 @@
+# Central register of ceremony divergences (SKEL-0002). Each consumer entry
+# names the repository, the template-relative path, the reason, and the
+# SHA-256 of the rendered template file and of the consumer's file at
+# approval time. The consumer-parity workflow treats any other difference
+# as drift. `extensions` approves a consumer's own .ceremony-divergences.yaml
+# by digest so its appended entries count.
+version: 1
+entries:
+    # cli keeps the evals/baselines fixture exemption in its gitleaks config.
+    - repository: cli
+      path: .gitleaks.toml
+      reason: keeps the `^evals/baselines/.*` allowlist for benchmark fixtures
+      template_sha256: pending
+      consumer_sha256: pending
+    # The root skeleton caller names its cascade job `review`; consumers use
+    # `cascade`, so the required check `review / cascade` composes.
+    - repository: skeleton
+      path: .github/workflows/review-cascade.yaml
+      reason: root job id is `review`, the template's is `cascade`
+      template_sha256: pending
+      consumer_sha256: pending
+extensions: {}

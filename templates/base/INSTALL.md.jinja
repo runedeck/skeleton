@@ -25,7 +25,7 @@ set -e
 make install
 export PATH="$HOME/.local/bin:$PATH"
 missing=false
-for tool in prek gitleaks shellcheck copier ruff semgrep mdschema; do
+for tool in prek gitleaks shellcheck copier ruff semgrep mdschema rumdl typos vale lychee zizmor actionlint; do
     if ! command -v "$tool"; then
         printf 'missing tool: %s\n' "$tool" >&2
         missing=true
@@ -35,6 +35,6 @@ done
 make validate
 ```
 
-`make install` supports macOS with Homebrew and Linux with Homebrew, apt, dnf, or pacman. It installs the repository check tools, verifies downloaded release archives against their upstream checksum manifests, and activates the git and jj hooks. Copier is used for template updates; mdschema supplies strict Markdown structure validation.
+`make install` supports macOS with Homebrew and Linux with Homebrew, apt, dnf, or pacman. It installs the repository check tools, verifies downloaded release archives against their upstream checksum manifests, and activates the git and jj hooks. Copier applies template updates. mdschema validates strict Markdown structure.
 
 EXECUTE NOW: Complete the above TODO list to achieve: hooks wired and `make validate` green.

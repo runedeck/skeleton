@@ -1,7 +1,8 @@
 ---
-adr: "docs/decisions/DECK-0001.md"
+adr: "docs/decisions/SKEL-0001 Version-Independent Model Attribution.md"
 status: proposed
 ---
+
 # Model Identity Policy
 
 ## Why
@@ -13,7 +14,7 @@ The existing commit-attribution capability requires exact model entries.
 No active change in this workspace covers version-independent attribution.
 This change modifies that capability rather than creating a second validator.
 
-The [decision record](../../decisions/DECK-0001.md) compares the alternatives.
+The [decision record](../../decisions/SKEL-0001%20Version-Independent%20Model%20Attribution.md) compares the alternatives.
 
 ## What Changes
 

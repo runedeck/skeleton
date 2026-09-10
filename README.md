@@ -10,7 +10,7 @@ Copier installs `templates/base` directly and records the template release in `a
 copier copy https://github.com/runedeck/skeleton.git weather-stats
 ```
 
-Later releases arrive through `copier update`. The generated repository keeps operating when Copier is absent; only template installation and updates require it.
+Later updates arrive through `copier update`, from a tag or from a skeleton commit. `make install` needs the full pinned toolchain, Copier included. `make validate` and the review lanes run without it.
 
 ## Composable templates
 
@@ -51,4 +51,4 @@ Copier-rendered files use the `.jinja` suffix, which is removed in generated rep
 
 ## License
 
-Everything scaffolded defaults to EUPL-1.2; the license file ships in `templates/base/`.
+Every generated repository defaults to EUPL-1.2. The license file is part of `templates/base/`.

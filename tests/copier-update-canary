@@ -70,15 +70,15 @@ run_copier update --answers-file answers.yaml --quiet --defaults --vcs-ref v0.2.
 grep -F "Downstream policy." "$consumer_repository/CONTRIBUTING.md" >/dev/null
 grep -F "Template release marker." "$consumer_repository/CHANGELOG.md" >/dev/null
 git -C "$consumer_repository" add -A
-RUFF_NO_CACHE=1 make -C "$consumer_repository" validate
+RUFF_NO_CACHE=true make -C "$consumer_repository" validate
 test -z "$(git -C "$consumer_repository" diff --name-only)"
 test -z "$(git -C "$consumer_repository" ls-files --others --exclude-standard)"
 git -C "$consumer_repository" diff --cached --binary --output="$scratch_directory/template-update.patch"
 test -s "$scratch_directory/template-update.patch"
 
-perl -0pi -e 's/- Initial scaffold\./- Downstream release note./' "$consumer_repository/CHANGELOG.md"
+perl -0pi -e 's/- Initial repository layout\./- Downstream release note./' "$consumer_repository/CHANGELOG.md"
 commit_repository "$consumer_repository" "docs: customize release note"
-perl -0pi -e 's/- Initial scaffold\./- Template release note./' "$template_repository/templates/base/CHANGELOG.md.jinja"
+perl -0pi -e 's/- Initial repository layout\./- Template release note./' "$template_repository/templates/base/CHANGELOG.md.jinja"
 commit_repository "$template_repository" "feat: revise release note"
 tag_repository "$template_repository" v0.3.0
 run_copier update --answers-file answers.yaml --quiet --defaults --vcs-ref v0.3.0 "$consumer_repository" >/dev/null

@@ -7,14 +7,14 @@ This repository is the template and archetype for every repository in the organi
 ```sh
 git clone https://github.com/runedeck/skeleton.git
 cd skeleton
-prek run --all-files    # the checks CI runs at commit stage
+make validate           # the checks CI runs at commit stage
 ```
 
 ## Conventions
 
 - 4-space indentation, no tab characters
 - Every text file ends with a newline
-- Keep portable ceremony files in `templates/base`; Copier release updates propagate them to consumers
+- Keep portable ceremony files in `templates/base`. Copier updates propagate them to consumers, and the owner pushes each consumer directly.
 - Shell scripts pass `shellcheck -S warning`
 
 ## Git
@@ -29,12 +29,12 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`.
 2. Make changes following the conventions above
 3. Open a PR against `main` **as a draft**, and mark it ready when the tree is stable
 
-The body carries `## Plan`, `## Changes`, `## Testing`, and `## Release Notes` sections (`- N/A` when nothing is user-facing); the template pre-fills the shape. Write PR text the way a diff summarizer would: verb-first, factual, file-anchored bullets, claims the diff upholds, no narrative. Do not append a generation footer, a tool badge, or a session link to the body or to a commit message. Attribution lives in the author line and the `authors.yaml` trailers.
+The body carries `## Plan`, `## Changes`, `## Testing`, and `## Release Notes` sections (`- N/A` when nothing is user-facing). The template pre-fills the shape. Write PR text the way a diff summarizer would: verb-first, factual, file-anchored bullets, claims the diff upholds, no narrative. Do not append a generation footer, a tool badge, or a session link to the body or to a commit message. Attribution lives in the author line and the `authors.yaml` trailers.
 
 ## Review etiquette
 
-Iterate in draft, collect fixes locally, push them as one batch, and request a fresh review round only when the tree is stable. A fix commit may name the review thread it answers with a `Resolves-Thread: <value>` trailer, where the value is the finding comment's URL, its numeric comment id, or the thread's GraphQL node id; the thread resolves automatically on push. Only threads on the same pull request resolve.
+Iterate in draft, collect fixes locally, push them as one batch, and request a fresh review round only when the tree is stable. A fix commit may name the review thread it answers with a `Resolves-Thread: <value>` trailer, where the value is the finding comment's URL, its numeric comment id, or the thread's GraphQL node id. The thread resolves automatically on push. Only threads on the same pull request resolve.
 
 ## Review bots
 
-A same-repository pull request opened ready for review starts its first cascade automatically; every later lane starts only when a maintainer applies a review label. Bare `review` runs the full ordered sequence, cursor, then macroscope, then the adjudicating correctness lane, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. Each request runs one round, and the review labels are consumed when it ends. Settled stages record `stage:` labels and are skipped on later rounds until a maintainer removes them. Every requested round is visible in the pull request timeline. A fork pull request starts nothing on its own; the owner may summon the free lanes with the review label, the correctness lane refuses fork heads, and the pull request merges through the owner's bypass once the free lanes settle clean.
+Nothing starts on open. Every review round starts when a maintainer applies a review label. Bare `review` runs the full ordered sequence, cursor, then macroscope, then the adjudicating correctness lane, while `review:runeseer`, `review:macroscope`, and `review:autofix` summon a single lane. Each request runs one round, and the review labels are consumed when it ends. Settled stages record `stage:` labels and are skipped on later rounds until a maintainer removes them. Every requested round is visible in the pull request timeline. A fork pull request starts nothing on its own. The owner may summon the free lanes with the review label, the correctness lane refuses fork heads, and the pull request merges through the owner's bypass once the free lanes settle clean.
