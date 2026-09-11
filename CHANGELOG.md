@@ -27,7 +27,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 ### Added
 
 - The six-linter row from the deck (rumdl, typos, Vale, lychee, zizmor, actionlint) pinned with four digests each, installed by `install-tools`, and run through guarded prek hooks. `REQUIRE_GATES=1` turns a missing binary into a failure.
-- The Vale STE style is generated from a frozen snapshot of the deck's Simplified Technical English rule source by `scripts/generate-vale-style.py`, with a staleness check.
+- The Vale STE style is generated from a frozen snapshot of the deck's Simplified Technical English rule source by `scripts/generate-vale-style.py`, with a staleness check. The strict-mode words render as suggestions, so every list in the snapshot reaches the style.
 - The jj push check (`jj-push-bookmark.py`) and its tests, upstreamed from the deck.
 - `.ceremony-divergences.yaml`: the central register of declared consumer divergences (SKEL-0002).
 - `consumer-parity.yaml`: weekly file and label parity audit of every consumer in `TEMPLATE_CONSUMERS`, reported on the deck audit issue. A consumer that never adopted the template is named in `LABELS_ONLY_CONSUMERS`.

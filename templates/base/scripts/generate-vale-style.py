@@ -100,6 +100,7 @@ def render(rules: dict) -> dict[str, str]:
     fillers = sorted(set(rules.get("fillerPhrases", [])))
     marketing = sorted(set(rules.get("marketing", [])))
     verb_only = sorted(set(rules.get("verbOnlyWords", [])))
+    strict = sorted(set(rules.get("strictBannedWords", [])))
 
     files = {
         "Semicolons.yml": HEADER
@@ -141,6 +142,14 @@ def render(rules: dict) -> dict[str, str]:
         + "message: \"'%s' is a jargon verb here. Use a literal verb.\"\n"
         + "level: warning\nscope: sentence\nignorecase: true\ntokens:\n"
         + yaml_list(verb_only),
+        # The deck applies these only under lint.py --strict (procedures and
+        # runbooks), and "shall" is the requirement keyword in every spec.
+        # A suggestion never fails a run; MinAlertLevel = suggestion shows it.
+        "StrictWords.yml": HEADER
+        + "extends: existence\n"
+        + "message: \"Strict mode: avoid '%s' in procedures and runbooks.\"\n"
+        + "level: suggestion\nscope: sentence\nignorecase: true\ntokens:\n"
+        + yaml_list(strict),
     }
     return files
 
