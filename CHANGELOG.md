@@ -29,6 +29,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 - The six-linter row from the deck (rumdl, typos, Vale, lychee, zizmor, actionlint) pinned with four digests each, installed by `install-tools`, and run through guarded prek hooks. `REQUIRE_GATES=1` turns a missing binary into a failure.
 - `install-tools` runs `scripts/install-tools.local` when a consumer has one, so consumer-only validators install through Quality, the canary, and template updates alike.
 - The authorship hook runs on every push, including empty commits.
+- Label provisioning creates `review:pr-agent` and `skip:pr-agent`, the labels the PR-Agent caller reads.
 - The Vale STE style is generated from a frozen snapshot of the deck's Simplified Technical English rule source by `scripts/generate-vale-style.py`, with a staleness check. The strict-mode words render as suggestions, so every list in the snapshot reaches the style.
 - The jj push check (`jj-push-bookmark.py`) and its tests, upstreamed from the deck.
 - `.ceremony-divergences.yaml`: the central register of declared consumer divergences (SKEL-0002).
