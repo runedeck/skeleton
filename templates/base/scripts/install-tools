@@ -355,6 +355,12 @@ main() {
         verify_tools
     fi
 
+    # A consumer's own tools (deck validators, language toolchains) install
+    # through a sibling hook that the template never overwrites.
+    if [ -x "$script_directory/install-tools.local" ]; then
+        "$script_directory/install-tools.local"
+    fi
+
     log "Pinned repository check tools are installed."
     case ":$original_path:" in
         *":$INSTALL_DIRECTORY:"*) ;;

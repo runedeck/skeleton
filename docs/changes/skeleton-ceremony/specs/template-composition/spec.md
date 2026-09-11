@@ -40,6 +40,11 @@ Generated repositories SHALL record the skeleton source, release reference, and 
 - **WHEN** `REQUIRE_GATES` is set and a guarded hook's binary is not on the path
 - **THEN** the hook fails instead of skipping
 
+#### Scenario: Consumer needs its own tools
+
+- **WHEN** `scripts/install-tools.local` exists and is executable
+- **THEN** `install-tools` runs it after the pinned tools, so a consumer's validators arrive through every path that installs the toolchain
+
 #### Scenario: Hook names an unpinned binary
 
 - **WHEN** a guarded hook calls a binary with no version in `tool-versions`
