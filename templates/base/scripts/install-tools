@@ -150,7 +150,7 @@ verified_archive() {
 
     if ! (
         cd "$scratch_directory" \
-            && curl -fsSL "$archive_url" -o "$archive_name" \
+            && curl -fsSL --connect-timeout 15 --max-time 300 --retry 3 --retry-connrefused "$archive_url" -o "$archive_name" \
             && printf '%s  %s\n' "$expected_digest" "$archive_name" > selected-checksum \
             && digest_matches selected-checksum \
             && tar -xzf "$archive_name" \
