@@ -8,6 +8,7 @@ tests keep both tracked assignments on an accepted value and verify the
 canary workflow reports before it fails.
 """
 
+import os
 import re
 import shutil
 import subprocess
@@ -37,12 +38,13 @@ class RuffCacheEnvironmentTests(unittest.TestCase):
     def test_ruff_accepts_only_boolean_values(self):
         with tempfile.TemporaryDirectory() as directory:
             Path(directory, "probe.py").write_text("x = 1\n", encoding="utf-8")
+            ruff = shutil.which("ruff")
             for value, accepted in (("true", True), ("false", True), ("1", False), ("yes", False)):
                 with self.subTest(value=value):
                     result = subprocess.run(
-                        ["ruff", "check", "."],
+                        [ruff, "check", "."],
                         cwd=directory,
-                        env={"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin", "RUFF_NO_CACHE": value},
+                        env={"PATH": os.environ.get("PATH", ""), "RUFF_NO_CACHE": value},
                         capture_output=True,
                         text=True,
                         check=False,

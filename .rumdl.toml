@@ -15,3 +15,7 @@ exclude = [
     ".opencode",
     "templates",
 ]
+
+# Nested lists indent four spaces, the repository convention.
+[MD007]
+indent = 4

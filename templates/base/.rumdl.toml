@@ -14,3 +14,7 @@ exclude = [
     ".gemini",
     ".opencode",
 ]
+
+# Nested lists indent four spaces, the repository convention.
+[MD007]
+indent = 4
