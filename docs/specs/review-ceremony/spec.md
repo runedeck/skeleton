@@ -8,9 +8,9 @@ Nothing reaches `main` on one opinion. An application opens every pull request s
 
 ### Requirement: Owner-Opened Pull Requests
 
-The owner MUST author every ceremony pull request, ghostwritten by the orchestrating agent with a short summary and pushed under the owner's credentials, and the `runewright` app SHALL post the full ceremony body as the first comment. The app acts only server-side, from workflow-minted tokens; no local key ceremony is required to move work.
+The owner MUST author every ceremony pull request, ghostwritten by the orchestrating agent with a short summary and pushed under the owner's credentials, and the `runewright` app SHALL post the full ceremony body as the first comment. The app acts only server-side, from workflow-minted tokens. No local key ceremony is required to move work.
 
-*Rationale:* owner authorship is currently the only way to summon the hosted review bots without a Cursor team subscription; individual-tier Bugbot reviews only the account owner's pull requests.
+*Rationale:* owner authorship is currently the only way to summon the hosted review bots without a Cursor team subscription. Individual-tier Bugbot reviews only the account owner's pull requests.
 
 #### Scenario: Ghostwritten pull request
 
@@ -39,7 +39,7 @@ Work authored by anyone other than the owner SHALL require the owner's code-owne
 #### Scenario: Checks bind everyone
 
 - **WHEN** any same-repository pull request fails a required check
-- **THEN** the merge is refused regardless of who authored it; the review ruleset grants its admin bypass to the owner as an actor, and the ceremony reserves its use for fork pull requests, where the correctness lane stands down on the same-repository guard and produces no verdict
+- **THEN** the merge is refused regardless of who authored it. The review ruleset grants its admin bypass to the owner as an actor, and the ceremony reserves its use for fork pull requests, where the correctness lane stands down on the same-repository guard and produces no verdict
 
 ### Requirement: Default and Optional Review Lanes
 
@@ -108,7 +108,7 @@ Fork pull requests SHALL use the owner's Repository-admin bypass after the avail
 #### Scenario: Push between rounds
 
 - **WHEN** a pull request is pushed carrying no `review` or `review:` label
-- **THEN** no paid lane runs for that push; the previous head's verdict remains behind, and the current head's required checks stay unsatisfied until a maintainer applies a review label, holding the merge closed
+- **THEN** no paid lane runs for that push. The previous head's verdict remains behind, and the current head's required checks stay unsatisfied until a maintainer applies a review label, holding the merge closed
 
 ### Requirement: External Lane Configuration
 
@@ -177,7 +177,7 @@ A misconfigured lane SHALL remain a ceremony defect even when repository files d
 #### Scenario: Correctness lane scope
 
 - **WHEN** the owner summons the correctness lane on any same-repository, non-draft pull request
-- **THEN** the lane runs regardless of author; spend is bounded to one round per cascade, and the owner must summon each further round deliberately
+- **THEN** the lane runs regardless of author. Spend is bounded to one round per cascade, and the owner must summon each further round deliberately
 
 #### Scenario: Fork pull request
 
@@ -265,7 +265,7 @@ The tests, lint, secret scan, schema validation, authorship, and specification c
 
 ### Requirement: Range-Scoped Secret Scanning
 
-Secret scanning SHALL examine only the commits a push or pull request introduces, resolved as an explicit commit range; a full-history scan SHALL run on a schedule, not per push or pull request.
+Secret scanning SHALL examine only the commits a push or pull request introduces, resolved as an explicit commit range. A full-history scan SHALL run on a schedule, not per push or pull request.
 
 #### Scenario: Pull-request scan
 
@@ -332,7 +332,7 @@ A clean correctness verdict on a pull request whose review was requested SHALL b
 
 ### Requirement: Owner Attestation on Tags
 
-The owner's hardware key MUST enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor. The release workflow MUST verify the tag against `KEYS` before publication. Merging MUST NOT demand any additional signature ritual beyond the platform's own; the merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
+The owner's hardware key MUST enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor. The release workflow MUST verify the tag against `KEYS` before publication. Merging MUST NOT demand any additional signature ritual beyond the platform's own. The merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
 
 #### Scenario: Signed tag vouches for merged history
 
@@ -369,7 +369,7 @@ A fix commit MAY name the review thread it answers with a `Resolves-Thread:` tra
 
 ### Requirement: Release Notes Attestation
 
-Every pull request body MUST carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow MUST compile the sections of merged pull requests into the release body the owner signs over. A pull request body MUST NOT change at or after merge; if it does, release compilation MUST fail because the public API cannot attest the merge-time body.
+Every pull request body MUST carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow MUST compile the sections of merged pull requests into the release body the owner signs over. A pull request body MUST NOT change at or after merge. If it does, release compilation MUST fail because the public API cannot attest the merge-time body.
 
 #### Scenario: Missing section
 

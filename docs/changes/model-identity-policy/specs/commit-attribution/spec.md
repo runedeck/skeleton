@@ -100,8 +100,8 @@ For a new model, the resolver MUST generate a formatted identity under the suppl
 An absent harness MUST resolve only when one existing identity matches the model.
 An ambiguous identity or unapproved harness MUST fail before workspace creation.
 
-Git worktrees MUST receive the selected `user.name` and `user.email`.
-Jujutsu workspaces MUST report the selected `JJ_USER` and `JJ_EMAIL` values.
+In a jj colocated repository the target MUST create a jj workspace under `.workspaces/` and print the `JJ_USER` and `JJ_EMAIL` exports for the selected identity, because jj reads the author from the environment of each command.
+In a git-only repository the target MUST create a git worktree under `.worktrees/` and write the selected `user.name` and `user.email` into that worktree's configuration.
 
 #### Scenario: Unique existing identity
 
@@ -127,6 +127,16 @@ Jujutsu workspaces MUST report the selected `JJ_USER` and `JJ_EMAIL` values.
 
 - **WHEN** the supplied harness selects no approved domain or existing identity
 - **THEN** the target fails before it creates a workspace or branch
+
+#### Scenario: Colocated repository provisions a workspace
+
+- **WHEN** the repository carries a `.jj` directory
+- **THEN** the target creates a jj workspace and prints the `JJ_USER` and `JJ_EMAIL` exports instead of writing git configuration
+
+#### Scenario: Git-only repository provisions a worktree
+
+- **WHEN** the repository carries no `.jj` directory
+- **THEN** the target creates a git worktree with the selected identity in its worktree configuration
 
 ## ADDED Requirements
 

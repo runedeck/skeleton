@@ -2,7 +2,7 @@
 
 ## Approach
 
-Use the [selected policy](../../decisions/DECK-0001.md).
+Use the [selected policy](../../decisions/SKEL-0001%20Version-Independent%20Model%20Attribution.md).
 The [delta specification](specs/commit-attribution/spec.md) defines its observable behavior.
 
 ## Structure

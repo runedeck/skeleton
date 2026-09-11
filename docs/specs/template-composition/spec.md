@@ -106,7 +106,7 @@ Generated repositories SHALL record the skeleton source, release tag, and render
 
 ### Requirement: Verbatim Files
 
-Only files carrying the `.jinja` suffix SHALL be rendered by Copier; unsuffixed files SHALL be copied byte-for-byte.
+Only files carrying the `.jinja` suffix SHALL be rendered by Copier. Unsuffixed files SHALL be copied byte-for-byte.
 
 #### Scenario: GitHub expression
 

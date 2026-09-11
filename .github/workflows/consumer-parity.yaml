@@ -1,0 +1,146 @@
+name: Consumer Parity
+
+# Weekly audit of every Copier consumer against templates/base at skeleton
+# main: rendered files, declared divergences, and the provisioned label
+# set. One report lands on the standing audit issue in the deck; drift
+# fails the run after the report is posted. Consumer code never executes:
+# Copier renders with --skip-tasks and the comparison reads bytes only.
+on:
+    schedule:
+        - cron: "17 7 * * 1"
+    workflow_dispatch: {}
+
+permissions:
+    contents: read
+
+concurrency:
+    group: consumer-parity
+    cancel-in-progress: false
+
+env:
+    AUDIT_REPOSITORY: runedeck/deck
+    AUDIT_REPOSITORY_NAME: deck
+    AUDIT_ISSUE_TITLE: "Weekly ceremony audit"
+
+jobs:
+    parity:
+        # The report names skeleton main; a dispatch from another ref would
+        # render that ref and call it main.
+        if: vars.TEMPLATE_CONSUMERS != '' && github.ref == 'refs/heads/main'
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  ref: main
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Install Copier
+              run: |
+                  # shellcheck source=templates/base/scripts/tool-versions
+                  source templates/base/scripts/tool-versions
+                  pipx install "copier==$COPIER_VERSION"
+
+            # Two tokens with the least permission each: one writes the
+            # audit issue, one reads the consumers. The reporter comes first
+            # so a consumer the app no longer reaches still gets reported.
+            - id: reporter
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
+                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+                  owner: ${{ github.repository_owner }}
+                  repositories: ${{ env.AUDIT_REPOSITORY_NAME }}
+                  permission-issues: write
+
+            - id: reader
+              continue-on-error: true
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ secrets.RUNEWRIGHT_APP_ID }}
+                  private-key: ${{ secrets.RUNEWRIGHT_APP_KEY }}
+                  owner: ${{ github.repository_owner }}
+                  repositories: ${{ vars.TEMPLATE_CONSUMERS }}
+                  permission-contents: read
+                  permission-issues: read
+
+            - name: Fetch consumers and labels
+              env:
+                  GH_TOKEN: ${{ steps.reader.outputs.token }}
+                  READER_OUTCOME: ${{ steps.reader.outcome }}
+                  TEMPLATE_CONSUMERS: ${{ vars.TEMPLATE_CONSUMERS }}
+                  LABELS_ONLY_CONSUMERS: ${{ vars.LABELS_ONLY_CONSUMERS }}
+                  OWNER: ${{ github.repository_owner }}
+              run: |
+                  set -uo pipefail
+                  mkdir -p consumers labels
+                  : > audit-args
+                  if [ "$READER_OUTCOME" != "success" ] || [ -z "$GH_TOKEN" ]; then
+                      printf -- '--error=%s=consumer token failed; check TEMPLATE_CONSUMERS against the app installation\n' \
+                          "$(printf '%s' "$TEMPLATE_CONSUMERS" | tr -d '[:space:]')" >> audit-args
+                      exit 0
+                  fi
+                  # The token rides in a per-command header and never lands
+                  # in a clone's .git/config. A failed fetch becomes a report
+                  # line, so one dark repository cannot hide the others.
+                  export GIT_CONFIG_COUNT=1
+                  export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+                  GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+                  export GIT_CONFIG_VALUE_0
+                  printf '%s\n' "$TEMPLATE_CONSUMERS" | tr ',' '\n' | while IFS= read -r repository; do
+                      repository=$(printf '%s' "$repository" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+                      [ -n "$repository" ] || continue
+                      printf '%s' "$repository" | grep -Eq '^[A-Za-z0-9_.-]+$' \
+                          || { echo "invalid consumer repository name: $repository"; exit 1; }
+                      if git clone --quiet --depth 1 \
+                          "https://github.com/$OWNER/$repository.git" "consumers/$repository" 2> "clone-$repository.err"; then
+                          # A consumer without answers.yaml is a finding unless
+                          # LABELS_ONLY_CONSUMERS names it: a deleted answers file
+                          # must not turn file drift invisible.
+                          if [ -f "consumers/$repository/answers.yaml" ]; then
+                              printf -- '--consumer=%s=consumers/%s\n' "$repository" "$repository" >> audit-args
+                          elif ! printf '%s\n' "$LABELS_ONLY_CONSUMERS" | tr ',' '\n' | tr -d '[:space:]' | grep -Fqx "$repository"; then
+                              printf -- '--error=%s=answers.yaml missing; add the name to LABELS_ONLY_CONSUMERS if it never adopted the template\n' \
+                                  "$repository" >> audit-args
+                          fi
+                      else
+                          printf -- '--error=%s=clone failed: %s\n' "$repository" \
+                              "$(tr '\n' ' ' < "clone-$repository.err" | cut -c1-200)" >> audit-args
+                      fi
+                      if gh api --paginate "repos/$OWNER/$repository/labels?per_page=100" \
+                          --jq '[.[] | {name, color, description}]' | jq -s 'add // []' > "labels/$repository.json"; then
+                          printf -- '--labels=%s=labels/%s.json\n' "$repository" "$repository" >> audit-args
+                      else
+                          printf -- '--error=%s=label listing failed\n' "$repository" >> audit-args
+                      fi
+                  done || exit 1
+
+            - id: audit
+              name: Compare consumers with the template
+              continue-on-error: true
+              run: |
+                  set -o pipefail
+                  xargs -a audit-args -d '\n' python3 scripts/consumer-parity.py | tee parity-report.md
+
+            - name: Post the report
+              env:
+                  GH_TOKEN: ${{ steps.reporter.outputs.token }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              run: |
+                  set -euo pipefail
+                  number=$(gh issue list --repo "$AUDIT_REPOSITORY" --state open \
+                      --search "\"$AUDIT_ISSUE_TITLE\" in:title" --json number,title \
+                      | jq -r --arg title "$AUDIT_ISSUE_TITLE" '[.[] | select(.title == $title)][0].number // empty')
+                  { printf '## %s\n\nRun: %s\n\n' "$(date -u +%Y-%m-%d)" "$RUN_URL"; cat parity-report.md; } > comment.md
+                  if [ -n "$number" ]; then
+                      gh issue comment "$number" --repo "$AUDIT_REPOSITORY" --body-file comment.md
+                  else
+                      gh issue create --repo "$AUDIT_REPOSITORY" --title "$AUDIT_ISSUE_TITLE" --body-file comment.md
+                  fi
+
+            - name: Fail on drift
+              if: steps.audit.outcome == 'failure'
+              run: |
+                  echo "consumer parity found drift; see the report on the audit issue."
+                  exit 1

@@ -26,11 +26,11 @@ The correctness caller and body refuse fork heads before any secret-bearing step
 
 ## Subscription model
 
-A repository subscribes through its own workflow files: each carries a thin caller per lane that owns the triggers, concurrency, and permissions, and delegates the logic with `uses: runedeck/seer/.github/workflows/<lane>.yaml@main`. Copier records the skeleton release in `answers.yaml` and proposes later releases through ordinary pull requests. Repo-local workflows stay local: quality, pr-lint, canary, and spec-drift review this repository's own content. Rune is optional; direct Copier consumers run the same ceremony.
+A repository subscribes through its own workflow files: each carries a thin caller per lane that owns the triggers, concurrency, and permissions, and delegates the logic with `uses: runedeck/seer/.github/workflows/<lane>.yaml@main`. Copier records the skeleton reference in `answers.yaml`, and the weekly template-update run publishes the next update as a patch the owner applies and pushes. Repo-local workflows stay local: quality, pr-lint, canary, and spec-drift review this repository's own content. Rune is optional. Direct Copier consumers run the same ceremony.
 
 ## Identities
 
-`runewright` acts (labels, comments, patches, greetings; contents and workflows write). `runeseer` reviews (contents read only; its APPROVE is the earned approval). The identity that writes content holds no approval role, and the identity that approves cannot write content.
+`runewright` acts (labels, comments, patches, greetings, and contents and workflows write). `runeseer` reviews (contents read only, and its APPROVE is the earned approval). The identity that writes content holds no approval role, and the identity that approves cannot write content.
 
 ## Check names
 
