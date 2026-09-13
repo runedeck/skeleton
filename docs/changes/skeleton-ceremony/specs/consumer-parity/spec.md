@@ -1,22 +1,8 @@
 ## ADDED Requirements
 
-### Requirement: Trusted Check State
-
-A pull request MUST NOT select or weaken the checks that judge it. The specification-presence check, the authorship policy, and the protected-path list SHALL execute from the base ref. The head `.pre-commit-config.yaml` MAY run, because every change to it is itself a protected path that needs a specification or an `ignore:spec` waiver.
-
-#### Scenario: Head edits the check policy
-
-- **WHEN** a pull request changes `.pre-commit-config.yaml`, `authors.yaml`, or a workflow under `.github/workflows/`
-- **THEN** the specification-presence check runs from the base ref and requires a specification change or an `ignore:spec` label
-
-#### Scenario: Head removes a hook
-
-- **WHEN** a pull request deletes a hook from `.pre-commit-config.yaml` without a specification change
-- **THEN** the specification-presence check fails before the weakened configuration can pass the merge
-
 ### Requirement: Declared Ceremony Divergence
 
-A consumer that keeps a deliberate difference from the skeleton template SHALL declare it in `.ceremony-divergences.yaml` with the path, the reason, and the SHA-256 of both sides at approval time. The central register in skeleton SHALL approve each consumer's divergence file by digest. An undeclared or expired difference SHALL report as drift.
+A consumer that keeps a deliberate difference from the skeleton template MUST declare it in `.ceremony-divergences.yaml` with the path, the reason, and the SHA-256 of both sides at approval time. The central register in skeleton MUST approve each consumer's divergence file by digest. An undeclared or expired difference MUST report as drift.
 
 #### Scenario: Consumer declares a divergence
 
@@ -40,7 +26,7 @@ A consumer that keeps a deliberate difference from the skeleton template SHALL d
 
 ### Requirement: Machinery Canary Result
 
-The nightly machinery canary SHALL run every probe step to completion, name each failed step in the issue it files, and end the run as failed when any probe failed.
+The nightly machinery canary MUST run every probe step to completion, name each failed step in the issue it files, and end the run as failed when any probe failed.
 
 #### Scenario: Probe fails
 
@@ -54,7 +40,7 @@ The nightly machinery canary SHALL run every probe step to completion, name each
 
 ### Requirement: Consumer Parity Audit
 
-Skeleton SHALL run a scheduled parity audit that renders `templates/base` at each consumer's recorded release and at skeleton main, compares every rendered file except the seed-once files with the consumer's copy, compares the consumer's labels with the provisioned set, and posts one report per run on the standing audit issue.
+Skeleton MUST run a scheduled parity audit that renders `templates/base` at each consumer's recorded release and at skeleton main, compares every rendered file except the seed-once files with the consumer's copy, compares the consumer's labels with the provisioned set, and posts one report per run on the standing audit issue.
 
 #### Scenario: Consumer lags the template
 

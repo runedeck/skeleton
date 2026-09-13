@@ -38,7 +38,9 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP = {".git", ".jj", "answers.yaml"}
+# Version-control metadata, the Copier answers, local tool caches, and the
+# `.trash/` quarantine that `rune repair` writes are never template content.
+SKIP = {".git", ".jj", "answers.yaml", ".trash", ".ruff_cache", "__pycache__"}
 REGISTER = ".ceremony-divergences.yaml"
 COPIER_CONFIG = "copier.yaml"
 STE_RECORD = Path(".vale", "ste-source.yaml")

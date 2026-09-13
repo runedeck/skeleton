@@ -8,7 +8,7 @@ A scaffolded repository is the union of composable templates from a flat directo
 
 ### Requirement: Flat Template Directory
 
-Templates SHALL live as sibling directories under `templates/`, with no dimensional grouping, and adding a template SHALL require nothing beyond creating its directory.
+Templates MUST live as sibling directories under `templates/`, with no dimensional grouping, and adding a template MUST require nothing beyond creating its directory.
 
 #### Scenario: New template appears
 
@@ -17,7 +17,7 @@ Templates SHALL live as sibling directories under `templates/`, with no dimensio
 
 ### Requirement: Ordered Composition
 
-`rune init <name> --with <a>,<b>` SHALL apply `templates/base` first and then each named template in list order, later templates overriding earlier files, except `.gitignore` fragments, which SHALL concatenate.
+`rune init <name> --with <a>,<b>` MUST apply `templates/base` first and then each named template in list order, later templates overriding earlier files, except `.gitignore` fragments, which MUST concatenate.
 
 #### Scenario: Later template wins
 
@@ -36,7 +36,7 @@ Templates SHALL live as sibling directories under `templates/`, with no dimensio
 
 ### Requirement: Interactive Picker
 
-`rune init` without `--with` SHALL offer an interactive picker over the available templates, and the picked set SHALL compose exactly as if it had been named.
+`rune init` without `--with` MUST offer an interactive picker over the available templates, and the picked set MUST compose exactly as if it had been named.
 
 #### Scenario: Bare invocation
 
@@ -50,7 +50,7 @@ Templates SHALL live as sibling directories under `templates/`, with no dimensio
 
 ### Requirement: Idempotent Retrofit
 
-Composition SHALL never overwrite an existing file, so re-running the same command on an existing repository adds only what is missing. The one exception is `.gitignore`: fragment entries absent from the existing file are appended, and entries already present are not duplicated, so retrofit and concatenation compose.
+Composition MUST never overwrite an existing file, so re-running the same command on an existing repository adds only what is missing. The one exception is `.gitignore`: fragment entries absent from the existing file are appended, and entries already present are not duplicated, so retrofit and concatenation compose.
 
 #### Scenario: Retrofit an existing repository
 
@@ -69,7 +69,7 @@ Composition SHALL never overwrite an existing file, so re-running the same comma
 
 ### Requirement: Placeholder Resolution
 
-Template file contents and file names SHALL resolve `${VARIABLE}` placeholders at scaffold time.
+Template file contents and file names MUST resolve `${VARIABLE}` placeholders at scaffold time.
 
 #### Scenario: Placeholder in a file name
 
@@ -78,7 +78,7 @@ Template file contents and file names SHALL resolve `${VARIABLE}` placeholders a
 
 ### Requirement: Portable Base
 
-`copier.yaml` SHALL expose `templates/base` as a Copier template, and direct Copier generation SHALL produce the same base files as Rune composition.
+`copier.yaml` MUST expose `templates/base` as a Copier template, and direct Copier generation MUST produce the same base files as Rune composition.
 
 #### Scenario: Direct Copier generation
 
@@ -92,7 +92,7 @@ Template file contents and file names SHALL resolve `${VARIABLE}` placeholders a
 
 ### Requirement: Tagged Updates
 
-Generated repositories SHALL record the skeleton source, release tag, and rendering answers in `answers.yaml`.
+Generated repositories MUST record the skeleton source, release tag, and rendering answers in `answers.yaml`.
 
 #### Scenario: New template release
 
@@ -106,7 +106,7 @@ Generated repositories SHALL record the skeleton source, release tag, and render
 
 ### Requirement: Verbatim Files
 
-Only files carrying the `.jinja` suffix SHALL be rendered by Copier. Unsuffixed files SHALL be copied byte-for-byte.
+Only files carrying the `.jinja` suffix MUST be rendered by Copier. Unsuffixed files MUST be copied byte-for-byte.
 
 #### Scenario: GitHub expression
 

@@ -87,6 +87,18 @@ class SeededPathTests(unittest.TestCase):
         self.assertIn(".gitignore", seeded)
         self.assertNotIn(".pre-commit-config.yaml", seeded)
 
+    def test_local_caches_and_quarantine_are_not_compared(self):
+        with tempfile.TemporaryDirectory() as directory:
+            rendered = Path(directory, "main")
+            consumer = Path(directory, "consumer")
+            write(rendered / ".ruff_cache/0.1/abc", "cache\n")
+            write(rendered / ".trash/2026-09-13-1200Z/old.yaml", "quarantine\n")
+            write(consumer / "__pycache__/x.pyc", "bytecode\n")
+            write(rendered / "managed.txt", "x\n")
+            write(consumer / "managed.txt", "x\n")
+            drift, _ = parity.compare_files("cli", consumer, rendered, None, [])
+        self.assertEqual(drift, [])
+
     def test_seeded_files_are_not_compared(self):
         with tempfile.TemporaryDirectory() as directory:
             rendered = Path(directory, "main")

@@ -19,7 +19,7 @@ The default review funnel serves same-repository pull requests.
 Cursor Bugbot and CodeRabbit provide optional standalone reviews.
 Their absence does not prevent the default funnel from running.
 Their absence also does not establish approval.
-The [review ceremony specification](docs/specs/review-ceremony/spec.md#requirement-default-and-optional-review-lanes) defines request handling and current-head evidence reuse.
+The [review ceremony specification](docs/specs/review-lanes/spec.md#requirement-default-and-optional-review-lanes) defines request handling and current-head evidence reuse.
 The [configuration guide](docs/guides/review-lanes-configuration.md) defines provider settings and exact check identification.
 Fork pull requests use the available free lanes and the owner's Repository-admin bypass.
 The correctness caller and body refuse fork heads before any secret-bearing step.

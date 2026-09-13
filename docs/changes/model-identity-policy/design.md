@@ -3,7 +3,7 @@
 ## Approach
 
 Use the [selected policy](../../decisions/SKEL-0001%20Version-Independent%20Model%20Attribution.md).
-The [delta specification](specs/commit-attribution/spec.md) defines its observable behavior.
+The delta specifications under [`specs/`](specs/) define its observable behavior: [commit-attribution](specs/commit-attribution/spec.md), [attribution-check](specs/attribution-check/spec.md), and [worktree-identity](specs/worktree-identity/spec.md).
 
 ## Structure
 

@@ -11,3 +11,6 @@ dist/
 # Parallel work: one jj workspace per agent, ignored before any exists.
 .workspaces/
 __pycache__/
+
+# Quarantine: rune repair and reseal move evidence here, never delete it
+.trash/

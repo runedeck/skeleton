@@ -2,7 +2,7 @@
 
 ### Requirement: Tagged Updates
 
-Generated repositories SHALL record the skeleton source, release reference, and rendering answers in `answers.yaml`. The reference MAY be a tag or a commit. `make install` SHALL require the full pinned toolchain, Copier included. `make validate` and the review lanes SHALL run without Copier.
+Generated repositories MUST record the skeleton source, release reference, and rendering answers in `answers.yaml`. The reference MAY be a tag or a commit. `make install` MUST require the full pinned toolchain, Copier included. `make validate` and the review lanes MUST run without Copier.
 
 #### Scenario: New template release
 
@@ -28,7 +28,7 @@ Generated repositories SHALL record the skeleton source, release reference, and 
 
 ### Requirement: Shared Pinned Lint Tools
 
-`templates/base/scripts/tool-versions` SHALL pin one version and one SHA-256 digest per supported platform for every tool the prek hooks call, and `scripts/install-tools` SHALL install each from a digest-verified release archive.
+`templates/base/scripts/tool-versions` MUST pin one version and one SHA-256 digest per supported platform for every tool the prek hooks call, and `scripts/install-tools` MUST install each from a digest-verified release archive.
 
 #### Scenario: Installer receives a mismatched archive
 
@@ -52,7 +52,7 @@ Generated repositories SHALL record the skeleton source, release reference, and 
 
 ### Requirement: Generated STE Style
 
-The Vale STE style SHALL be generated from a frozen snapshot of the Simplified Technical English rule source by `scripts/generate-vale-style.py`, and a check hook SHALL fail when a generated file is stale, missing, or foreign to the generator.
+The Vale STE style MUST be generated from a frozen snapshot of the Simplified Technical English rule source by `scripts/generate-vale-style.py`, and a check hook MUST fail when a generated file is stale, missing, or foreign to the generator.
 
 #### Scenario: Rule source changes
 

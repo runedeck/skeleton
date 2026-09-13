@@ -19,7 +19,8 @@ The review funnel carries every review semantic in hand-written shell and Python
 
 ## Capabilities
 
-- review-ceremony (modified): the lane roster and the status-comment requirements.
+- review-lanes (modified): the lane roster and the lane table.
+- review-requests (modified): the status-comment upsert.
 
 ## Impact
 

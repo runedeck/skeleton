@@ -61,7 +61,7 @@ jobs:
         # Fork pull requests keep the owner-summoned free lanes: a review
         # label on a fork head runs the cascade, the correctness lane
         # refuses fork heads on its own, and the ordered workflow stops
-        # after the free lanes (docs/specs/review-ceremony/spec.md, Fork
+        # after the free lanes (docs/specs/lane-configuration/spec.md, Fork
         # pull request scenario). Nothing starts on open: every round
         # answers an owner-applied label, so a fork spends nothing unlabeled.
         if: '!cancelled() && github.event.pull_request.draft == false && ((github.event.action == ''labeled'' && github.event.label.name == ''review'') || (github.event.action == ''ready_for_review'' && needs.release.outputs.summoned == ''true''))'

@@ -6,6 +6,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Changed
 
+- Every specification uses MUST, stays under 150 lines, and defines its terms in `docs/specs/glossary.md`. review-ceremony splits into review-lanes, review-requests, lane-configuration, merge-checks, and release-ceremony. commit-attribution splits off attribution-check and worktree-identity. The active deltas follow their requirements to the new capabilities.
 - CONTRIBUTING: no generation footer, tool badge, or session link in pull request bodies and commit messages.
 - The machinery canary names each failed step in its issue and ends the run as failed. Quality runs the Copier update probe when templates, `copier.yaml`, or tests change.
 - The cascade callers trigger on labels and readiness only. Nothing starts on open.
@@ -26,6 +27,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Added
 
+- SKEL-0007 records the base-ref execution of the checks that judge a pull request and the machinery canary that runs every probe and ends as failed.
 - The six-linter row from the deck (rumdl, typos, Vale, lychee, zizmor, actionlint) pinned with four digests each, installed by `install-tools`, and run through guarded prek hooks. `REQUIRE_GATES=1` turns a missing binary into a failure.
 - `install-tools` runs `scripts/install-tools.local` when a consumer has one, so consumer-only validators install through Quality, the canary, and template updates alike.
 - The authorship hook runs on every push, including empty commits.

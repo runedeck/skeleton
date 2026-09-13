@@ -2,8 +2,7 @@
 
 ## Purpose
 
-Commit metadata records the declared author and model contributors.
-The trusted repository policy validates this attribution without a model-version catalog.
+Every commit in a runedeck repository says who authored it from the commit object alone: a human, or an AI model, and for a model, which harness and which model. Author identities are allowlisted, work by several models is attributed through *trailers*, and a required check applies the same rules to every pull request without a model-version catalog.
 
 ## Requirements
 
@@ -98,139 +97,11 @@ Other IDs ending in `1m` MUST retain their identity.
 - **WHEN** an ID ends in `1m` and differs from both historical aliases
 - **THEN** normalization preserves that ID
 
-### Requirement: Attribution Check Range
-
-The `ci/authorship` check SHALL read commits from the merge base of the pull request to its head, and SHALL fail when the merge base cannot be resolved.
-
-#### Scenario: Range resolved
-
-- **WHEN** the check runs on a pull request whose merge base resolves
-- **THEN** it examines every commit in that range and no commit outside it
-
-#### Scenario: Unresolvable merge base
-
-- **WHEN** the merge base cannot be resolved from the fetched history
-- **THEN** the check fails rather than examining a partial range
-
 ### Requirement: Unsigned Model Commits
 
-Commits authored by models SHALL be unsigned, and no branch rule SHALL require commit signatures on `main`.
+Commits authored by models MUST be unsigned, and no branch rule MUST require commit signatures on `main`.
 
 #### Scenario: Unsigned commit accepted
 
 - **WHEN** an allowlisted model pushes an unsigned commit to a pull request branch
 - **THEN** no check rejects the commit for lacking a signature
-
-### Requirement: Local Pre-Push Attribution Check
-
-Every repository built from this template SHALL contain `scripts/check-authorship`. The script SHALL run as a prek hook at the pre-push stage. The script SHALL apply the same attribution rules as the `ci/authorship` check to the outgoing commit range. A violation SHALL block the push before the commits leave the machine.
-
-#### Scenario: Bad identity blocked locally
-
-- **WHEN** a push range contains a commit whose author repeats as a `Co-Authored-By` trailer
-- **THEN** the pre-push hook fails, names the commit and the rule, and the push does not happen
-
-#### Scenario: New branch push
-
-- **WHEN** the push creates the remote branch and prek reports the zero object id as the from-ref
-- **THEN** the check falls back to the merge base with `origin/main` and examines that range
-
-### Requirement: Worktree Identity Provisioning
-
-`make worktree BRANCH=<branch> IDENTITY=<model-id> [HARNESS=<harness>]` MUST resolve identity before it creates a worktree or workspace.
-
-For an existing model, the resolver MUST select a unique matching author entry.
-For a new model, the resolver MUST generate a formatted identity under the supplied approved harness domain.
-An absent harness MUST resolve only when one existing identity matches the model.
-An ambiguous identity or unapproved harness MUST fail before workspace creation.
-
-Git worktrees MUST receive the selected `user.name` and `user.email`.
-Jujutsu workspaces MUST report the selected `JJ_USER` and `JJ_EMAIL` values.
-
-#### Scenario: Unique existing identity
-
-- **WHEN** one author entry matches the model and the harness is absent
-- **THEN** the resolver returns that entry
-
-#### Scenario: New model provisioned
-
-- **WHEN** an unlisted valid model ID and an approved harness are supplied
-- **THEN** the resolver generates an identity that the attribution validator accepts
-
-#### Scenario: Ambiguous existing identity
-
-- **WHEN** several author entries match the model and the harness is absent
-- **THEN** the target fails before it creates a workspace or branch
-
-#### Scenario: New model needs a harness
-
-- **WHEN** an unlisted model has no supplied harness
-- **THEN** the target requests a harness before it creates a workspace or branch
-
-#### Scenario: Unknown harness
-
-- **WHEN** the supplied harness selects no approved domain or existing identity
-- **THEN** the target fails before it creates a workspace or branch
-
-### Requirement: Worktree Cleanup
-
-`make worktree-done BRANCH=<branch>` SHALL remove only a clean worktree or workspace whose work is merged.
-
-The target SHALL preserve tracked, untracked, and ignored files when it cannot verify safe removal.
-
-#### Scenario: Git branch merged by ancestry
-
-- **WHEN** the worktree and branch heads are reachable from the default branch
-- **THEN** the target removes the worktree and deletes the local branch
-
-#### Scenario: Git branch squash merged
-
-- **WHEN** GitHub reports a merged pull request whose head equals the worktree and branch head
-- **THEN** the target removes the worktree and deletes the local branch
-
-#### Scenario: Git merge state is not safe
-
-- **WHEN** the matching pull request is open, stale, absent, or unavailable
-- **THEN** the target fails and preserves the worktree and branch
-
-#### Scenario: Jujutsu workspace contains unmerged work
-
-- **WHEN** the workspace or its local bookmark contains nonempty work that is not on trunk
-- **THEN** the target fails and preserves the workspace and bookmark
-
-#### Scenario: Workspace contains ignored data
-
-- **WHEN** the worktree or workspace contains ignored files
-- **THEN** the target fails and identifies the data that requires preservation
-
-#### Scenario: Jujutsu workspace is safe
-
-- **WHEN** the workspace is clean and its local bookmark has no work outside trunk
-- **THEN** the target removes the workspace directory before it forgets the workspace and bookmark
-
-### Requirement: Trusted Attribution Inputs
-
-CI MUST execute the checker, helper, and policy from the pull request base SHA.
-It MUST fetch the head only as commit metadata.
-Local checks MUST read `origin/main:authors.yaml` unless the caller supplies an explicit trusted policy file.
-Both paths MUST use the same parser and identity validator.
-
-The parser MUST accept only the documented plain block-list policy format.
-It MUST fail on unreadable policy, unknown keys, duplicate keys, duplicate entries, unsupported YAML syntax, or an empty author list.
-Policy validation MUST run even when the selected commit range is empty.
-Attribution validation MUST describe syntax and policy compliance, not proof that the named model executed.
-
-#### Scenario: Head attempts to approve itself
-
-- **WHEN** a pull request adds its own address domain or modifies the validator
-- **THEN** CI evaluates its commits with the base checker, helper, and policy
-
-#### Scenario: Empty range with malformed policy
-
-- **WHEN** the selected range is empty and policy is malformed
-- **THEN** the check fails instead of reporting compliance
-
-#### Scenario: Local and CI parity
-
-- **WHEN** both entrypoints receive the same commit range and trusted policy
-- **THEN** both report the same attribution result
