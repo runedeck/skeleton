@@ -1,0 +1,32 @@
+provenance:
+  _type: https://in-toto.io/Statement/v1
+  predicateType: https://slsa.dev/provenance/v1
+  subject:
+  - name: docs/decisions/SKEL-0006 Fixture-Based Canary Testing.md
+    digest:
+      sha256: f3ade2dc835706c24ef1f1b169c3118c742588c9c9110572f12a1d4634eba114
+  predicate:
+    buildDefinition:
+      buildType: adopt/v1
+      externalParameters:
+        source: ''
+        upstream_url: https://github.com/N4M3Z/forge-core
+        upstream_commit: ''
+        transforms_applied:
+        - align
+      resolvedDependencies:
+      - name: upstream
+        uri: https://github.com/N4M3Z/forge-core
+        digest:
+          sha256: a869c5654431ca206f1711d34cd9255013f9f54ab0c7af524ced73812f330545
+    runDetails:
+      builder:
+        id: rune-cli
+        version:
+          rune: 0.5.0
+      metadata:
+        startedOn: 2026-09-10T14:42:21.064597+00:00
+        review: reviewed
+        reviewer: Claude Fable 5 (claude-fable-5) <claude-fable-5@claude.noreply.nexus.local>
+        completedOn: 2026-09-10T14:43:52.302940+00:00
+        summary: 6 keep, 6 adapt, 4 cut, 7 added

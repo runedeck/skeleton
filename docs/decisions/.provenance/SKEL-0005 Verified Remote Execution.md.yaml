@@ -1,0 +1,32 @@
+provenance:
+  _type: https://in-toto.io/Statement/v1
+  predicateType: https://slsa.dev/provenance/v1
+  subject:
+  - name: docs/decisions/SKEL-0005 Verified Remote Execution.md
+    digest:
+      sha256: e631d16df75382c38817d39d1a30a03b268a3562cd5b3abb2ad53c25927857ce
+  predicate:
+    buildDefinition:
+      buildType: adopt/v1
+      externalParameters:
+        source: ''
+        upstream_url: https://github.com/N4M3Z/forge-core
+        upstream_commit: ''
+        transforms_applied:
+        - align
+      resolvedDependencies:
+      - name: upstream
+        uri: https://github.com/N4M3Z/forge-core
+        digest:
+          sha256: 736d066c4a896d9d78594bce92024d805df93c7bc8084438d76c0ba07721c025
+    runDetails:
+      builder:
+        id: rune-cli
+        version:
+          rune: 0.5.0
+      metadata:
+        startedOn: 2026-09-10T14:41:49.990769+00:00
+        review: reviewed
+        reviewer: Claude Fable 5 (claude-fable-5) <claude-fable-5@claude.noreply.nexus.local>
+        completedOn: 2026-09-10T14:43:24.023826+00:00
+        summary: 7 keep, 9 adapt, 3 cut, 9 added

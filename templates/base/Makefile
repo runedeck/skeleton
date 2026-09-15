@@ -8,9 +8,9 @@ help:
 
 install:
 	git config core.hooksPath .githooks
-	chmod +x .githooks/* scripts/* 2>/dev/null || true
+	chmod +x .githooks/pre-commit .githooks/pre-push .githooks/jj-push scripts/* 2>/dev/null || true
 	@if [ -d .jj ] && command -v jj >/dev/null 2>&1; then \
-	    jj config set --repo aliases.push "[\"util\",\"exec\",\"--\",\"bash\",\"$$(git rev-parse --show-toplevel)/.githooks/jj-push\"]"; \
+	    jj config set --repo aliases.push '["util","exec","--","bash","-c","exec bash \"$$(jj workspace root)/.githooks/jj-push\" \"$$@\"","jj-push"]'; \
 	    echo "jj detected: 'jj push' runs the pre-push checks, then 'jj git push'"; \
 	elif [ -d .jj ]; then \
 	    echo "warn: .jj/ present but jj not on PATH; 'jj push' checks are not wired"; \
@@ -57,7 +57,8 @@ worktree-done:
 	    target_commit=$$(jj -R "$$path" log --no-graph -T 'commit_id' -r @); \
 	    unmerged=$$(jj -R "$$path" log --no-graph -T 'change_id.short() ++ " "' -r 'mutable() & ::@ & ~empty() & ~::trunk()' 2>/dev/null); \
 	    [ -z "$$unmerged" ] || { echo "workspace $$name holds unmerged changes: $$unmerged"; exit 1; }; \
-	    git_directory=$$(git rev-parse --git-dir); \
+	    git_directory=$$(git rev-parse --git-dir 2>/dev/null) \
+	        || { echo "worktree-done needs a colocated jj repository (no git store found)."; exit 1; }; \
 	    target_index=$$(mktemp); \
 	    rm -f "$$target_index"; \
 	    trap 'rm -f "$$target_index"' 0 HUP INT TERM; \
@@ -81,7 +82,7 @@ worktree-done:
 	        [ -z "$$bookmark_unmerged" ] \
 	            || { echo "Bookmark $(BRANCH) has commits that are not on trunk: $$bookmark_unmerged"; exit 1; }; \
 	    fi; \
-	    (command -v trash >/dev/null 2>&1 && trash "$$path") || rm -rf "$$path"; \
+	    if command -v trash >/dev/null 2>&1; then trash "$$path"; else rm -rf "$$path"; fi; \
 	    [ ! -e "$$path" ] || { echo "Could not remove workspace $$path."; exit 1; }; \
 	    jj --ignore-working-copy workspace forget "$$name"; \
 	    if [ "$$bookmark_exists" = true ]; then \

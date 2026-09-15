@@ -65,8 +65,11 @@ jobs:
               run: bash scripts/install-tools
 
             # The prek CLI is called directly: the wrapper action logs at
-            # TRACE level and buries the failing hook's output.
+            # TRACE level and buries the failing hook's output. REQUIRE_GATES
+            # turns a missing linter into a failure instead of a skip.
             - name: Commit-stage checks
+              env:
+                  REQUIRE_GATES: "1"
               run: prek run --all-files
 
             # Scan exactly the commits this event introduces. Without a usable

@@ -25,10 +25,15 @@ jobs:
             - name: Run the machinery
               id: run
               continue-on-error: true
+              env:
+                  # Every guarded hook must find its binary: a tool that
+                  # install-tools failed to place is a canary failure, not a
+                  # silent skip.
+                  REQUIRE_GATES: "1"
               run: |
                   set -x
                   bash scripts/install-tools
-                  shellcheck -S warning templates/base/.githooks/*
+                  find templates/base/.githooks .githooks -type f ! -name '*.py' -exec shellcheck -S warning {} +
                   prek run --all-files
                   # Feed the hook a genuine ref-update line so it exercises a
                   # real range; empty stdin on main degenerates to a no-op,
@@ -48,16 +53,35 @@ jobs:
               if: steps.run.outcome == 'failure' || steps.copier.outcome == 'failure'
               env:
                   GH_TOKEN: ${{ github.token }}
+                  RUN_OUTCOME: ${{ steps.run.outcome }}
+                  COPIER_OUTCOME: ${{ steps.copier.outcome }}
               run: |
                   gh api "repos/${{ github.repository }}/labels/machinery-canary" >/dev/null 2>&1 \
                       || gh api -X POST "repos/${{ github.repository }}/labels" \
                           -f name="machinery-canary" -f color="d93f0b" \
                           -f description="issues only: nightly canary failure tracking" >/dev/null
+                  failed=""
+                  [ "$RUN_OUTCOME" != "failure" ] || failed="$failed Run the machinery;"
+                  [ "$COPIER_OUTCOME" != "failure" ] || failed="$failed Exercise Copier updates;"
                   existing=$(gh api "repos/${{ github.repository }}/issues?state=open&labels=machinery-canary" --jq '.[0].number // empty')
                   body="The nightly machinery canary failed on main: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  body="$body"$'\n\n'"failed step:${failed%;}"
                   if [ -n "$existing" ]; then
                       gh api -X POST "repos/${{ github.repository }}/issues/$existing/comments" -f body="$body" >/dev/null
                   else
                       gh api -X POST "repos/${{ github.repository }}/issues" \
                           -f title="Machinery canary failing" -f body="$body" -f "labels[]=machinery-canary" >/dev/null
                   fi
+
+            # A filed issue is the signal, but the run itself must not read
+            # as green: the Actions list and any notification hooks key on
+            # the run conclusion.
+            - name: Fail the run
+              if: always() && (steps.run.outcome == 'failure' || steps.copier.outcome == 'failure')
+              env:
+                  RUN_OUTCOME: ${{ steps.run.outcome }}
+                  COPIER_OUTCOME: ${{ steps.copier.outcome }}
+              run: |
+                  echo "Run the machinery: $RUN_OUTCOME"
+                  echo "Exercise Copier updates: $COPIER_OUTCOME"
+                  exit 1

@@ -8,7 +8,7 @@ A commit on `main` leads back to the session that wrote it. The recovery key is 
 
 ### Requirement: Session Trailer on Ceremonial Commits
 
-Every ceremonial commit SHALL carry a `Session: <harness>:<session-id>` trailer naming the session that produced it, stamped by the committing agent and checked at staged review.
+Every ceremonial commit MUST carry a `Session: <harness>:<session-id>` trailer naming the session that produced it, stamped by the committing agent and checked at staged review.
 
 #### Scenario: Trailer present
 
@@ -22,7 +22,7 @@ Every ceremonial commit SHALL carry a `Session: <harness>:<session-id>` trailer 
 
 ### Requirement: Checkpoint Attachment at the Review Boundary
 
-Immediately after a ceremonial commit, and before any further commit in that repository, the session SHALL be attached in each repository that received a commit, linking a checkpoint to that commit.
+Immediately after a ceremonial commit, and before any further commit in that repository, the session MUST be attached in each repository that received a commit, linking a checkpoint to that commit.
 
 #### Scenario: Attachment after commit
 
@@ -36,7 +36,7 @@ Immediately after a ceremonial commit, and before any further commit in that rep
 
 ### Requirement: Walk from Commit to Session
 
-A commit on `main` SHALL resolve to the session that produced it from its trailer alone, with checkpoint explanation available where attachment ran.
+A commit on `main` MUST resolve to the session that produced it from its trailer alone, with checkpoint explanation available where attachment ran.
 
 #### Scenario: Recovering from a bisected defect
 
@@ -50,7 +50,7 @@ A commit on `main` SHALL resolve to the session that produced it from its traile
 
 ### Requirement: Capture Enabled Everywhere
 
-Every repository SHALL capture sessions without per-clone setup: agents start through the wrapper that syncs sessions when they end, and `rune init` scaffolds the tracked project binding.
+Every repository MUST capture sessions without per-clone setup: agents start through the wrapper that syncs sessions when they end, and `rune init` scaffolds the tracked project binding.
 
 #### Scenario: Agent started through rune
 
@@ -64,7 +64,7 @@ Every repository SHALL capture sessions without per-clone setup: agents start th
 
 ### Requirement: Transcripts Outside the Repository
 
-Transcripts and debug output SHALL be written to the working layer rather than any repository, while the project binding that identifies their source stays tracked.
+Transcripts and debug output MUST be written to the working layer rather than any repository, while the project binding that identifies their source stays tracked.
 
 #### Scenario: Transcript destination
 
@@ -78,7 +78,7 @@ Transcripts and debug output SHALL be written to the working layer rather than a
 
 ### Requirement: Stable Commit Identifiers
 
-Merge strategies that rewrite commit ids SHALL NOT be used on `main`, since a rewritten id orphans its checkpoint.
+Merge strategies that rewrite commit ids MUST NOT be used on `main`, since a rewritten id orphans its checkpoint.
 
 #### Scenario: Merge preserves ids
 

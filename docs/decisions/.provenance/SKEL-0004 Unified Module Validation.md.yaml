@@ -1,0 +1,32 @@
+provenance:
+  _type: https://in-toto.io/Statement/v1
+  predicateType: https://slsa.dev/provenance/v1
+  subject:
+  - name: docs/decisions/SKEL-0004 Unified Module Validation.md
+    digest:
+      sha256: 096768af6a646f8b3b18424a520f6a8e2892403cecfb48be3db84e2c86386f67
+  predicate:
+    buildDefinition:
+      buildType: adopt/v1
+      externalParameters:
+        source: ''
+        upstream_url: https://github.com/N4M3Z/forge-core
+        upstream_commit: ''
+        transforms_applied:
+        - align
+      resolvedDependencies:
+      - name: upstream
+        uri: https://github.com/N4M3Z/forge-core
+        digest:
+          sha256: 214a19d137066c24f8162ab6b7ff825b33538982610e2e2e91c9c829e0fbf545
+    runDetails:
+      builder:
+        id: rune-cli
+        version:
+          rune: 0.5.0
+      metadata:
+        startedOn: 2026-09-10T14:40:21.726693+00:00
+        review: reviewed
+        reviewer: Claude Fable 5 (claude-fable-5) <claude-fable-5@claude.noreply.nexus.local>
+        completedOn: 2026-09-10T14:41:35.618714+00:00
+        summary: 6 keep, 10 adapt, 2 cut, 9 added

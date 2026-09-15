@@ -17,7 +17,8 @@ consulted: []
 informed: ["@N4M3Z"]
 upstream: []
 ---
-# DECK-0001: Version-Independent Model Attribution
+
+# SKEL-0001: Version-Independent Model Attribution
 
 ## Context and Problem Statement
 

@@ -7,7 +7,7 @@ A review lane MUST NOT start from pull request lifecycle events alone.
 A maintainer MUST apply a review label to request each round.
 Bare `review` MUST request Macroscope, then PR-Agent, then the adjudicating correctness lane.
 Each `review:` label MUST request its single lane.
-Cursor and CodeRabbit SHALL remain optional standalone lanes outside the default funnel.
+Cursor and CodeRabbit MUST remain optional standalone lanes outside the default funnel.
 The default funnel MUST proceed without an optional lane request or an optional provider credential.
 An unavailable or skipped optional lane MUST NOT count as a clean review.
 The owner MUST resolve genuine findings from optional lanes before merge or explicitly accept them.
@@ -20,24 +20,24 @@ An infrastructure failure before dispatch MUST preserve the request label.
 The cascade MUST verify the configured Macroscope correctness check on the current head in every round.
 A completed `success` or `neutral` check MUST permit Runeseer to adjudicate the reported findings.
 The cascade MAY reuse that completed check without requesting another Macroscope review.
-The `stage:macroscope` label SHALL record completion without replacing current-head evidence.
-Removing that label SHALL NOT require another review when the current head already has a qualifying completed check.
+The `stage:macroscope` label MUST record completion without replacing current-head evidence.
+Removing that label MUST NOT require another review when the current head already has a qualifying completed check.
 Further rounds MUST judge only the range since the previous verdict.
 
 PR-Agent MUST run one `review` call in command mode from a pinned image.
 The default cascade MUST run PR-Agent after it verifies the Macroscope check.
 Runeseer MUST adjudicate the findings after PR-Agent completes its current-head review.
 The cascade MAY reuse a completed PR-Agent review on the same head when its findings are resolved.
-The `stage:pr-agent` label SHALL record completion without replacing current-head evidence.
+The `stage:pr-agent` label MUST record completion without replacing current-head evidence.
 
 A terminal provider failure in a default lane MUST stop the cascade immediately.
 The failure handler MUST preserve an undelivered review request and apply a persistent `issue:` label.
 It MUST refuse another request for that lane until the blocker clears or a qualifying current-head round proves recovery.
-The verdict mirror (`review/correctness`) SHALL remain the single required review status check.
-The `quality` check SHALL enforce deterministic validation independently.
-The cascade SHALL report orchestration progress without acting as a second required review status check.
+The verdict mirror (`review/correctness`) MUST remain the single required review status check.
+The `quality` check MUST enforce deterministic validation independently.
+The cascade MUST report orchestration progress without acting as a second required review status check.
 The mirror MUST report failure for a head without a verdict until a round completes.
-Fork pull requests SHALL use the owner's Repository-admin bypass after the available free default lanes settle clean.
+Fork pull requests MUST use the owner's Repository-admin bypass after the available free default lanes settle clean.
 
 #### Scenario: Full cascade from one label
 
@@ -115,19 +115,3 @@ A new lane MUST add a row instead of lane-specific shell.
 
 - **WHEN** the lane table includes standalone Cursor and CodeRabbit rows and the owner applies bare `review`
 - **THEN** the cascade selects Macroscope, PR-Agent, and Runeseer without selecting either standalone row
-
-### Requirement: Status Comment Upsert
-
-A workflow-authored status comment MUST carry a header marker.
-Later rounds MUST update the comment with that marker.
-A lane MUST NOT post another status comment with the same marker on the pull request.
-
-#### Scenario: Owner reminder repeats
-
-- **WHEN** the dashboard sweep finds a pull request still waiting on the owner
-- **THEN** the existing reminder updates its age instead of a second reminder appearing
-
-#### Scenario: Autofix patch changes
-
-- **WHEN** a later suggest run produces a different patch
-- **THEN** the suggestion comment updates to the new patch

@@ -26,7 +26,7 @@ set -e
 bash scripts/install-tools
 export PATH="$HOME/.local/bin:$PATH"
 missing=false
-for tool in prek gitleaks shellcheck copier ruff semgrep mdschema; do
+for tool in prek gitleaks shellcheck copier ruff semgrep mdschema rumdl typos vale lychee zizmor actionlint; do
     if ! command -v "$tool"; then
         printf 'missing tool: %s\n' "$tool" >&2
         missing=true
@@ -38,6 +38,6 @@ scratch=$(mktemp -d)
 copier copy --defaults . "$scratch/skeleton-smoke"
 ```
 
-The installer supports macOS with Homebrew and Linux with Homebrew, apt, dnf, or pacman. Downloaded release archives are checked against their upstream checksum manifests. Copier renders a git template from its last commit, so the smoke test covers committed template state; commit (or `jj` snapshot and describe) working-tree edits before smoke-testing them.
+The installer supports macOS with Homebrew and Linux with Homebrew, apt, dnf, or pacman. Downloaded release archives are checked against their upstream checksum manifests. Copier renders a git template from its last commit, so the smoke test covers committed template state. Commit (or `jj` snapshot and describe) working-tree edits before smoke-testing them.
 
 EXECUTE NOW: Complete the TODO list to achieve: tools available, checks green, and the portable template rendered.
