@@ -9,14 +9,14 @@ Which *agentic review lanes* exist, which of them the default *review funnel* ru
 ### Requirement: Default and Optional Review Lanes
 
 A lane that bills per run MUST run only inside a requested review round.
-A review lane MUST NOT start from pull request lifecycle events alone.
-A maintainer MUST apply a review label to request each round.
+A paid lane MUST start only from the controller after its triage admits a ready or green head, or from an owner-applied review label.
+An agent MUST NOT request a round.
 Bare `review` MUST request Macroscope, then the adjudicating correctness lane.
 Each `review:` label MUST request its single lane.
-Cursor and CodeRabbit MUST remain optional standalone lanes outside the default funnel.
+Codex and Cursor Security MUST run on every push as free lanes and record into the ledger. Cursor Security MUST run under its own spend cap and only for trusted actors. CodeRabbit and Macroscope MUST remain optional summoned lanes outside the default funnel.
 The default funnel MUST proceed without an optional lane request or an optional provider credential.
 An unavailable or skipped optional lane MUST NOT count as a clean review.
-The owner MUST resolve genuine findings from optional lanes before merge or explicitly accept them.
+Every finding from every lane MUST receive a disposition in the correctness verdict, and the owner MUST clear or reject the ones disposed as `owner` before the head can be queued for the seal.
 
 A review label handled by this repository's workflows MUST remain pending while the pull request is a draft.
 The pending request MUST start when the pull request becomes ready.
@@ -33,7 +33,7 @@ Further rounds MUST judge only the range since the previous verdict.
 A terminal provider failure in a default lane MUST stop the cascade immediately.
 The failure handler MUST preserve an undelivered review request and apply a persistent `issue:` label.
 It MUST refuse another request for that lane until the blocker clears or a qualifying current-head round proves recovery.
-The verdict mirror (`review/correctness`) MUST remain the single required review status check.
+The verdict mirror (`review/correctness`) MUST remain the single required review status check, and it MUST be the controller's check, reporting the ledger's coverage state when the paid lane does not run.
 The `quality` check MUST enforce deterministic validation independently.
 The cascade MUST report orchestration progress without acting as a second required review status check.
 The mirror MUST report failure for a head without a verdict until a round completes.

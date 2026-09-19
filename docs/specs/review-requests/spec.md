@@ -2,31 +2,34 @@
 
 ## Purpose
 
-How a maintainer asks for a review round and takes one back: the request labels, their behavior on drafts, and the `skip:` and `ignore:` overrides that stand a lane down or withdraw its hold on the merge.
+How a review round starts and how a maintainer stands a lane down: the ready event as the automatic request, the controller's triage, the request labels the owner may still apply to force a round, and the `skip:` and `ignore:` overrides that stand a lane down or withdraw its hold on the merge.
 
 ## Requirements
 
-### Requirement: Draft Exemption
+### Requirement: Ready Starts the Funnel
 
 A review lane MUST NOT run on drafts.
-Draft iteration and unlabeled pushes MUST remain free.
-The repository handles `review`, `review:runeseer`, `review:cursor`, and `review:autofix` request labels.
-These requests MUST wait while the pull request remains a draft.
-They MUST start when the pull request becomes ready.
+Draft iteration MUST remain free of paid review.
+The free lanes and the deterministic checks MUST run on every push to a draft and record their results in the ledger.
+The ready event MUST be the automatic review request.
+The controller MUST start the funnel when a pull request becomes ready with a valid open-seal, and on each later green head, after its triage admits the head.
+An agent MUST NOT apply a review label.
+The owner MAY apply `review`, `review:runeseer`, `review:cursor`, or `review:autofix` to force a round the triage would have stood down.
+A forced round MUST still count against the work item's paid budget.
+These labels MUST wait while the pull request remains a draft and MUST start when it becomes ready.
 Removing a pending request MUST prevent dispatch.
 Removing a dispatched `review` or `review:cursor` label MUST preserve the active round.
 The Cursor workflow MUST consume `review:cursor` after the summon succeeds.
 Cursor MUST control the posted review through its app trigger.
 The Macroscope app MUST control `review:macroscope` through its own trigger.
 The cascade MUST apply that label only to a ready pull request.
-Readiness without a request label MUST NOT start a lane.
 
 The `skip:<lane>` and `ignore:<lane>` labels MUST act as overrides, not round requests.
 An override MUST neither start nor cancel a round.
-The `skip:<lane>` label MUST prevent that lane from running, reporting findings, or spending money.
-The `ignore:<lane>` label MUST preserve the lane's full report while releasing its findings from the merge hold.
+The `skip:<lane>` label MUST prevent that lane from running, reporting findings, or spending money, and the ledger MUST record the lane as `skipped`.
+The `ignore:<lane>` label MUST preserve the lane's full report while releasing its findings from the merge hold, and MUST NOT apply to a finding the verdict rates critical.
 Both overrides MUST clear the lane's required mirror check.
-The correctness mirror MUST record owner acceptance through an approving review when `ignore:runeseer` accompanies a verdict on the judged head.
+The correctness mirror MUST record owner acceptance through an approving review when `ignore:runeseer` accompanies a verdict on the judged head and generation.
 This acceptance MUST satisfy the review requirement without a ruleset bypass.
 The mirror MUST NOT approve a head the lane never judged.
 A terminal default-lane failure MUST still fail the cascade under `ignore:<lane>`.
@@ -34,27 +37,26 @@ A failed provider does not establish a completed review.
 A round MUST consist of one cascade.
 The cascade MUST consume `review` after it dispatches the correctness round.
 The correctness lane MUST consume its own request label when its round ends.
-The next round MUST require a fresh `review` label.
 
 #### Scenario: Draft iteration
 
 - **WHEN** an agent pushes repeatedly to a draft pull request
-- **THEN** no review lane runs for those pushes
+- **THEN** the free lanes and deterministic checks run and fill the ledger, and no paid lane runs
 
-#### Scenario: Marked ready with a pending review request
+#### Scenario: Marked ready with a seal
 
-- **WHEN** a draft pull request carrying `review` is marked ready for review
-- **THEN** the cascade runs once in escalation order, answering the maintainer-applied label
+- **WHEN** `rune sign open` flips a draft ready with a valid open-seal
+- **THEN** the controller triages the head and, when admitted, runs the cascade once in escalation order
 
-#### Scenario: Marked ready without a review request
+#### Scenario: Marked ready without a seal
 
-- **WHEN** a draft pull request carrying no `review` or `review:` label is marked ready for review
-- **THEN** no review lane starts
+- **WHEN** a draft is marked ready by any path other than `rune sign open`
+- **THEN** no paid lane starts and `owner-seal` fails on the head
 
 #### Scenario: Reopened pull request
 
-- **WHEN** a pull request reopens without a fresh maintainer-applied review label
-- **THEN** no review lane starts on the current head
+- **WHEN** a pull request reopens
+- **THEN** the controller treats the current head as a green head and applies the triage before any paid lane starts
 
 #### Scenario: Pending review request removed
 
@@ -69,4 +71,9 @@ The next round MUST require a fresh `review` label.
 #### Scenario: Review request consumed
 
 - **WHEN** the correctness lane's round ends
-- **THEN** the review labels are removed, and a later push summons nothing until a fresh label lands
+- **THEN** the review labels are removed, and the next green head goes through the triage again
+
+#### Scenario: Owner forces a round
+
+- **WHEN** the owner applies `review:runeseer` to a ready head the triage stood down
+- **THEN** the lane runs on that head and the work item's paid budget decreases by one

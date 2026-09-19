@@ -2,32 +2,71 @@
 
 ## Purpose
 
-How approved work enters `main` and how a release is sealed: merge commits, owner-signed tags verified against `KEYS`, and release notes compiled from merged pull requests.
+How the owner's hardware key enters the ceremony and how approved work enters `main`: the open-seal that readies a pull request, the merge-seal that permits its merge, the owner-signed tags that vouch for `main`, and release notes compiled from merged pull requests. The key touches three times: open, merge, tag.
 
 ## Requirements
 
-### Requirement: Owner Attestation on Tags
+### Requirement: Owner Attestation on Seals and Tags
 
-The owner's hardware key MUST enter the ceremony at tags, not merges: release and checkpoint tags are annotated and owner-signed, a signed tag vouches for every commit reachable beneath it, and the root `KEYS` file plus the tag ruleset carry the trust anchor. The release workflow MUST verify the tag against `KEYS` before publication. Merging MUST NOT demand any additional signature ritual beyond the platform's own. The merge action is the owner's sign-off at credential strength, and the signed tag is the sign-off at hardware strength.
+The owner's hardware key MUST enter the ceremony at three points. The *open-seal* is an empty signed commit beneath the pull request head whose message carries a digest of the repository, the base ref, the head tree, and a single-use nonce. `rune sign open` MUST write that nonce into the pull request body when it flips the draft ready. The *merge-seal* is an empty signed commit whose sole parent is the ledger's `reviewed_sha` and whose tree equals that parent's tree. It MUST name `reviewed_sha` and the ledger generation in its message. Release and checkpoint tags are annotated and owner-signed, and a signed tag vouches for every commit reachable beneath it. The root `KEYS` file, read from the protected default branch, and the tag ruleset carry the trust anchor. Merging a same-repository pull request MUST require both seals through the `owner-seal` check. The session agent MAY invoke `rune sign open`, `submit`, and `next`. The touch is the owner's, and nothing signs without it.
+
+#### Scenario: Open-seal binds one pull request
+
+- **WHEN** `owner-seal` verifies a ready pull request
+- **THEN** it finds exactly one open pull request whose body carries the seal's nonce, the sealed tree is an ancestor of the head, and the signature verifies against `KEYS`
+
+#### Scenario: Inherited seal
+
+- **WHEN** a branch forked from a sealed branch opens its own pull request
+- **THEN** the nonce belongs to the original pull request, `owner-seal` fails, and the new pull request needs its own open-seal
+
+#### Scenario: Merge-seal is an empty child
+
+- **WHEN** `owner-seal` verifies a merge-seal
+- **THEN** the seal's sole parent equals the ledger's `reviewed_sha`, its tree equals the parent tree, its generation matches the ledger, and its signature verifies against `KEYS`
+
+#### Scenario: Push after the merge-seal
+
+- **WHEN** any commit is pushed above the merge-seal
+- **THEN** `owner-seal` fails until the owner seals the new head
+
+#### Scenario: Generation bump after the merge-seal
+
+- **WHEN** the ledger generation increments after a merge-seal was signed
+- **THEN** `owner-seal` fails, the queue entry is stale, and the owner seals again after re-adjudication
 
 #### Scenario: Signed tag vouches for merged history
 
 - **WHEN** the owner signs a release or checkpoint tag over `main`
 - **THEN** every merge since the previous signed tag is attested by that signature
 
-#### Scenario: Merge needs no ritual
+### Requirement: Signing Queue Admission
 
-- **WHEN** an approved, green pull request is merged from the platform interface
-- **THEN** no additional signature is demanded at merge time
+`rune sign submit` MUST refuse a head unless the ledger at its current generation shows a paid clean verdict or the coverage state `free lanes only` with its reason, every expected lane in a terminal status, zero open or `owner` threads, every required check green, and the proof the receipt names present. It MUST record the coverage state on the request. `rune sign next` MUST show the diff stat against base, the disposition table or the coverage state, the proof, and the request fields being authorized, and MUST take one acknowledgment before the key.
+
+#### Scenario: Free lanes only
+
+- **WHEN** the ledger shows `free lanes only` and every other condition holds
+- **THEN** the head is queued with `free lanes only` and its reason on the request, and `rune sign next` shows that state before the touch
+
+#### Scenario: Owner thread open
+
+- **WHEN** the ledger holds a thread disposed as `owner`
+- **THEN** `rune sign submit` refuses until the owner clears or rejects it
 
 ### Requirement: Release Notes Attestation
 
-Every pull request body MUST carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow MUST compile the sections of merged pull requests into the release body the owner signs over. A pull request body MUST NOT change at or after merge. If it does, release compilation MUST fail because the public API cannot attest the merge-time body.
+Every pull request body MUST carry a Release Notes section with at least one entry, `- N/A` legal for work with no user-facing effect, and the release workflow MUST compile the sections of merged pull requests into the release body the owner signs over. A pull request body MUST NOT change after the open-seal. A body edit MUST increment the ledger generation. If the body changes at or after merge, release compilation MUST fail because the public API cannot attest the merge-time body.
 
 #### Scenario: Missing section
 
 - **WHEN** a pull request body has no Release Notes section
 - **THEN** the quality check fails naming the requirement
+
+#### Scenario: Body edited after ready
+
+- **WHEN** the body changes after `rune sign open`
+- **THEN** the ledger generation increments and the standing approval and queue entry become stale
 
 ### Requirement: Merge and Release Ceremony
 
@@ -35,8 +74,8 @@ Approved work MUST enter `main` as a GitHub merge commit, and release tags MUST 
 
 #### Scenario: Merge preserves authorship
 
-- **WHEN** the owner merges an approved pull request
-- **THEN** every commit keeps its model author and contributor trailers on `main`
+- **WHEN** the owner merges a sealed pull request
+- **THEN** every commit keeps its model author and contributor trailers on `main`, and the two seals are part of the merged history
 
 #### Scenario: Release verification
 
