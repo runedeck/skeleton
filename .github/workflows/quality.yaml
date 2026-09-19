@@ -35,6 +35,9 @@ jobs:
             - name: Test worktree cleanup
               run: bash tests/worktree-done
 
+            - name: Test the seal verifier
+              run: bash tests/verify-seal
+
             - name: Test model attribution
               run: python3 -m unittest discover -s tests -p 'test_auth*.py' -v
 

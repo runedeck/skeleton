@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# Verify the owner's seals on a pull request head (docs/specs/release-ceremony).
+#
+#   verify-seal open --head SHA --repo OWNER/NAME --base REF --number N \
+#       --keys FILE --open-bodies FILE [--since SHA]
+#   verify-seal merge --head SHA --keys FILE [--ledger FILE]
+#
+# The open-seal is an empty commit beneath the head whose first line is
+# `open-seal: {"repo":..,"base":..,"tree":..,"nonce":..}`. The merge-seal is
+# the head itself, an empty commit whose first line is
+# `merge-seal: {"reviewed_sha":..,"generation":..}`. --open-bodies is a JSON
+# array of `{"number": N, "body": "..."}` for every open pull request.
+# --ledger is a JSON object with `reviewed_sha` and `generation`. --since
+# bounds the open-seal search to commits the base does not reach.
+#
+# Each command prints one line and exits 0 when the seal holds, or prints one
+# line that names what is missing and exits 1. Structural checks run before
+# the signature check, so an unsigned fixture still exercises them.
+# VERIFY_SEAL_GPG names the gpg program; git verifies through the same one.
+set -euo pipefail
+
+gpg_program=${VERIFY_SEAL_GPG:-gpg}
+command=${1:-}
+[ -n "$command" ] || { printf 'usage: verify-seal open|merge [options]\n' >&2; exit 2; }
+shift
+
+head="" repo="" base="" number="" keys="" open_bodies="" since="" ledger=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --head) head=$2 ;;
+        --repo) repo=$2 ;;
+        --base) base=$2 ;;
+        --number) number=$2 ;;
+        --keys) keys=$2 ;;
+        --open-bodies) open_bodies=$2 ;;
+        --since) since=$2 ;;
+        --ledger) ledger=$2 ;;
+        *) printf 'verify-seal: unknown option %s\n' "$1" >&2; exit 2 ;;
+    esac
+    shift 2
+done
+
+gnupg_home=""
+trap '[ -z "$gnupg_home" ] || command rm -rf "$gnupg_home"' EXIT
+
+fail() {
+    printf '%s\n' "$1"
+    exit 1
+}
+
+require() {
+    [ -n "$2" ] || fail "verify-seal $command: --$1 is required"
+}
+
+# The first message line that carries the prefix, without the prefix.
+seal_json() {
+    git log -1 --format=%B "$1" | sed -n "s/^$2: //p" | head -n 1
+}
+
+tree_of() {
+    git rev-parse "$1^{tree}"
+}
+
+parents_of() {
+    git rev-list --parents -n 1 "$1" | cut -d ' ' -f 2-
+}
+
+# An empty commit has one parent and that parent's tree.
+require_empty() {
+    local parents
+    parents=$(parents_of "$1")
+    [ "$(printf '%s\n' "$parents" | wc -w | tr -d ' ')" = "1" ] \
+        || fail "$2 $1 is not an empty commit: it has $(printf '%s\n' "$parents" | wc -w | tr -d ' ') parents"
+    [ "$(tree_of "$1")" = "$(tree_of "$parents")" ] \
+        || fail "$2 $1 is not an empty commit: its tree differs from its parent's"
+}
+
+# The signature must verify, and its fingerprint must be one KEYS carries.
+require_signature() {
+    local allowed output signer
+    gnupg_home=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:?TMPDIR must be set}}/verify-seal-gpg.XXXXXX")
+    chmod 0700 "$gnupg_home"
+    "$gpg_program" --homedir "$gnupg_home" --batch --import "$keys" >/dev/null 2>&1 \
+        || fail "$2 $1: could not import trusted OpenPGP keys from $keys"
+    allowed=$("$gpg_program" --homedir "$gnupg_home" --batch --with-colons --fingerprint \
+        | awk -F: '$1 == "fpr" { print $10 }')
+    [ -n "$allowed" ] || fail "$2 $1: $keys carries no OpenPGP fingerprint"
+    output=$(GNUPGHOME="$gnupg_home" git -c gpg.format=openpgp -c gpg.program="$gpg_program" \
+        verify-commit --raw "$1" 2>&1) \
+        || fail "$2 $1 has no valid signature: $(printf '%s\n' "$output" | tail -n 1)"
+    signer=$(printf '%s\n' "$output" | awk '/^\[GNUPG:\] VALIDSIG / { print $3; exit }')
+    [ -n "$signer" ] || fail "$2 $1 produced no valid signature fingerprint"
+    printf '%s\n' "$allowed" | grep -Fxq "$signer" \
+        || fail "$2 $1 was signed by fingerprint $signer, which KEYS does not carry"
+}
+
+verify_open() {
+    require head "$head"; require repo "$repo"; require base "$base"
+    require number "$number"; require keys "$keys"; require open-bodies "$open_bodies"
+    local seal json seal_repo seal_base seal_tree nonce count holder
+    seal=$(git rev-list --grep='^open-seal: ' "$head" ${since:+"^$since"} | head -n 1)
+    [ -n "$seal" ] || fail "open-seal missing: no commit beneath $head carries an open-seal"
+    json=$(seal_json "$seal" open-seal)
+    seal_repo=$(printf '%s' "$json" | jq -r '.repo // ""' 2>/dev/null) || seal_repo=""
+    seal_base=$(printf '%s' "$json" | jq -r '.base // ""' 2>/dev/null) || seal_base=""
+    seal_tree=$(printf '%s' "$json" | jq -r '.tree // ""' 2>/dev/null) || seal_tree=""
+    nonce=$(printf '%s' "$json" | jq -r '.nonce // ""' 2>/dev/null) || nonce=""
+    [ -n "$seal_repo" ] && [ -n "$seal_base" ] && [ -n "$seal_tree" ] && [ -n "$nonce" ] \
+        || fail "open-seal $seal is malformed: expected a JSON line with repo, base, tree, and nonce"
+    [ "$seal_repo" = "$repo" ] || fail "open-seal $seal binds repository $seal_repo, not $repo"
+    [ "$seal_base" = "$base" ] || fail "open-seal $seal binds base $seal_base, not $base"
+    require_empty "$seal" open-seal
+    [ "$seal_tree" = "$(tree_of "$seal")" ] \
+        || fail "open-seal $seal names tree $seal_tree, which is not the sealed commit's tree"
+    git merge-base --is-ancestor "$seal" "$head" \
+        || fail "open-seal $seal is not an ancestor of $head"
+    count=$(jq --arg nonce "$nonce" '[.[] | select((.body // "") | contains($nonce))] | length' "$open_bodies") \
+        || fail "open-seal $seal: could not read the open pull request bodies from $open_bodies"
+    [ "$count" = "1" ] || fail "open-seal nonce $nonce appears in $count open pull request bodies, expected exactly one"
+    holder=$(jq -r --arg nonce "$nonce" '.[] | select((.body // "") | contains($nonce)) | .number' "$open_bodies")
+    [ "$holder" = "$number" ] || fail "open-seal nonce $nonce belongs to pull request #$holder, not #$number"
+    require_signature "$seal" open-seal
+    printf 'open-seal ok: %s binds %s onto %s with nonce %s\n' "$seal" "$seal_tree" "$base" "$nonce"
+}
+
+verify_merge() {
+    require head "$head"; require keys "$keys"
+    local json reviewed generation parents ledger_sha ledger_generation
+    json=$(seal_json "$head" merge-seal)
+    [ -n "$json" ] || fail "merge-seal missing: head $head carries no merge-seal"
+    reviewed=$(printf '%s' "$json" | jq -r '.reviewed_sha // ""' 2>/dev/null) || reviewed=""
+    generation=$(printf '%s' "$json" | jq -r '.generation // ""' 2>/dev/null) || generation=""
+    [ -n "$reviewed" ] && [ -n "$generation" ] \
+        || fail "merge-seal $head is malformed: expected a JSON line with reviewed_sha and generation"
+    parents=$(parents_of "$head")
+    [ "$parents" = "$reviewed" ] \
+        || fail "merge-seal $head has parent $parents, not reviewed_sha $reviewed"
+    require_empty "$head" merge-seal
+    if [ -n "$ledger" ]; then
+        ledger_sha=$(jq -r '.reviewed_sha // ""' "$ledger") || fail "merge-seal $head: could not read the ledger $ledger"
+        ledger_generation=$(jq -r '.generation // ""' "$ledger")
+        [ "$ledger_sha" = "$reviewed" ] \
+            || fail "merge-seal $head names reviewed_sha $reviewed, but the ledger holds $ledger_sha"
+        [ "$ledger_generation" = "$generation" ] \
+            || fail "merge-seal $head names generation $generation, but the ledger is at generation $ledger_generation"
+    else
+        printf 'merge-seal %s: no ledger given, generation %s is unchecked\n' "$head" "$generation"
+    fi
+    require_signature "$head" merge-seal
+    printf 'merge-seal ok: %s seals reviewed_sha %s at generation %s\n' "$head" "$reviewed" "$generation"
+}
+
+case "$command" in
+    open) verify_open ;;
+    merge) verify_merge ;;
+    *) printf 'verify-seal: unknown command %s\n' "$command" >&2; exit 2 ;;
+esac
