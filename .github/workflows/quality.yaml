@@ -5,6 +5,9 @@ on:
         branches: [main]
     pull_request:
         branches: [main]
+    # draft-open.yaml calls this workflow on the first push of a ceremony
+    # branch, so the draft opens only after the deterministic checks pass.
+    workflow_call: {}
 
 concurrency:
     group: quality-${{ github.ref }}
@@ -112,6 +115,9 @@ jobs:
 
             - name: Install tools
               run: bash scripts/install-tools
+
+            - name: Test the draft body against the pull request schema
+              run: bash tests/draft-open-body
 
             - name: Test the generated Vale style
               run: python3 -m unittest discover -s tests -p 'test_vale_style.py' -v

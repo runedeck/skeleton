@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Compare the committed rulesets under .github/rulesets/ with the live ones
+# (read-only). Nothing applies these files: the owner applies them by hand
+# through the repository settings or `gh api -X PUT`. This script reports
+# each difference as a workflow warning and exits 0, so a planned gap
+# (the required-check flip is the last step of the rollout) does not open
+# a canary issue every night.
+#
+#   ruleset-drift OWNER/NAME
+set -euo pipefail
+
+repository=${1:?usage: ruleset-drift OWNER/NAME}
+directory=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)/.github/rulesets
+warn() {
+    printf '::warning title=ruleset drift::%s\n' "$1"
+}
+
+live=$(gh api --paginate "repos/$repository/rulesets?per_page=100" --jq '.[] | {id, name}' | jq -s '.') \
+    || { warn "could not list the live rulesets for $repository"; exit 0; }
+
+# The projection keeps what the file states and drops the server's ids,
+# links, and timestamps.
+projection='{name, target, enforcement, conditions, bypass_actors: [(.bypass_actors // [])[] | {actor_id, actor_type, bypass_mode}], rules}'
+
+for file in "$directory"/*.json; do
+    name=$(jq -r '.name' "$file")
+    id=$(jq -r --arg name "$name" '.[] | select(.name == $name) | .id' <<< "$live" | head -n 1)
+    if [ -z "$id" ]; then
+        warn "ruleset $name from $(basename "$file") is not applied to $repository"
+        continue
+    fi
+    if ! difference=$(diff <(jq -S "$projection" "$file") <(gh api "repos/$repository/rulesets/$id" | jq -S "$projection")); then
+        warn "ruleset $name differs from $(basename "$file"): apply the file or commit the live shape"
+        printf '%s\n' "$difference"
+    else
+        printf 'ruleset %s matches %s\n' "$name" "$(basename "$file")"
+    fi
+done

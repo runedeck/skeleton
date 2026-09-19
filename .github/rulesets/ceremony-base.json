@@ -31,7 +31,8 @@
                 "strict_required_status_checks_policy": false,
                 "required_status_checks": [
                     { "context": "quality", "integration_id": 15368 },
-                    { "context": "owner-seal", "integration_id": 15368 }
+                    { "context": "owner-seal", "integration_id": 15368 },
+                    { "context": "review/correctness", "integration_id": 15368 }
                 ]
             }
         }

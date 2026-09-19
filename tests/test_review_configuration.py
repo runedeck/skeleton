@@ -19,6 +19,19 @@ def read_yaml(path):
     return yaml.safe_load(path.read_text())
 
 
+def read_json(path):
+    return json.loads(path.read_text())
+
+
+def triggers(workflow):
+    # YAML 1.1 reads a bare `on` key as the boolean True.
+    return workflow.get("on", workflow.get(True))
+
+
+def rule(ruleset, kind):
+    return next(entry for entry in ruleset["rules"] if entry["type"] == kind)
+
+
 def label_script(root):
     return label_job(root)["steps"][0]["with"]["script"]
 
@@ -114,6 +127,99 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
                 self.assertIn("review:cursor", job["if"])
                 self.assertIn("skip:cursor", job["if"])
                 self.assertNotIn("steps", job)
+
+    def test_cascade_reaches_the_controller_on_ready_and_green_heads(self):
+        # docs/specs/review-requests, Ready Starts the Funnel: the ready
+        # event and each later head reach the controller without a label.
+        for root in COPIES:
+            with self.subTest(root=root):
+                workflow = read_yaml(root / ".github/workflows/review-cascade.yaml")
+                types = triggers(workflow)["pull_request_target"]["types"]
+                self.assertTrue({"ready_for_review", "synchronize", "reopened", "labeled"}.issubset(types))
+                jobs = workflow["jobs"]
+                self.assertEqual(len(jobs), 1)
+                job = next(iter(jobs.values()))
+                self.assertIn("uses", job)
+                self.assertNotIn("contains(github.event.pull_request.labels.*.name, 'review')", job["if"])
+                self.assertIn("ready_for_review", job["if"])
+                self.assertIn("synchronize", job["if"])
+                self.assertIn("github.event.pull_request.draft == false", job["if"])
+
+    def test_required_checks_bind_everyone(self):
+        # docs/specs/review-ceremony, Owner Veto and Lane Independence: the
+        # three required checks sit where no actor bypasses them, and the
+        # owner bypass covers the review rule alone.
+        required = {"quality", "owner-seal", "review/correctness"}
+        for root in COPIES:
+            with self.subTest(root=root):
+                base = read_json(root / ".github/rulesets/ceremony-base.json")
+                veto = read_json(root / ".github/rulesets/owner-veto.json")
+                self.assertEqual(base["bypass_actors"], [])
+                checks = rule(base, "required_status_checks")["parameters"]["required_status_checks"]
+                self.assertEqual({check["context"] for check in checks}, required)
+                self.assertTrue(all(check["integration_id"] == 15368 for check in checks))
+                self.assertEqual([r["type"] for r in veto["rules"]], ["pull_request"])
+                self.assertIs(rule(veto, "pull_request")["parameters"]["require_code_owner_review"], True)
+                self.assertEqual(
+                    veto["bypass_actors"],
+                    [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}],
+                )
+        for name in ("ceremony-base.json", "owner-veto.json"):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    read_json(COPIES[0] / ".github/rulesets" / name),
+                    read_json(COPIES[1] / ".github/rulesets" / name),
+                )
+
+    def test_owner_seal_runs_from_the_default_branch(self):
+        # The check never runs the candidate tree: pull_request_target, a
+        # default-branch checkout, and two check runs the ruleset and the
+        # controller read by name.
+        for root in COPIES:
+            with self.subTest(root=root):
+                workflow = read_yaml(root / ".github/workflows/owner-seal.yaml")
+                events = triggers(workflow)
+                self.assertEqual(list(events), ["pull_request_target"])
+                self.assertTrue({"ready_for_review", "synchronize", "edited"}.issubset(events["pull_request_target"]["types"]))
+                self.assertEqual(workflow["permissions"], {})
+                jobs = workflow["jobs"]
+                self.assertEqual({job["name"] for job in jobs.values()}, {"owner-seal/open", "owner-seal"})
+                seal = next(job for job in jobs.values() if job["name"] == "owner-seal")
+                self.assertEqual(seal["needs"], "open")
+                self.assertEqual(seal["if"], "always()")
+                for job in jobs.values():
+                    for step in job["steps"]:
+                        if "uses" in step and step["uses"].startswith("actions/checkout@"):
+                            self.assertEqual(step["with"]["ref"], "${{ github.event.repository.default_branch }}")
+                            self.assertIs(step["with"]["persist-credentials"], False)
+                merge = next(step for step in seal["steps"] if step.get("name") == "Verify the merge-seal")
+                self.assertIn("--ledger", merge["run"])
+                self.assertNotIn("--no-ledger", merge["run"])
+        self.assertEqual(
+            read_yaml(COPIES[0] / ".github/workflows/owner-seal.yaml"),
+            read_yaml(COPIES[1] / ".github/workflows/owner-seal.yaml"),
+        )
+
+    def test_draft_opens_after_the_deterministic_checks(self):
+        # docs/specs/review-ceremony, First push opens a draft: the draft
+        # waits for quality on the pushed head.
+        for root in COPIES:
+            with self.subTest(root=root):
+                workflow = read_yaml(root / ".github/workflows/draft-open.yaml")
+                quality = read_yaml(root / ".github/workflows/quality.yaml")
+                self.assertIn("workflow_call", triggers(quality))
+                jobs = workflow["jobs"]
+                self.assertEqual(jobs["checks"]["uses"], "./.github/workflows/quality.yaml")
+                self.assertEqual(jobs["checks"]["needs"], "existing")
+                self.assertEqual(jobs["open"]["needs"], ["existing", "checks"])
+                self.assertIn("needs.checks.result == 'success'", jobs["open"]["if"])
+                create = next(step for step in jobs["open"]["steps"] if step.get("name") == "Open the draft")
+                self.assertIn("--draft", create["run"])
+                self.assertEqual(create["env"]["GH_TOKEN"], "${{ steps.runewright.outputs.token }}")
+        self.assertEqual(
+            read_yaml(COPIES[0] / ".github/workflows/draft-open.yaml"),
+            read_yaml(COPIES[1] / ".github/workflows/draft-open.yaml"),
+        )
 
     def test_repository_and_template_share_caller_contracts(self):
         for name in ("review-cursor.yaml", "review-cascade.yaml"):

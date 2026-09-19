@@ -3,16 +3,20 @@
 # below honors the four contracts the verifier and git use (import, listing,
 # sign, verify) without a gpg-agent, the way cli/tests/sign_queue.rs fakes
 # the owner's card. Structural cases use unsigned commits and must fail
-# before the signature check; the passing cases sign through the fake.
+# before the signature check. The passing cases sign through the fake.
 set -euo pipefail
 
 repository_root=$(cd "$(dirname "$0")/.." && pwd -P)
 verifier=$repository_root/scripts/verify-seal
-# The root copy is what this repository's own check runs; the template copy
-# is what consumers get. They must not drift.
-cmp -s "$verifier" "$repository_root/templates/base/scripts/verify-seal" \
-    || { printf 'scripts/verify-seal differs from templates/base/scripts/verify-seal\n' >&2; exit 1; }
-scratch=$(mktemp -d "${TMPDIR:?TMPDIR must be set}/verify-seal-test.XXXXXX")
+# The root copies are what this repository's own checks run. The template
+# copies are what consumers get. They must not drift.
+for pair in scripts/verify-seal .github/workflows/draft-open.yaml .github/workflows/owner-seal.yaml \
+    .github/rulesets/ceremony-base.json .github/rulesets/owner-veto.json; do
+    cmp -s "$repository_root/$pair" "$repository_root/templates/base/$pair" \
+        || { printf '%s differs from templates/base/%s\n' "$pair" "$pair" >&2; exit 1; }
+done
+# GitHub-hosted runners export RUNNER_TEMP and no TMPDIR.
+scratch=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:?TMPDIR must be set}}/verify-seal-test.XXXXXX")
 trap 'command rm -rf "$scratch"' EXIT
 export TMPDIR=$scratch
 
@@ -57,16 +61,25 @@ signed_commit() {
         commit -q -S --allow-empty -m "$1"
 }
 
+# open_seal_message TREE NONCE [NUMBER] [REPO] [BASE]
 open_seal_message() {
-    printf 'open-seal: {"repo":"runedeck/skeleton","base":"main","tree":"%s","nonce":"%s"}' "$1" "$2"
+    printf 'open-seal: {"repo":"%s","base":"%s","number":%s,"tree":"%s","nonce":"%s"}' \
+        "${4:-runedeck/skeleton}" "${5:-main}" "${3:-7}" "$1" "$2"
 }
 
+digest=$(printf 'ledger' | shasum -a 256 | cut -d ' ' -f 1)
+other_digest=$(printf 'other' | shasum -a 256 | cut -d ' ' -f 1)
+
 merge_seal_message() {
-    printf 'merge-seal: {"reviewed_sha":"%s","generation":%s}' "$1" "$2"
+    printf 'merge-seal: {"reviewed_sha":"%s","generation":%s,"digest":"%s"}' "$1" "$2" "${3:-$digest}"
+}
+
+ledger_line() {
+    printf '{"reviewed_sha":"%s","generation":%s,"digest":"%s"}\n' "$1" "$2" "${3:-$digest}"
 }
 
 bodies_json() {
-    printf '%s' "$1" | jq -c .
+    printf '%s' "$1" | jq -c . > "$bodies"
 }
 
 expect() {
@@ -99,12 +112,12 @@ git add work.txt
 commit 'feat: work'
 work_sha=$(git rev-parse HEAD)
 work_tree=$(git rev-parse "HEAD^{tree}")
-nonce=0123456789abcdef
+nonce=0123456789abcdef0123456789abcdef
 
 open_args=(open --repo runedeck/skeleton --base main --number 7 --keys "$keys" --open-bodies "$bodies" --since "$main_sha")
 
 # No seal beneath the head.
-bodies_json "[{\"number\":7,\"body\":\"nonce $nonce\"}]" > "$bodies"
+bodies_json "[{\"number\":7,\"body\":\"nonce $nonce\"}]"
 expect fail 'open-seal missing' "${open_args[@]}" --head "$work_sha"
 
 # A seal on a side branch the head does not reach is not an ancestor.
@@ -113,19 +126,46 @@ commit "$(open_seal_message "$(git rev-parse "HEAD^{tree}")" "$nonce")"
 git checkout -q change/example
 expect fail 'open-seal missing' "${open_args[@]}" --head "$work_sha"
 
+# A body line that quotes the format is not a seal subject.
+commit "$(printf 'docs: describe the seal\n\nopen-seal: {"repo":"x"}\n')"
+expect fail 'open-seal missing' "${open_args[@]}" --head "$(git rev-parse HEAD)"
+git reset -q --hard "$work_sha"
+
 # An unsigned seal with the right tree and a unique nonce fails only at the signature.
 commit "$(open_seal_message "$work_tree" "$nonce")"
 seal_sha=$(git rev-parse HEAD)
 expect fail 'has no valid signature' "${open_args[@]}" --head "$seal_sha"
 
-# The nonce must appear in exactly one open body, and that body must be this pull request's.
-bodies_json '[{"number":7,"body":"no nonce here"}]' > "$bodies"
-expect fail 'appears in 0 open pull request bodies' "${open_args[@]}" --head "$seal_sha"
-bodies_json "[{\"number\":7,\"body\":\"$nonce\"},{\"number\":8,\"body\":\"copied $nonce\"}]" > "$bodies"
-expect fail 'appears in 2 open pull request bodies' "${open_args[@]}" --head "$seal_sha"
-bodies_json "[{\"number\":8,\"body\":\"$nonce\"}]" > "$bodies"
-expect fail 'belongs to pull request #8, not #7' "${open_args[@]}" --head "$seal_sha"
-bodies_json "[{\"number\":7,\"body\":\"$nonce\"}]" > "$bodies"
+# Without --since the search still finds the seal.
+expect fail 'has no valid signature' open --repo runedeck/skeleton --base main --number 7 \
+    --keys "$keys" --open-bodies "$bodies" --head "$seal_sha"
+
+# This pull request's body must carry the nonce. Another body with the
+# nonce is reported, never fatal.
+bodies_json '[{"number":7,"body":"no nonce here"}]'
+expect fail 'the body of pull request #7 does not carry nonce' "${open_args[@]}" --head "$seal_sha"
+bodies_json "[{\"number\":8,\"body\":\"$nonce\"}]"
+expect fail 'the body of pull request #7 does not carry nonce' "${open_args[@]}" --head "$seal_sha"
+bodies_json "[{\"number\":7,\"body\":\"$nonce\"},{\"number\":8,\"body\":\"copied $nonce\"}]"
+expect fail 'also appears in pull request #8' "${open_args[@]}" --head "$seal_sha"
+expect fail 'has no valid signature' "${open_args[@]}" --head "$seal_sha"
+bodies_json "[{\"number\":7,\"body\":\"$nonce\"}]"
+
+# The seal names its pull request. A seal for #9 carried under #7 fails
+# even when #7's body holds the nonce.
+git checkout -q -b other-number "$work_sha"
+commit "$(open_seal_message "$work_tree" "$nonce" 9)"
+expect fail 'binds pull request #9, not #7' "${open_args[@]}" --head "$(git rev-parse HEAD)"
+
+# A nonce that is not 32 lowercase hex characters.
+git checkout -q -b short-nonce "$work_sha"
+commit "$(open_seal_message "$work_tree" 0123456789abcdef)"
+expect fail 'is not 32 lowercase hex characters' "${open_args[@]}" --head "$(git rev-parse HEAD)"
+
+# A seal subject that is not JSON.
+git checkout -q -b not-json "$work_sha"
+commit 'open-seal: not json at all'
+expect fail 'is malformed' "${open_args[@]}" --head "$(git rev-parse HEAD)"
 
 # A seal whose recorded tree is not the sealed commit's tree.
 git checkout -q -b wrong-tree "$work_sha"
@@ -141,8 +181,11 @@ expect fail 'is not an empty commit' "${open_args[@]}" --head "$(git rev-parse H
 
 # A seal for another repository or base.
 git checkout -q -b other-repo "$work_sha"
-commit "open-seal: {\"repo\":\"runedeck/other\",\"base\":\"main\",\"tree\":\"$work_tree\",\"nonce\":\"$nonce\"}"
+commit "$(open_seal_message "$work_tree" "$nonce" 7 runedeck/other)"
 expect fail 'binds repository runedeck/other' "${open_args[@]}" --head "$(git rev-parse HEAD)"
+git checkout -q -b other-base "$work_sha"
+commit "$(open_seal_message "$work_tree" "$nonce" 7 runedeck/skeleton develop)"
+expect fail 'binds base develop, not main' "${open_args[@]}" --head "$(git rev-parse HEAD)"
 
 # A signed seal beneath a later fix passes, and stays valid under new commits.
 git checkout -q change/example
@@ -155,37 +198,77 @@ commit 'fix: answer a thread'
 fix_sha=$(git rev-parse HEAD)
 expect pass "open-seal ok: $signed_seal" "${open_args[@]}" --head "$fix_sha"
 
+# A later commit titled like a seal is rejected and the real seal still passes.
+commit 'open-seal: shadow'
+expect pass "open-seal ok: $signed_seal" "${open_args[@]}" --head "$(git rev-parse HEAD)"
+expect pass 'is malformed' "${open_args[@]}" --head "$(git rev-parse HEAD)"
+git reset -q --hard "$fix_sha"
+
+# A branch forked above the seal cannot reuse it under another number.
+git checkout -q -b forked "$fix_sha"
+commit 'feat: evil'
+bodies_json "[{\"number\":7,\"body\":\"$nonce\"},{\"number\":9,\"body\":\"$nonce\"}]"
+expect fail 'binds pull request #7, not #9' open --repo runedeck/skeleton --base main --number 9 \
+    --keys "$keys" --open-bodies "$bodies" --since "$main_sha" --head "$(git rev-parse HEAD)"
+bodies_json "[{\"number\":7,\"body\":\"$nonce\"}]"
+git checkout -q change/example
+
 # A signature from a fingerprint KEYS does not carry.
 export FAKE_GPG_SIGNER=0000000000000000000000000000000000000000
 expect fail 'which KEYS does not carry' "${open_args[@]}" --head "$fix_sha"
 unset FAKE_GPG_SIGNER
 
 # Merge-seal: the head must be the seal, its sole parent reviewed_sha.
-expect fail 'merge-seal missing' merge --head "$fix_sha" --keys "$keys"
+ledger=$scratch/ledger.json
+ledger_line "$fix_sha" 2 > "$ledger"
+merge_args=(merge --keys "$keys" --ledger "$ledger")
+expect fail 'merge-seal missing' "${merge_args[@]}" --head "$fix_sha"
 commit "$(merge_seal_message "$work_sha" 2)"
-expect fail "has parent $fix_sha, not reviewed_sha $work_sha" merge --head "$(git rev-parse HEAD)" --keys "$keys"
+expect fail "has parent $fix_sha, not reviewed_sha $work_sha" "${merge_args[@]}" --head "$(git rev-parse HEAD)"
 git reset -q --hard "$fix_sha"
 printf 'sneak\n' > "$repo/sneak.txt"
 git add sneak.txt
 git commit -q -m "$(merge_seal_message "$fix_sha" 2)"
-expect fail 'its tree differs from its parent' merge --head "$(git rev-parse HEAD)" --keys "$keys"
+expect fail 'its tree differs from its parent' "${merge_args[@]}" --head "$(git rev-parse HEAD)"
+git reset -q --hard "$fix_sha"
+git merge -q --no-ff -m "$(merge_seal_message "$fix_sha" 2)" side
+expect fail 'it has 2 parents' "${merge_args[@]}" --head "$(git rev-parse HEAD)"
+git reset -q --hard "$fix_sha"
+commit 'merge-seal: not json'
+expect fail 'is malformed' "${merge_args[@]}" --head "$(git rev-parse HEAD)"
+git reset -q --hard "$fix_sha"
+commit "merge-seal: {\"reviewed_sha\":\"$fix_sha\",\"generation\":2}"
+expect fail 'expected a JSON subject with reviewed_sha, generation, and digest' "${merge_args[@]}" --head "$(git rev-parse HEAD)"
+git reset -q --hard "$fix_sha"
+commit "$(merge_seal_message "$fix_sha" 2 abc)"
+expect fail 'names digest abc, not a sha256' "${merge_args[@]}" --head "$(git rev-parse HEAD)"
 git reset -q --hard "$fix_sha"
 commit "$(merge_seal_message "$fix_sha" 2)"
-expect fail 'has no valid signature' merge --head "$(git rev-parse HEAD)" --keys "$keys"
+expect fail 'has no valid signature' "${merge_args[@]}" --head "$(git rev-parse HEAD)"
 git reset -q --hard "$fix_sha"
 signed_commit "$(merge_seal_message "$fix_sha" 2)"
 merge_seal=$(git rev-parse HEAD)
-ledger=$scratch/ledger.json
-printf '{"reviewed_sha":"%s","generation":3}\n' "$fix_sha" > "$ledger"
-expect fail 'but the ledger is at generation 3' merge --head "$merge_seal" --keys "$keys" --ledger "$ledger"
-printf '{"reviewed_sha":"%s","generation":2}\n' "$work_sha" > "$ledger"
-expect fail "but the ledger holds $work_sha" merge --head "$merge_seal" --keys "$keys" --ledger "$ledger"
+
+# The ledger is required: a missing one fails unless the caller accepts it.
+expect fail 'no ledger to check generation 2 against' merge --head "$merge_seal" --keys "$keys"
+expect pass "--no-ledger given, generation 2 and digest $digest are unchecked" merge --head "$merge_seal" --keys "$keys" --no-ledger
+ledger_line "$fix_sha" 3 > "$ledger"
+expect fail 'but the ledger is at generation 3' "${merge_args[@]}" --head "$merge_seal"
+ledger_line "$work_sha" 2 > "$ledger"
+expect fail "but the ledger holds $work_sha" "${merge_args[@]}" --head "$merge_seal"
+# The digest binds the seal to the artifact the owner saw: a rebuilt
+# ledger at the same generation still unseals.
+ledger_line "$fix_sha" 2 "$other_digest" > "$ledger"
+expect fail "names digest $digest, but the ledger line carries $other_digest" "${merge_args[@]}" --head "$merge_seal"
 printf '{"reviewed_sha":"%s","generation":2}\n' "$fix_sha" > "$ledger"
-expect pass "merge-seal ok: $merge_seal" merge --head "$merge_seal" --keys "$keys" --ledger "$ledger"
-expect pass 'generation 2 is unchecked' merge --head "$merge_seal" --keys "$keys"
+expect fail "but the ledger line carries no digest" "${merge_args[@]}" --head "$merge_seal"
+printf 'not json\n' > "$ledger"
+expect fail 'could not read the ledger' "${merge_args[@]}" --head "$merge_seal"
+ledger_line "$fix_sha" 2 > "$ledger"
+expect pass "merge-seal ok: $merge_seal seals reviewed_sha $fix_sha at generation 2, ledger $digest" "${merge_args[@]}" --head "$merge_seal"
 
 # A push above the merge-seal unseals it.
 commit 'chore: after the seal'
-expect fail 'merge-seal missing' merge --head "$(git rev-parse HEAD)" --keys "$keys"
+expect fail 'merge-seal missing' "${merge_args[@]}" --head "$(git rev-parse HEAD)"
 
 printf 'Seal verification tests passed (%s checks).\n' "$checks"

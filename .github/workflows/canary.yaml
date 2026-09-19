@@ -49,6 +49,14 @@ jobs:
               continue-on-error: true
               run: bash tests/copier-update-canary
 
+            # Read-only: warns when a committed ruleset is missing or differs
+            # from the live one. It never fails, because the required-check
+            # flip is applied by hand as the last rollout step.
+            - name: Compare the committed rulesets with the live ones
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: bash scripts/ruleset-drift "${{ github.repository }}"
+
             - name: Report breakage
               if: steps.run.outcome == 'failure' || steps.copier.outcome == 'failure'
               env:

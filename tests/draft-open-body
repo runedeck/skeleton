@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# The placeholder body draft-open.yaml composes must pass the pull request
+# schema, or the first draft fails the Release notes attestation. The
+# heredoc is rendered the way the workflow renders it (indentation off,
+# $BRANCH filled, escaped backticks unescaped) and checked with mdschema.
+set -euo pipefail
+
+repository_root=$(cd "$(dirname "$0")/.." && pwd -P)
+workflow=$repository_root/templates/base/.github/workflows/draft-open.yaml
+schema=$repository_root/templates/base/schemas/PULL_REQUEST.mdschema
+command -v mdschema >/dev/null 2>&1 || { printf 'mdschema is required: run scripts/install-tools\n' >&2; exit 1; }
+
+scratch=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:?TMPDIR must be set}}/draft-open-body.XXXXXX")
+trap 'command rm -rf "$scratch"' EXIT
+
+# Lines strictly between the heredoc opener and its terminator, with the
+# first body line's indentation removed from each.
+BRANCH=change/example awk '
+    /cat > "\$body" <<EOF$/ { inside = 1; indent = -1; next }
+    inside && indent < 0 { match($0, /^[ ]*/); indent = RLENGTH }
+    inside && $0 == sprintf("%" indent "s", "") "EOF" { inside = 0; exit }
+    inside {
+        line = substr($0, indent + 1)
+        gsub(/\$BRANCH/, ENVIRON["BRANCH"], line)
+        gsub(/\\`/, "`", line)
+        print line
+    }
+' "$workflow" > "$scratch/pull-request.md"
+[ -s "$scratch/pull-request.md" ] || { printf 'no placeholder heredoc found in %s\n' "$workflow" >&2; exit 1; }
+grep -Fq 'Draft for `change/example`' "$scratch/pull-request.md" \
+    || { printf 'the rendered body did not fill $BRANCH:\n' >&2; cat "$scratch/pull-request.md" >&2; exit 1; }
+
+(cd "$scratch" && mdschema check --schema "$schema" pull-request.md) \
+    || { printf 'the placeholder body fails schemas/PULL_REQUEST.mdschema\n' >&2; exit 1; }
+printf 'Draft body test passed.\n'
