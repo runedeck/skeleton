@@ -114,7 +114,7 @@ git add work.txt
 commit 'feat: work'
 work_sha=$(git rev-parse HEAD)
 work_tree=$(git rev-parse "HEAD^{tree}")
-nonce=0123456789abcdef0123456789abcdef
+nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 open_args=(open --repo runedeck/skeleton --base main --number 7 --keys "$keys" --open-bodies "$bodies" --since "$main_sha")
 
@@ -159,10 +159,10 @@ git checkout -q -b other-number "$work_sha"
 commit "$(open_seal_message "$work_tree" "$nonce" 9)"
 expect fail 'binds pull request #9, not #7' "${open_args[@]}" --head "$(git rev-parse HEAD)"
 
-# A nonce that is not 32 lowercase hex characters.
+# A nonce that is neither 64 nor 32 lowercase hex characters.
 git checkout -q -b short-nonce "$work_sha"
 commit "$(open_seal_message "$work_tree" 0123456789abcdef)"
-expect fail 'is not 32 lowercase hex characters' "${open_args[@]}" --head "$(git rev-parse HEAD)"
+expect fail 'is not 64 lowercase hex characters' "${open_args[@]}" --head "$(git rev-parse HEAD)"
 
 # A seal subject that is not JSON.
 git checkout -q -b not-json "$work_sha"
@@ -200,14 +200,25 @@ commit 'fix: answer a thread'
 fix_sha=$(git rev-parse HEAD)
 expect pass "open-seal ok: $signed_seal" "${open_args[@]}" --head "$fix_sha"
 
-# The earlier spelling of the number key still verifies, on its own branch
-# so the two seals never share a range.
+# The earlier seal shape, number key and a 32-hex nonce, still verifies, on
+# its own branch so the two seals never share a range.
 git checkout -q -b legacy-key "$work_sha"
 legacy_nonce=$(printf 'legacy-%s' "$nonce" | shasum -a 256 | cut -c1-32)
 signed_commit "open-seal: {\"repo\":\"runedeck/skeleton\",\"base\":\"main\",\"number\":7,\"tree\":\"$work_tree\",\"nonce\":\"$legacy_nonce\"}"
 legacy_seal=$(git rev-parse HEAD)
 bodies_json "[{\"number\":7,\"body\":\"nonce $legacy_nonce\"}]"
 expect pass "open-seal ok: $legacy_seal" "${open_args[@]}" --head "$legacy_seal"
+
+# A seal subject exactly as rune sign open wrote it on a live pull request
+# (runedeck/cli#67, commit 1fa5166c), with only the tree swapped for this
+# fixture's. Byte-for-byte parsing parity between the two tools: a key or
+# length that drifts on either side fails here first.
+git checkout -q -b live-shape "$work_sha"
+live_nonce=cb42fbe587bd1a53b38b8c825433a4e40390cae6590896c1e5112a412c6f7a86
+signed_commit "open-seal: {\"repo\":\"runedeck/skeleton\",\"base\":\"main\",\"pull_request\":7,\"tree\":\"$work_tree\",\"nonce\":\"$live_nonce\"}"
+live_seal=$(git rev-parse HEAD)
+bodies_json "[{\"number\":7,\"body\":\"Open-Seal-Nonce: $live_nonce\"}]"
+expect pass "open-seal ok: $live_seal" "${open_args[@]}" --head "$live_seal"
 bodies_json "[{\"number\":7,\"body\":\"nonce $nonce\"}]"
 git checkout -q change/example
 git reset -q --hard "$fix_sha"
