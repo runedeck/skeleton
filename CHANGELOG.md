@@ -6,6 +6,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Added
 
+- Add the `.gitignore` baseline check to the parity audit, which reports a consumer whose file lacks a template pattern.
 - Add SKEL-0007: the checks that judge a pull request run from the base ref, and the machinery canary runs every probe and ends as failed.
 - Add the six-linter row from the deck (rumdl, typos, Vale, lychee, zizmor, actionlint), pinned with four digests each and run through guarded prek hooks.
 - Add `REQUIRE_GATES=1`, which turns a missing linter binary into a failure.
@@ -63,5 +64,6 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Removed
 
+- Remove `CLAUDE.md` from the template payload, so `AGENTS.md` is the only instruction file a consumer receives.
 - Remove consumer byte comparisons against the moving skeleton branch.
 - Remove the `spec:none` label from every repository through the label synchronization.

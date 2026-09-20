@@ -220,7 +220,31 @@ def compare_files(
         for relative in sorted(set(walk(baseline, seeded)) - set(template_files)):
             if (consumer / relative).exists():
                 drift.append(f"`{relative}`: removed from the template, still present")
+    drift.extend(missing_ignore_lines(consumer, rendered))
     return drift, declared
+
+
+def ignore_lines(path: Path) -> list[str]:
+    """The patterns in a .gitignore, in order, without comments and blanks."""
+    if not path.is_file():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.lstrip().startswith("#")]
+
+
+def missing_ignore_lines(consumer: Path, rendered: Path) -> list[str]:
+    """`.gitignore` is seeded once and owned by the consumer, which may add
+    patterns. Every pattern of the template's file still has to be present:
+    the baseline names the runtime and working-layer paths no repository
+    of the stack may track."""
+    wanted = ignore_lines(rendered / ".gitignore")
+    if not wanted:
+        return []
+    present = set(ignore_lines(consumer / ".gitignore"))
+    missing = [line for line in wanted if line not in present]
+    if not missing:
+        return []
+    return [f"`.gitignore`: missing the baseline patterns {', '.join(f'`{line}`' for line in missing)}"]
 
 
 def provisioned_labels(skeleton: Path) -> tuple[list[list[str]], list[str]]:

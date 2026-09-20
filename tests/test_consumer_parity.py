@@ -110,6 +110,18 @@ class SeededPathTests(unittest.TestCase):
             drift, _ = parity.compare_files("cli", consumer, rendered, None, [], {"CHANGELOG.md"})
         self.assertEqual(drift, [])
 
+    def test_seeded_gitignore_must_keep_the_baseline_patterns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            rendered = Path(directory, "main")
+            consumer = Path(directory, "consumer")
+            write(rendered / ".gitignore", "# runtime\n.trash/\n.workspaces/\n")
+            write(consumer / ".gitignore", ".workspaces/\nnode_modules/\n")
+            drift, _ = parity.compare_files("cli", consumer, rendered, None, [], {".gitignore"})
+            self.assertEqual(drift, ["`.gitignore`: missing the baseline patterns `.trash/`"])
+            write(consumer / ".gitignore", "node_modules/\n.trash/\n\n.workspaces/ \n")
+            drift, _ = parity.compare_files("cli", consumer, rendered, None, [], {".gitignore"})
+        self.assertEqual(drift, [])
+
 
 class FileComparisonTests(unittest.TestCase):
     def test_modes_removals_and_declarations(self):
