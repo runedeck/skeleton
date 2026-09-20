@@ -46,7 +46,9 @@ export GIT_AUTHOR_NAME=Model GIT_AUTHOR_EMAIL=model@example.com
 export GIT_COMMITTER_NAME=Model GIT_COMMITTER_EMAIL=model@example.com
 
 repo=$scratch/repo
-git init -q -b main "$repo"
+# `command git`: the wrapper below shadows git from here on, and a call
+# above its definition would not reach it.
+command git init -q -b main "$repo"
 git() { command git -C "$repo" "$@"; }
 keys=$repository_root/KEYS
 bodies=$scratch/open-bodies.json
