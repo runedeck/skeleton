@@ -210,6 +210,21 @@ class AuthorshipIntegrationTests(unittest.TestCase):
         head = self.new_head(model_identity(), policy=None)
         self.assert_checks(head, passes=True)
 
+    def test_first_adoption_is_judged_by_the_target_policy_and_says_so(self):
+        # The trusted base predates the policy: this range adds authors.yaml.
+        bare_base = self.commit(OWNER, "Before any policy", policy=None)
+        self.git("update-ref", "refs/remotes/origin/main", bare_base)
+        good = self.new_head(model_identity(), parents=(bare_base,))
+        self.assert_checks(
+            good, passes=True, contains="first adoption is judged by"
+        )
+        # The target policy still binds: an author outside it fails.
+        bad = self.new_head(model_identity(harness="unknown"), parents=(bare_base,))
+        self.assert_checks(bad, passes=False, contains=bad)
+        # A target without a policy has nothing to be judged by.
+        none = self.new_head(model_identity(), parents=(bare_base,), policy=None)
+        self.assert_checks(none, passes=False)
+
     def test_valid_empty_range_passes(self):
         self.assert_checks(self.base, passes=True)
 

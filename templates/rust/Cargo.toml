@@ -3,8 +3,10 @@ name = "${NAME}"
 version = "0.1.0"
 edition = "2024"
 license = "EUPL-1.2"
-# Literal string: a brief containing double quotes stays valid TOML.
-description = '${BRIEF}'
+# Basic string: rune init, the only renderer of this layer, escapes the
+# brief for one, so quotes, backslashes, and control characters stay
+# valid TOML. A literal string cannot hold an apostrophe.
+description = "${BRIEF}"
 
 [lints.rust]
 unsafe_code = "forbid"
