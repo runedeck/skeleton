@@ -8,7 +8,7 @@ How the owner's hardware key enters the ceremony and how approved work enters `m
 
 ### Requirement: Owner Attestation on Seals and Tags
 
-The owner's hardware key MUST enter the ceremony at three points. The *open-seal* is an empty signed commit beneath the pull request head whose subject line carries the repository, the base ref, the pull request number, the head tree, and a single-use nonce of 32 lowercase hex characters. `rune sign open` MUST write that nonce into the pull request body when it flips the draft ready. The session agent MAY invoke `rune sign open`, `submit`, and `next`. The touch is the owner's, and nothing signs without it.
+The owner's hardware key MUST enter the ceremony at three points. The *open-seal* is an empty signed commit beneath the pull request head whose subject line carries the repository, the base ref, the pull request number, the head tree, and a single-use nonce of 64 lowercase hex characters, 32 random bytes. `rune sign open` MUST write that nonce into the pull request body when it flips the draft ready. The session agent MAY invoke `rune sign open`, `submit`, and `next`. The touch is the owner's, and nothing signs without it.
 
 #### Scenario: Open-seal binds one pull request
 
