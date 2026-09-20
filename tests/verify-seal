@@ -65,7 +65,7 @@ signed_commit() {
 
 # open_seal_message TREE NONCE [NUMBER] [REPO] [BASE]
 open_seal_message() {
-    printf 'open-seal: {"repo":"%s","base":"%s","number":%s,"tree":"%s","nonce":"%s"}' \
+    printf 'open-seal: {"repo":"%s","base":"%s","pull_request":%s,"tree":"%s","nonce":"%s"}' \
         "${4:-runedeck/skeleton}" "${5:-main}" "${3:-7}" "$1" "$2"
 }
 
@@ -199,6 +199,18 @@ git add work.txt
 commit 'fix: answer a thread'
 fix_sha=$(git rev-parse HEAD)
 expect pass "open-seal ok: $signed_seal" "${open_args[@]}" --head "$fix_sha"
+
+# The earlier spelling of the number key still verifies, on its own branch
+# so the two seals never share a range.
+git checkout -q -b legacy-key "$work_sha"
+legacy_nonce=$(printf 'legacy-%s' "$nonce" | shasum -a 256 | cut -c1-32)
+signed_commit "open-seal: {\"repo\":\"runedeck/skeleton\",\"base\":\"main\",\"number\":7,\"tree\":\"$work_tree\",\"nonce\":\"$legacy_nonce\"}"
+legacy_seal=$(git rev-parse HEAD)
+bodies_json "[{\"number\":7,\"body\":\"nonce $legacy_nonce\"}]"
+expect pass "open-seal ok: $legacy_seal" "${open_args[@]}" --head "$legacy_seal"
+bodies_json "[{\"number\":7,\"body\":\"nonce $nonce\"}]"
+git checkout -q change/example
+git reset -q --hard "$fix_sha"
 
 # A later commit titled like a seal is rejected and the real seal still passes.
 commit 'open-seal: shadow'

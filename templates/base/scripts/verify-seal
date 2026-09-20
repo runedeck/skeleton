@@ -6,7 +6,8 @@
 #   verify-seal merge --head SHA --keys FILE (--ledger FILE | --no-ledger)
 #
 # The open-seal is an empty commit beneath the head whose subject line is
-# `open-seal: {"repo":..,"base":..,"number":N,"tree":..,"nonce":..}`. Only
+# `open-seal: {"repo":..,"base":..,"pull_request":N,"tree":..,"nonce":..}`
+# (`number` is accepted as the earlier spelling of that key). Only
 # the subject is read, so a body that quotes the format cannot shadow a
 # seal, and every candidate subject in the range is tried, so a commit
 # titled like a seal cannot deny the real one. The nonce is 32 lowercase
@@ -123,7 +124,10 @@ check_open_candidate() {
     json=$(seal_json "$seal" open-seal)
     seal_repo=$(json_field "$json" repo)
     seal_base=$(json_field "$json" base)
-    seal_number=$(json_field "$json" number)
+    # rune sign open writes the number under pull_request. number is the
+    # earlier spelling, kept so a seal made before the rename still verifies.
+    seal_number=$(json_field "$json" pull_request)
+    [ -n "$seal_number" ] || seal_number=$(json_field "$json" number)
     seal_tree=$(json_field "$json" tree)
     nonce=$(json_field "$json" nonce)
     [ -n "$seal_repo" ] && [ -n "$seal_base" ] && [ -n "$seal_number" ] && [ -n "$seal_tree" ] && [ -n "$nonce" ] \
