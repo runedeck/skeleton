@@ -4,15 +4,13 @@
 
 Nothing reaches `main` on one model's opinion, and nothing carries the owner's name without the owner's key. Free *agentic review lanes* examine every push and fill a *ledger* the ceremony owns. The paid adjudicator, Runeseer, runs only after the owner marks the pull request ready with an *open-seal*, and only when a deterministic triage says a second opinion is worth its cost. Every thread from every lane ends in a recorded disposition. The owner's second key touch, the *merge-seal*, is what the ruleset requires before merge. Every lane is a vendor product that can be switched off on any day. The ledger, the seals, and the ruleset are not.
 
-This capability holds the ceremony's shape: who opens and who readies, how a verdict earns approval, how the ledger tracks coverage, and how review spend stays bounded. The lanes are in `review-lanes`, their request labels and the triage in `review-requests`, their dashboard state in `lane-configuration`, the deterministic checks in `merge-checks`, and the seals and the signed release path in `release-ceremony`. After code merges, the drift review compares the canonical documents under `docs/specs/` with the merged tree and reports any requirement that now describes behavior the tree no longer has.
+This capability holds the ceremony's shape: who opens and who readies, how a verdict earns approval, and how the ledger tracks coverage. The paid-review budget and triage are in `paid-review-economy`, the lanes in `agentic-review-lanes`, their request labels and the triage in `review-round-requests`, their dashboard state in `external-lane-configuration`, the deterministic checks in `deterministic-merge-checks`, and the seals and the signed release path in `owner-release-ceremony`. After code merges, the drift review compares the canonical documents under `docs/specs/` with the merged tree and reports any requirement that now describes behavior the tree no longer has.
 
 ## Requirements
 
 ### Requirement: Draft by the App, Ready by the Owner
 
-A ceremony pull request MUST open as a draft under the `runewright` app identity on the first push of a branch that passes the deterministic checks, with the ceremony body the session agent wrote. It MUST become ready, and enter the owner's name, only through `rune sign open`, which signs an open-seal with the owner's hardware key and flips the draft. No other identity MUST flip a draft to ready. A ready pull request whose head has no valid open-seal beneath it MUST fail the `owner-seal` check regardless of which account the platform records as the author. The app acts only server-side, from workflow-minted tokens, and holds contents, pull-request, and issue write only. It bypasses no branch rule.
-
-*Rationale:* a pull request in the owner's name is an attestation, and an attestation needs the key. Opening the draft under the app lets the free lanes and the deterministic checks run from the first push without a touch. The individual-tier Cursor restriction to owner-authored pull requests is a lane-configuration fact the canary MUST prove or disprove, not a reason to put the owner's name on an unsealed draft.
+A ceremony pull request MUST open as a draft under the `runewright` app identity on the first push of a branch that passes the deterministic checks, with the ceremony body the session agent wrote. It MUST become ready, and enter the owner's name, only through `rune sign open`, which signs an open-seal with the owner's hardware key and flips the draft.
 
 #### Scenario: First push opens a draft
 
@@ -24,6 +22,10 @@ A ceremony pull request MUST open as a draft under the `runewright` app identity
 - **WHEN** the owner runs `rune sign open` on the branch and touches the key
 - **THEN** an open-seal commit is written beneath the head, the draft becomes ready, and the pull request enters the owner's name
 
+### Requirement: No Ready Without a Seal
+
+No other identity MUST flip a draft to ready. A ready pull request whose head has no valid open-seal beneath it MUST fail the `owner-seal` check regardless of which account the platform records as the author.
+
 #### Scenario: Ready without a seal
 
 - **WHEN** a pull request is marked ready by any path other than `rune sign open`
@@ -33,6 +35,17 @@ A ceremony pull request MUST open as a draft under the `runewright` app identity
 
 - **WHEN** an agent attempts to mark a draft ready, close a pull request, or merge one
 - **THEN** the action is refused by the rule the agent carries and, for ready, by the missing seal
+
+### Requirement: App Identity Scope
+
+The app MUST act only server-side, from workflow-minted tokens, and holds contents, pull-request, and issue write only. It bypasses no branch rule.
+
+*Rationale:* a pull request in the owner's name is an attestation, and an attestation needs the key. Opening the draft under the app lets the free lanes and the deterministic checks run from the first push without a touch. The individual-tier Cursor restriction to owner-authored pull requests is a lane-configuration fact the canary MUST prove or disprove, not a reason to put the owner's name on an unsealed draft.
+
+#### Scenario: App token scope
+
+- **WHEN** a workflow mints the app token to open or update a draft
+- **THEN** the token carries contents, pull-request, and issue write only, and no branch rule is bypassed
 
 ### Requirement: Owner Veto
 
@@ -55,12 +68,16 @@ Work authored by anyone other than the owner MUST require the owner's code-owner
 
 ### Requirement: Ledger
 
-The ceremony MUST keep one ledger per pull request, owned by the controller workflow and never by a vendor lane. For each head the ledger MUST record `reviewed_sha`, a `generation` counter, a status for every lane the configuration expects (`completed`, `completed-no-findings`, `skipped`, `ineligible`, `failed`, `rate-limited`, or `pending`), and every review thread on the head with its disposition. Threads MUST be read from the platform API by lane login. The platform's resolved flag MUST NOT be a source. A thread from a login the lane table does not name MUST be kept for disposition and MUST grant no approval authority. Any new thread or lane status change MUST increment the generation. The lane table, `KEYS`, and the verifier MUST be read from the protected default branch, never from the candidate tree.
+The ceremony MUST keep one ledger per pull request, owned by the controller workflow and never by a vendor lane. For each head the ledger MUST record `reviewed_sha`, a `generation` counter, a status for every lane the configuration expects (`completed`, `completed-no-findings`, `skipped`, `ineligible`, `failed`, `rate-limited`, or `pending`), and every review thread on the head with its disposition.
 
 #### Scenario: Lane reports without findings
 
 - **WHEN** a lane's check run completes on the head and posts no thread
 - **THEN** the ledger records `completed-no-findings` for that lane, distinct from `skipped`
+
+### Requirement: Ledger Thread Sources
+
+Threads MUST be read from the platform API by lane login. The platform's resolved flag MUST NOT be a source. A thread from a login the lane table does not name MUST be kept for disposition and MUST grant no approval authority. Any new thread or lane status change MUST increment the generation. The lane table, `KEYS`, and the verifier MUST be read from the protected default branch, never from the candidate tree.
 
 #### Scenario: Late thread
 
@@ -74,7 +91,7 @@ The ceremony MUST keep one ledger per pull request, owned by the controller work
 
 ### Requirement: Earned Approval
 
-A clean correctness verdict MUST become the reviewer identity's approving review, bound to `(reviewed_sha, generation)`. The verdict MUST list every open thread the ledger holds for that head with a disposition of `fixed`, `rejected` with a stated reason, or `owner`. A verdict that reports clean while any ledger thread lacks a disposition MUST fail the `review/correctness` check as a lane fault. Any later push, and any generation increment, MUST dismiss the approval until a clean re-adjudication re-grants it. When Runeseer is off or stands down, the check MUST report the ledger's coverage state, `free lanes only` with the reason, and MUST NOT report clean.
+A clean correctness verdict MUST become the reviewer identity's approving review, bound to `(reviewed_sha, generation)`. The verdict MUST list every open thread the ledger holds for that head with a disposition of `fixed`, `rejected` with a stated reason, or `owner`. A verdict that reports clean while any ledger thread lacks a disposition MUST fail the `review/correctness` check as a lane fault. Any later push, and any generation increment, MUST dismiss the approval until a clean re-adjudication re-grants it.
 
 #### Scenario: Clean verdict approves
 
@@ -91,34 +108,14 @@ A clean correctness verdict MUST become the reviewer identity's approving review
 - **WHEN** any commit is pushed after the approval
 - **THEN** the approval is dismissed and returns only after a clean re-adjudication
 
+### Requirement: Coverage Without the Paid Lane
+
+When Runeseer is off or stands down, the check MUST report the ledger's coverage state, `free lanes only` with the reason, and MUST NOT report clean.
+
 #### Scenario: Paid lane off
 
 - **WHEN** Runeseer is disabled or the triage stands it down
 - **THEN** the check reports green with the coverage state `free lanes only` and its reason, and the ledger records the lane as `skipped`
-
-### Requirement: Review Economy
-
-Paid review MUST spend proportionally and within a bound. The correctness lane MUST be invited by the controller on the ready event and on each later green head, never by an agent, and only after a deterministic triage. The triage stands the lane down on a diff since the last verdict that touches only prose outside the specifications, the runes, the harness instruction paths, and the workflows. It stops when the work item has spent three paid rounds. It stops when the comment or thread count on the head exceeds the lane configuration. A work item is the change identifier the pull request names, or the pull request itself when none. A round MUST bind to `(reviewed_sha, generation)` and MUST be voided by a push during the round. Re-reviews MUST judge the range since the last recorded verdict without re-reporting its findings. Free lanes and Cursor Security MUST be accounted separately from this budget under their own caps. Low-severity notes MUST collect into a digest rather than inline threads.
-
-#### Scenario: Prose-only change
-
-- **WHEN** the diff since the last verdict touches only markdown outside the specifications, the runes, the harness instruction paths, and the workflows
-- **THEN** the correctness lane stands down without spend, the check reports `free lanes only`, and the head may still enter the signing queue
-
-#### Scenario: Budget exhausted
-
-- **WHEN** a work item has spent three paid rounds
-- **THEN** the controller refuses a fourth, posts one owner-facing line, and the pull request waits for the owner
-
-#### Scenario: Push during a round
-
-- **WHEN** a commit is pushed to the head while a round is running
-- **THEN** the round is voided and its verdict, if any, is discarded
-
-#### Scenario: Re-review after fixes
-
-- **WHEN** a round already recorded a verdict for an ancestor of the head
-- **THEN** the re-review judges the range since that ancestor and does not re-report the recorded findings
 
 ### Requirement: Finding Resolution
 

@@ -8,18 +8,23 @@ How the owner's hardware key enters the ceremony and how approved work enters `m
 
 ### Requirement: Owner Attestation on Seals and Tags
 
-The owner's hardware key MUST enter the ceremony at three points. The *open-seal* is an empty signed commit beneath the pull request head whose subject line carries the repository, the base ref, the pull request number, the head tree, and a single-use nonce of 32 lowercase hex characters. `rune sign open` MUST write that nonce into the pull request body when it flips the draft ready. The *merge-seal* is an empty signed commit whose sole parent is the ledger's `reviewed_sha` and whose tree equals that parent's tree. It MUST name `reviewed_sha`, the ledger generation, and the sha256 digest of the ledger artifact in its subject line. Release and checkpoint tags are annotated and owner-signed, and a signed tag vouches for every commit reachable beneath it. The root `KEYS` file, read from the protected default branch, and the tag ruleset carry the trust anchor. Merging a same-repository pull request MUST require both seals through the `owner-seal` check. The check MUST read the ledger from a record that only the controller's app identity can write, never from a comment, and MUST fail when `reviewed_sha` has no ledger. That record is a check run named `ledger` on `reviewed_sha` under the reviewing identity, whose first output line names the ledger artifact, its digest, the generation, and the pull request. A reader that needs the threads fetches the artifact and MUST prove it by the digest. The check's workflow file runs from the default branch, and a head branch can still post a check run of the same name from a `pull_request` workflow, so the binding boundary is an organization ruleset `workflows` rule pinned to the check's file on the default branch. The session agent MAY invoke `rune sign open`, `submit`, and `next`. The touch is the owner's, and nothing signs without it.
+The owner's hardware key MUST enter the ceremony at three points. The *open-seal* is an empty signed commit beneath the pull request head whose subject line carries the repository, the base ref, the pull request number, the head tree, and a single-use nonce of 32 lowercase hex characters. `rune sign open` MUST write that nonce into the pull request body when it flips the draft ready. The session agent MAY invoke `rune sign open`, `submit`, and `next`. The touch is the owner's, and nothing signs without it.
 
 #### Scenario: Open-seal binds one pull request
 
 - **WHEN** `owner-seal` verifies a ready pull request
-- **THEN** the seal names this pull request's number, this pull request's body carries the seal's nonce, the sealed tree is an ancestor of the head, and the signature verifies against `KEYS`
+- **THEN** the seal names this pull request's number and this pull request's body carries the seal's nonce
+- **AND** the sealed tree is an ancestor of the head and the signature verifies against `KEYS`
 - **AND** another body that carries the nonce is reported and does not fail this pull request
 
 #### Scenario: Inherited seal
 
 - **WHEN** a branch forked from a sealed branch opens its own pull request
 - **THEN** the nonce belongs to the original pull request, `owner-seal` fails, and the new pull request needs its own open-seal
+
+### Requirement: Merge-Seal Shape
+
+The *merge-seal* is an empty signed commit whose sole parent is the ledger's `reviewed_sha` and whose tree equals that parent's tree. It MUST name `reviewed_sha`, the ledger generation, and the sha256 digest of the ledger artifact in its subject line.
 
 #### Scenario: Merge-seal is an empty child
 
@@ -36,10 +41,33 @@ The owner's hardware key MUST enter the ceremony at three points. The *open-seal
 - **WHEN** the ledger generation increments after a merge-seal was signed
 - **THEN** `owner-seal` fails, the queue entry is stale, and the owner seals again after re-adjudication
 
+### Requirement: Signed Tags and Trust Anchor
+
+Release and checkpoint tags MUST be annotated and owner-signed, and a signed tag vouches for every commit reachable beneath it. The root `KEYS` file, read from the protected default branch, and the tag ruleset carry the trust anchor.
+
 #### Scenario: Signed tag vouches for merged history
 
 - **WHEN** the owner signs a release or checkpoint tag over `main`
 - **THEN** every merge since the previous signed tag is attested by that signature
+
+### Requirement: Owner-Seal Merge Check
+
+Merging a same-repository pull request MUST require both seals through the `owner-seal` check. The check MUST read the ledger from a record that only the controller's app identity can write, never from a comment, and MUST fail when `reviewed_sha` has no ledger.
+
+#### Scenario: Ledger read from the check run
+
+- **WHEN** `owner-seal` verifies a merge-seal
+- **THEN** it reads the `ledger` check run on `reviewed_sha` under the reviewing identity, never a comment
+- **AND** it fails when `reviewed_sha` has no ledger or the artifact digest does not match
+
+### Requirement: Ledger Record Binding
+
+The ledger record is a check run named `ledger` on `reviewed_sha` under the reviewing identity, whose first output line names the ledger artifact, its digest, the generation, and the pull request. A reader that needs the threads fetches the artifact and MUST prove it by the digest. The check's workflow file runs from the default branch, and a head branch can still post a check run of the same name from a `pull_request` workflow, so the binding boundary is an organization ruleset `workflows` rule pinned to the check's file on the default branch.
+
+#### Scenario: Head branch posts a ledger check run
+
+- **WHEN** a `pull_request` workflow on the head branch posts a check run named `ledger`
+- **THEN** the organization `workflows` rule keeps the binding on the default-branch file and the head's record does not count
 
 ### Requirement: Signing Queue Admission
 

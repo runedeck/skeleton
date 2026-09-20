@@ -1,6 +1,6 @@
 name: Owner Seal
 
-# The required owner-seal check (docs/specs/release-ceremony): a ready pull
+# The required owner-seal check (docs/specs/owner-release-ceremony): a ready pull
 # request passes only with a valid open-seal beneath its head and a valid
 # merge-seal at its head. A draft passes without seals.
 #

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify the owner's seals on a pull request head (docs/specs/release-ceremony).
+# Verify the owner's seals on a pull request head (docs/specs/owner-release-ceremony).
 #
 #   verify-seal open --head SHA --repo OWNER/NAME --base REF --number N \
 #       --keys FILE --open-bodies FILE [--since SHA]

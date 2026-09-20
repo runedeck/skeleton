@@ -1,4 +1,10 @@
-## MODIFIED Requirements
+# Commit Attribution Specification
+
+## Purpose
+
+Every commit in a runedeck repository says who authored it from the commit object alone: a human, or an AI model, and for a model, which harness and which model. Author identities are allowlisted, work by several models is attributed through *trailers*, and a required check applies the same rules to every pull request without a model-version catalog.
+
+## Requirements
 
 ### Requirement: Allowlisted Model Identities
 
@@ -9,25 +15,13 @@ When `model_domains:` is absent, the policy MUST derive approved harness domains
 Trailer-only aliases MUST NOT grant harness permissions.
 An explicit `model_domains:` list MUST replace inference, including an empty list.
 
-A formatted identity MUST use `Display Name (model-id) <model-id@domain>`.
-Both model IDs MUST match after context normalization.
-A model ID MUST use lowercase ASCII alphanumeric segments separated by dots or hyphens.
-A model domain MUST use `<harness>.noreply.nexus.local`, where the harness is a lowercase ASCII slug.
-The identity MUST contain printable text with no surrounding whitespace.
-
 New model versions under an approved domain MUST require no policy entry.
 Human identities MUST remain exact policy entries.
-Listed identities under internal model domains MUST also satisfy the model format and ID-matching rules.
 
 #### Scenario: New model version
 
 - **WHEN** a commit uses a valid identity for an unlisted model version under an approved domain
 - **THEN** the attribution check accepts that identity
-
-#### Scenario: Model IDs differ
-
-- **WHEN** the display name and address contain different normalized model IDs
-- **THEN** the check fails and identifies the commit
 
 #### Scenario: Legacy policy permits a future model version
 
@@ -48,6 +42,20 @@ Listed identities under internal model domains MUST also satisfy the model forma
 
 - **WHEN** an identity appears in the trusted `authors:` list
 - **THEN** the check retains its existing author and contributor permissions
+
+### Requirement: Model Identity Format
+
+A formatted identity MUST use `Display Name (model-id) <model-id@domain>`.
+Both model IDs MUST match after context normalization.
+A model ID MUST use lowercase ASCII alphanumeric segments separated by dots or hyphens.
+A model domain MUST use `<harness>.noreply.nexus.local`, where the harness is a lowercase ASCII slug.
+The identity MUST contain printable text with no surrounding whitespace.
+Listed identities under internal model domains MUST also satisfy the model format and ID-matching rules.
+
+#### Scenario: Model IDs differ
+
+- **WHEN** the display name and address contain different normalized model IDs
+- **THEN** the check fails and identifies the commit
 
 #### Scenario: Missing model ID
 
@@ -90,3 +98,12 @@ Other IDs ending in `1m` MUST retain their identity.
 
 - **WHEN** an ID ends in `1m` and differs from both historical aliases
 - **THEN** normalization preserves that ID
+
+### Requirement: Unsigned Model Commits
+
+Commits authored by models MUST be unsigned, and no branch rule MUST require commit signatures on `main`.
+
+#### Scenario: Unsigned commit accepted
+
+- **WHEN** an allowlisted model pushes an unsigned commit to a pull request branch
+- **THEN** no check rejects the commit for lacking a signature

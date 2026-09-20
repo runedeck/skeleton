@@ -4,52 +4,64 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ## [Unreleased]
 
-### Changed
-
-- Every specification uses MUST, stays under 150 lines, and defines its terms in `docs/specs/glossary.md`. review-ceremony splits into review-lanes, review-requests, lane-configuration, merge-checks, and release-ceremony. commit-attribution splits off attribution-check and worktree-identity. The active deltas follow their requirements to the new capabilities.
-- CONTRIBUTING: no generation footer, tool badge, or session link in pull request bodies and commit messages.
-- The machinery canary names each failed step in its issue and ends the run as failed. Quality runs the Copier update probe when templates, `copier.yaml`, or tests change.
-- The cascade callers trigger on labels and readiness only. Nothing starts on open.
-- `template-update.yaml` targets skeleton main when no newer tag exists and publishes the update as a patch artifact and run summary. It no longer opens pull requests.
-- `make install` requires the full pinned toolchain, Copier included. `make validate` and the review lanes run without Copier.
-- `template-update.yaml` compares skeleton main by hand when the recorded pin is a commit, because Copier only compares tags.
-- The attestation spec-presence check protects the lint configs, `scripts/`, `.vale/`, and the divergence register.
-- `copier.yaml` seeds `CHANGELOG.md`, `AGENTS.md`, `CONTRIBUTING.md`, `INSTALL.md`, `CODEOWNERS`, and `.gitignore` once. Updates never rewrite them and the parity audit skips them.
-- The cursor caller passes the app secrets the seer body requires. The attestations checkout drops persisted credentials. The pre-push hook unsets inherited git environment. The Vale hook skips archived changes.
-- The worktree target's jj path is the specified behavior: a jj workspace plus `JJ_USER` and `JJ_EMAIL` exports.
-- The skeleton-local decision record `DECK-0001` is `SKEL-0001`.
-- Review rounds begin only from explicit review labels.
-- The single `review:skip` waiver becomes the per-lane `skip:` and `ignore:` families, covering the adjudicating lane as well as the external ones.
-- Tracked-file secret scans use one repository-relative snapshot.
-- The specification waiver is the allowed defect `ignore:spec`, in the ignore family with a mandatory body reason.
-- The authorship check reads separate author and trailer lists from `authors.yaml`. A trailer attribution can no longer validate an author field. The hardcoded tooling-attribution exception moved into the `trailers:` list.
-- The template payload carries the same two-list authorship check as the repository root, so generated and Copier-updated consumers receive it.
-
 ### Added
 
-- SKEL-0007 records the base-ref execution of the checks that judge a pull request and the machinery canary that runs every probe and ends as failed.
-- The six-linter row from the deck (rumdl, typos, Vale, lychee, zizmor, actionlint) pinned with four digests each, installed by `install-tools`, and run through guarded prek hooks. `REQUIRE_GATES=1` turns a missing binary into a failure.
-- `install-tools` runs `scripts/install-tools.local` when a consumer has one, so consumer-only validators install through Quality, the canary, and template updates alike.
-- The authorship hook runs on every push, including empty commits.
-- Label provisioning creates `review:pr-agent` and `skip:pr-agent`, the labels the PR-Agent caller reads.
-- `install-tools` downloads with connect and total timeouts and three retries. `worktree-done` moves a workspace to the trash only when `trash` is installed, and names the missing git store instead of failing on a raw error. CONTRIBUTING lists every standalone review label.
-- The Vale STE style is generated from a frozen snapshot of the deck's Simplified Technical English rule source by `scripts/generate-vale-style.py`, with a staleness check. The strict-mode words render as suggestions, so every list in the snapshot reaches the style.
-- The jj push check (`jj-push-bookmark.py`) and its tests, upstreamed from the deck.
-- `.ceremony-divergences.yaml`: the central register of declared consumer divergences (SKEL-0002).
-- `consumer-parity.yaml`: weekly file and label parity audit of every consumer in `TEMPLATE_CONSUMERS`, reported on the deck audit issue. A consumer that never adopted the template is named in `LABELS_ONLY_CONSUMERS`.
-- Root `Makefile` and `.githooks/`, byte-identical copies of the template payload, so `make install` and `make validate` work in this repository too.
-- The `jj push` alias resolves the active workspace root at run time, so a jj workspace runs its own hooks.
-- `module.yaml`, so `rune adr adopt` and `rune adopt doctor` work in this repository.
-- Decision records SKEL-0002 to SKEL-0006, three of them reviewed adoptions of forge-core decisions.
-- The worktree and worktree-done Makefile targets: create and remove an agent work tree. In a jj colocated repo the targets use jj workspaces. In a git-only repo they use git worktrees. Removal verifies the merge state first.
-- Portable Copier generation with release metadata for downstream template updates.
-- Portable repository setup installs the complete check toolchain on macOS and supported Linux distributions.
-- Signed release publication verifies tags against root `KEYS` and compiles pull request Release Notes.
-- Per-lane owner overrides: `skip:<lane>` stands a lane down, and `ignore:<lane>` lets it report without holding the merge.
-- The `review:cursor` label summons a standalone Cursor round through the seer lane.
-- The provisioned label set carries the full ceremony taxonomy: the `stage:` round records and the `issue:` provider blockers the cascade applies.
+- Add SKEL-0007: the checks that judge a pull request run from the base ref, and the machinery canary runs every probe and ends as failed.
+- Add the six-linter row from the deck (rumdl, typos, Vale, lychee, zizmor, actionlint), pinned with four digests each and run through guarded prek hooks.
+- Add `REQUIRE_GATES=1`, which turns a missing linter binary into a failure.
+- Add `scripts/install-tools.local` support, so consumer-only validators install through Quality, the canary, and template updates alike.
+- Add the authorship hook to every push, including empty commits.
+- Add the `review:pr-agent` and `skip:pr-agent` labels that the PR-Agent caller reads.
+- Add connect and total timeouts with three retries to `install-tools` downloads.
+- Add a `trash` guard to `worktree-done`: it moves a workspace to the trash only when `trash` is installed and names a missing git store.
+- Add every standalone review label to CONTRIBUTING.
+- Add the Vale STE style, generated from a frozen snapshot of the deck's Simplified Technical English rule source by `scripts/generate-vale-style.py`, with a staleness check.
+- Add the jj push check (`jj-push-bookmark.py`) and its tests, upstreamed from the deck.
+- Add `.ceremony-divergences.yaml`, the central register of declared consumer divergences (SKEL-0002).
+- Add `consumer-parity.yaml`, a weekly file and label parity audit of every consumer in `TEMPLATE_CONSUMERS`, reported on the deck audit issue.
+- Add `LABELS_ONLY_CONSUMERS` for a consumer that never adopted the template.
+- Add the root `Makefile` and `.githooks/` as byte-identical copies of the template payload, so `make install` and `make validate` work here too.
+- Add run-time workspace resolution to the `jj push` alias, so a jj workspace runs its own hooks.
+- Add `module.yaml`, so `rune adr adopt` and `rune adopt doctor` work in this repository.
+- Add decision records SKEL-0002 to SKEL-0006, three of them reviewed adoptions of forge-core decisions.
+- Add the `worktree` and `worktree-done` Makefile targets: jj workspaces in a colocated repo, git worktrees otherwise, and a merge-state check before removal.
+- Add portable Copier generation with release metadata for downstream template updates.
+- Add portable repository setup that installs the complete check toolchain on macOS and supported Linux distributions.
+- Add signed release publication that verifies tags against root `KEYS` and compiles pull request Release Notes.
+- Add per-lane owner overrides: `skip:<lane>` stands a lane down, and `ignore:<lane>` lets it report without holding the merge.
+- Add the `review:cursor` label, which summons a standalone Cursor round through the seer lane.
+- Add the full ceremony label taxonomy: the `stage:` round records and the `issue:` provider blockers the cascade applies.
+
+### Changed
+
+- Change every capability and change id to three hyphenated words, and split every requirement over 100 words, as the rune prose caps require.
+- Change every specification to MUST wording under 150 lines, with terms defined in `docs/specs/glossary.md`.
+- Change the review-ceremony capability into review-lanes, review-requests, lane-configuration, merge-checks, and release-ceremony.
+- Change commit-attribution by splitting off attribution-check and worktree-identity, and the active deltas follow their requirements.
+- Change CONTRIBUTING: no generation footer, tool badge, or session link in pull request bodies and commit messages.
+- Change the machinery canary to name each failed step in its issue and end the run as failed.
+- Change Quality to run the Copier update probe when templates, `copier.yaml`, or tests change.
+- Change the cascade callers to trigger on labels and readiness only, so nothing starts on open.
+- Change `template-update.yaml` to target skeleton main when no newer tag exists and to publish the update as a patch artifact and run summary, never a pull request.
+- Change `make install` to require the full pinned toolchain, Copier included, while `make validate` and the review lanes run without Copier.
+- Change `template-update.yaml` to compare skeleton main by hand when the recorded pin is a commit, because Copier only compares tags.
+- Change the attestation spec-presence check to protect the lint configs, `scripts/`, `.vale/`, and the divergence register.
+- Change `copier.yaml` to seed `CHANGELOG.md`, `AGENTS.md`, `CONTRIBUTING.md`, `INSTALL.md`, `CODEOWNERS`, and `.gitignore` once, and updates never rewrite them.
+- Change the cursor caller to pass the app secrets the seer body requires.
+- Change the attestations checkout to drop persisted credentials.
+- Change the pre-push hook to unset inherited git environment.
+- Change the Vale hook to skip archived changes.
+- Change the worktree target's jj path to the specified behavior: a jj workspace plus `JJ_USER` and `JJ_EMAIL` exports.
+- Change the skeleton-local decision record `DECK-0001` to `SKEL-0001`.
+- Change review rounds to start only from explicit review labels.
+- Change the single `review:skip` waiver into the per-lane `skip:` and `ignore:` families, covering the adjudicating lane as well as the external ones.
+- Change tracked-file secret scans to one repository-relative snapshot.
+- Change the specification waiver to the allowed defect `ignore:spec`, in the ignore family with a mandatory body reason.
+- Change the authorship check to read separate author and trailer lists from `authors.yaml`, so a trailer attribution no longer validates an author field.
+- Change the hardcoded tooling-attribution exception into a `trailers:` list entry.
+- Change the template payload to carry the same two-list authorship check as the repository root.
 
 ### Removed
 
-- Consumer byte comparisons against the moving skeleton branch.
-- The `spec:none` label, retired from every repository by the label synchronization.
+- Remove consumer byte comparisons against the moving skeleton branch.
+- Remove the `spec:none` label from every repository through the label synchronization.

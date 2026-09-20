@@ -25,9 +25,9 @@ The [decision record](../../decisions/SKEL-0001%20Version-Independent%20Model%20
 
 ## Capabilities
 
-- `commit-attribution` (modified)
-- `attribution-check` (modified)
-- `worktree-identity` (modified)
+- `commit-author-attribution` (modified)
+- `attribution-check-enforcement` (modified)
+- `worktree-identity-provisioning` (modified)
 
 ## Impact
 

@@ -129,7 +129,7 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
                 self.assertNotIn("steps", job)
 
     def test_cascade_reaches_the_controller_on_ready_and_green_heads(self):
-        # docs/specs/review-requests, Ready Starts the Funnel: the ready
+        # docs/specs/review-round-requests, Ready Starts the Funnel: the ready
         # event and each later head reach the controller without a label.
         for root in COPIES:
             with self.subTest(root=root):
@@ -146,7 +146,7 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
                 self.assertIn("github.event.pull_request.draft == false", job["if"])
 
     def test_required_checks_bind_everyone(self):
-        # docs/specs/review-ceremony, Owner Veto and Lane Independence: the
+        # docs/specs/sealed-review-ceremony, Owner Veto and Lane Independence: the
         # three required checks sit where no actor bypasses them, and the
         # owner bypass covers the review rule alone.
         required = {"quality", "owner-seal", "review/correctness"}
@@ -201,7 +201,7 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
         )
 
     def test_draft_opens_after_the_deterministic_checks(self):
-        # docs/specs/review-ceremony, First push opens a draft: the draft
+        # docs/specs/sealed-review-ceremony, First push opens a draft: the draft
         # waits for quality on the pushed head.
         for root in COPIES:
             with self.subTest(root=root):
