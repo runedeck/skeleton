@@ -146,10 +146,10 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
                 self.assertIn("github.event.pull_request.draft == false", job["if"])
 
     def test_correctness_caller_reaches_the_controller_without_a_label(self):
-        # docs/specs/review-round-requests, Ready Starts the Funnel: the
-        # correctness caller, not only the cascade, forwards the ready event
-        # and every later push to the controller, whose triage decides the
-        # spend. A label-gated caller here left the controller unreachable
+        # docs/specs/review-round-requests, Green Draft Starts the Funnel:
+        # the correctness caller, not only the cascade, forwards every push
+        # to a same-repository pull request to the controller, whose triage
+        # decides the spend. A label-gated caller here left the controller unreachable
         # on every consumer while the seer body carried it (cli #67).
         for root in COPIES:
             with self.subTest(root=root):
@@ -164,8 +164,11 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
                 self.assertIn("reopened", review["if"])
                 self.assertIn("ready_for_review", review["if"])
                 self.assertNotIn("contains(github.event.pull_request.labels.*.name, 'review:runeseer')", review["if"])
-                release = workflow["jobs"]["release"]
-                self.assertNotIn("review:runeseer", release["if"])
+                # Green draft starts the funnel: no draft guard, no readiness
+                # job, so the paid round runs before the owner's key touch.
+                self.assertNotIn("draft == false", review["if"])
+                self.assertNotIn("release", workflow["jobs"])
+                self.assertIn("head.repo.full_name == github.repository", review["if"])
 
     def test_required_checks_bind_everyone(self):
         # docs/specs/sealed-review-ceremony, Owner Veto and Lane Independence: the
