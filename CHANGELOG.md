@@ -37,6 +37,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Changed
 
+- Change `author-identity.py resolve` to derive the display name from the model ID, so `claude-fable-5-1` is `Claude Fable 5.1` and not `Claude` (derived-display-name).
 - Change `KEYS` from an armored key block to `signer <fingerprint> <address>...` lines, and `verify-seal` and `verify-release-tag` to build their keyring through `scripts/trusted-keys`.
 - Change every capability and change id to three hyphenated words, and split every requirement over 100 words, as the rune prose caps require.
 - Change every specification to MUST wording under 150 lines, with terms defined in `docs/specs/glossary.md`.
