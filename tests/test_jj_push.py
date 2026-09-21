@@ -442,22 +442,32 @@ class ProtectedBranchSignatureTests(BookmarkFixture):
         )
         self.fake_gpg = fake_gpg
         # Seed main with KEYS and the verifier scripts, then push it so the
-        # trusted base the hook reads carries them.
-        scripts = self.repository / "scripts"
-        scripts.mkdir()
-        for name in ("verify-range-signatures", "trusted-keys"):
-            shutil.copy2(ROOT / "templates" / "base" / "scripts" / name, scripts / name)
-        (self.repository / "KEYS").write_text((ROOT / "KEYS").read_text(encoding="utf-8"), encoding="utf-8")
-        self.jj("describe", "-m", "Fixture base with KEYS", cwd=self.repository)
-        self.jj("bookmark", "set", "main", "-r", "@", cwd=self.repository)
-        self.jj("git", "push", "--bookmark", "main", cwd=self.repository)
+        # trusted base the hook reads carries them. The bootstrap variant
+        # puts them in the pushed head instead: the first push of the rule.
+        carrier = self.repository if self.verifier_on_base else self.workspace
+        if self.verifier_on_base:
+            self.seed_verifier(self.repository)
+            self.jj("describe", "-m", "Fixture base with KEYS", cwd=self.repository)
+            self.jj("bookmark", "set", "main", "-r", "@", cwd=self.repository)
+            self.jj("git", "push", "--bookmark", "main", cwd=self.repository)
         self.base = self.jj("log", "--no-graph", "-r", "main", "-T", "commit_id", cwd=self.repository)
         self.jj("git", "fetch", cwd=self.workspace)
         self.jj("new", "main", cwd=self.workspace)
+        if carrier is self.workspace:
+            self.seed_verifier(self.workspace)
         (self.workspace / "payload.txt").write_text("Owner direct change.\n")
         self.jj("describe", "-m", "Owner direct change", cwd=self.workspace)
         self.head_change = self.jj("log", "--no-graph", "-r", "@", "-T", "change_id", cwd=self.workspace)
         self.jj("new", cwd=self.workspace)
+
+    verifier_on_base = True
+
+    def seed_verifier(self, root):
+        scripts = root / "scripts"
+        scripts.mkdir()
+        for name in ("verify-range-signatures", "trusted-keys"):
+            shutil.copy2(ROOT / "templates" / "base" / "scripts" / name, scripts / name)
+        (root / "KEYS").write_text((ROOT / "KEYS").read_text(encoding="utf-8"), encoding="utf-8")
 
     def sign_head(self):
         # Sign through git so the fake gpg is what verifies it: jj sign would
@@ -507,3 +517,22 @@ class ProtectedBranchSignatureTests(BookmarkFixture):
         self.environment["GIT_CONFIG_VALUE_0"] = "/nonexistent"
         result = self.push("--bookmark", BOOKMARK)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+
+class BootstrapSignatureTests(ProtectedBranchSignatureTests):
+    """The push that first carries the verifier is judged by its own copy.
+
+    origin/main has no scripts/verify-range-signatures yet, so the hook
+    falls back to the pushed head and still demands the signature.
+    """
+
+    verifier_on_base = False
+
+    def test_signed_direct_push_to_main_passes(self):
+        signed = self.sign_head()
+        result = self.push("--bookmark", "main")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("carries no scripts/verify-range-signatures; using the pushed head's copy", result.stdout)
+        self.assertIn("owner signatures ok: 1 commit(s)", result.stdout)
+        self.assertEqual(self.remote_target("main"), signed)

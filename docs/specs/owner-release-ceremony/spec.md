@@ -142,6 +142,7 @@ Commits the branch already reaches are outside the range: work that entered thro
 The guarded push MUST refuse a direct push when any added commit is unsigned or signed by a key `KEYS` does not name, and MUST name the first such commit.
 The platform MUST NOT require signatures on the branch, because model commits are unsigned by design.
 The guarded push is the enforcement point, and a push that goes around it is the owner's own act.
+The guarded push takes the verifier and `KEYS` from the default branch, and only until the default branch carries them from the pushed head.
 
 #### Scenario: Stranger's signature
 
