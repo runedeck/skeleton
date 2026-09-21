@@ -59,7 +59,7 @@ Work authored by anyone other than the owner MUST require the owner's code-owner
 #### Scenario: The owner's own pull request
 
 - **WHEN** the owner authors or readies a pull request
-- **THEN** it merges on the owner's action without an approval object, through a bypass scoped to the review rules only
+- **THEN** it merges on the owner's action without an approval object, through the repository admin bypass
 
 #### Scenario: Checks bind everyone
 

@@ -81,7 +81,9 @@ class HookParityTests(unittest.TestCase):
                 )
 
 
-class BookmarkPushTests(unittest.TestCase):
+class BookmarkFixture(unittest.TestCase):
+    """The repository, workspace, remote, hooks, and recording jj the push tests share."""
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="jj-push-integration-")
         self.addCleanup(self.temporary.cleanup)
@@ -235,6 +237,8 @@ class BookmarkPushTests(unittest.TestCase):
         )
         return record
 
+
+class BookmarkPushTests(BookmarkFixture):
     def test_new_bookmark_without_git_head_uses_exact_workspace_snapshot(self):
         self.assertFalse((self.workspace / ".git").exists())
         backend = self.jj("git", "root", cwd=self.workspace)
@@ -394,3 +398,112 @@ class BookmarkPushTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+FAKE_GPG = """#!/bin/sh
+key=${FAKE_GPG_KEY:-29DD2145CE7A818929459B2649F08103D3DA399E}
+case " $* " in
+  *" --import "*) cat >/dev/null 2>&1; exit 0 ;;
+  *" --export "*) printf 'fake-key-bytes\\n' ;;
+  *" --fingerprint "*) printf '%s:::::::::%s:\\n' "fpr" "$key" ;;
+  *" -bsau "*)
+    cat >/dev/null
+    printf '[GNUPG:] SIG_CREATED D 1 8 00 1789482678 %s\\n' "$key" >&2
+    printf -- '-----BEGIN PGP SIGNATURE-----\\nfake %s\\n-----END PGP SIGNATURE-----\\n' "$key" ;;
+  *" --verify "*)
+    cat >/dev/null
+    printf '[GNUPG:] NEWSIG\\n[GNUPG:] GOODSIG %s Owner <o@example.com>\\n[GNUPG:] VALIDSIG %s 2026-09-15 1789482678 0 4 0 1 10 00 %s\\n' "$key" "$key" "$key" ;;
+  *) exit 3 ;;
+esac
+"""
+OWNER_FINGERPRINT = "29DD2145CE7A818929459B2649F08103D3DA399E"
+
+
+class ProtectedBranchSignatureTests(BookmarkFixture):
+    """A direct push to main signs every commit it adds (owner direct push).
+
+    The fixture's main gains KEYS and the two verifier scripts from the
+    template, so the hook reads them from the trusted base, and a fake gpg
+    signs and verifies without an agent.
+    """
+
+    def setUp(self):
+        super().setUp()
+        fake_gpg = self.directory / "gpg"
+        fake_gpg.write_text(FAKE_GPG, encoding="utf-8")
+        fake_gpg.chmod(0o755)
+        cache = self.directory / "keycache"
+        cache.mkdir()
+        (cache / f"{OWNER_FINGERPRINT}.asc").write_text("fake armor\n", encoding="utf-8")
+        self.environment.update(
+            VERIFY_SEAL_GPG=str(fake_gpg),
+            TRUSTED_KEYS_OFFLINE="1",
+            TRUSTED_KEYS_CACHE=str(cache),
+        )
+        self.fake_gpg = fake_gpg
+        # Seed main with KEYS and the verifier scripts, then push it so the
+        # trusted base the hook reads carries them.
+        scripts = self.repository / "scripts"
+        scripts.mkdir()
+        for name in ("verify-range-signatures", "trusted-keys"):
+            shutil.copy2(ROOT / "templates" / "base" / "scripts" / name, scripts / name)
+        (self.repository / "KEYS").write_text((ROOT / "KEYS").read_text(encoding="utf-8"), encoding="utf-8")
+        self.jj("describe", "-m", "Fixture base with KEYS", cwd=self.repository)
+        self.jj("bookmark", "set", "main", "-r", "@", cwd=self.repository)
+        self.jj("git", "push", "--bookmark", "main", cwd=self.repository)
+        self.base = self.jj("log", "--no-graph", "-r", "main", "-T", "commit_id", cwd=self.repository)
+        self.jj("git", "fetch", cwd=self.workspace)
+        self.jj("new", "main", cwd=self.workspace)
+        (self.workspace / "payload.txt").write_text("Owner direct change.\n")
+        self.jj("describe", "-m", "Owner direct change", cwd=self.workspace)
+        self.head_change = self.jj("log", "--no-graph", "-r", "@", "-T", "change_id", cwd=self.workspace)
+        self.jj("new", cwd=self.workspace)
+
+    def sign_head(self):
+        # Sign through git so the fake gpg is what verifies it: jj sign would
+        # need the owner's signing configuration this fixture does not carry.
+        backend = self.jj("git", "root", cwd=self.workspace)
+        commit = self.jj("log", "--no-graph", "-r", self.head_change, "-T", "commit_id", cwd=self.workspace)
+        env = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+               "GIT_COMMITTER_NAME": "Owner", "GIT_COMMITTER_EMAIL": "o@example.com"}
+        tree = self.checked([self.git_binary, "--git-dir", backend, "rev-parse", f"{commit}^{{tree}}"], environment=env)
+        parent = self.checked([self.git_binary, "--git-dir", backend, "rev-parse", f"{commit}^"], environment=env)
+        signed = self.checked(
+            [self.git_binary, "--git-dir", backend, "-c", f"gpg.program={self.fake_gpg}",
+             "-c", f"user.signingkey={OWNER_FINGERPRINT}", "commit-tree", "-S", "-p", parent, "-m", "Owner direct change", tree],
+            environment=env,
+        )
+        self.checked([self.git_binary, "--git-dir", backend, "update-ref", "refs/heads/signed-fixture", signed], environment=env)
+        self.jj("git", "import", cwd=self.workspace)
+        self.jj("bookmark", "set", "main", "-r", "signed-fixture", "--allow-backwards", cwd=self.workspace)
+        return signed
+
+    def test_signed_direct_push_to_main_passes(self):
+        signed = self.sign_head()
+        result = self.push("--bookmark", "main")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("owner signatures ok: 1 commit(s)", result.stdout)
+        self.assertEqual(self.remote_target("main"), signed)
+
+    def test_unsigned_direct_push_to_main_is_refused(self):
+        self.jj("bookmark", "set", "main", "-r", self.head_change, "--allow-backwards", cwd=self.workspace)
+        result = self.push("--bookmark", "main")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("has no valid signature", result.stdout + result.stderr)
+        self.assertIn("jj sign -r <rev>", result.stdout + result.stderr)
+        self.assertEqual(self.remote_target("main"), self.base)
+
+    def test_feature_bookmark_is_not_signature_checked(self):
+        self.jj("bookmark", "set", BOOKMARK, "-r", self.head_change, "--allow-backwards", cwd=self.workspace)
+        result = self.push("--bookmark", BOOKMARK)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("owner signatures", result.stdout)
+
+    def test_harness_git_config_is_stripped_before_the_checks(self):
+        self.jj("bookmark", "set", BOOKMARK, "-r", self.head_change, "--allow-backwards", cwd=self.workspace)
+        self.environment["GIT_CONFIG_PARAMETERS"] = "'http.proxyAuthMethod=basic'"
+        self.environment["GIT_CONFIG_COUNT"] = "1"
+        self.environment["GIT_CONFIG_KEY_0"] = "core.hooksPath"
+        self.environment["GIT_CONFIG_VALUE_0"] = "/nonexistent"
+        result = self.push("--bookmark", BOOKMARK)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

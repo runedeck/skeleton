@@ -87,7 +87,9 @@ class GenerationTests(unittest.TestCase):
 class ProseBehaviorTests(unittest.TestCase):
     def lint(self, name):
         result = subprocess.run(
-            ["vale", "--no-wrap", "--output=line", "--config", str(BASE / ".vale.ini"), str(FIXTURES / name)],
+            # --no-global keeps a user-level Vale config, whose styles shadow
+            # the repository's by name, out of the run.
+            ["vale", "--no-global", "--no-wrap", "--output=line", "--config", str(BASE / ".vale.ini"), str(FIXTURES / name)],
             cwd=BASE,
             capture_output=True,
             text=True,

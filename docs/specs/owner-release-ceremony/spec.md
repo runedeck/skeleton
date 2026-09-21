@@ -115,3 +115,35 @@ Approved work MUST enter `main` as a GitHub merge commit, and release tags MUST 
 
 - **WHEN** an identity other than the owner attempts to create a `v*` tag
 - **THEN** the tag rule refuses it
+
+### Requirement: Owner Direct Push
+
+The owner MAY push to the protected branch outside a pull request, as a fast-forward or a force push, through the repository admin bypass on both branch rulesets.
+Every commit such a push adds to the branch MUST carry a signature that verifies against `KEYS`.
+Commits the branch already reaches are outside the range: work that entered through a pull request stays unsigned.
+
+#### Scenario: Signed direct push
+
+- **WHEN** the owner pushes `main` directly and every added commit is signed by a `KEYS` key
+- **THEN** the guarded push publishes it
+
+#### Scenario: Unsigned commit in a direct push
+
+- **WHEN** a direct push to `main` adds a commit without a `KEYS` signature
+- **THEN** the guarded push refuses, names the commit, and points to `jj sign` or a pull request
+
+#### Scenario: Feature branch push
+
+- **WHEN** a push targets a branch other than the protected one
+- **THEN** no signature is required and the pushed commits stay as authored
+
+### Requirement: Direct Push Enforcement
+
+The guarded push MUST refuse a direct push when any added commit is unsigned or signed by a key `KEYS` does not name, and MUST name the first such commit.
+The platform MUST NOT require signatures on the branch, because model commits are unsigned by design.
+The guarded push is the enforcement point, and a push that goes around it is the owner's own act.
+
+#### Scenario: Stranger's signature
+
+- **WHEN** a direct push adds a commit signed by a key `KEYS` does not name
+- **THEN** the guarded push refuses and names the fingerprint

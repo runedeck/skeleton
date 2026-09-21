@@ -171,24 +171,26 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
                 self.assertIn("head.repo.full_name == github.repository", review["if"])
 
     def test_required_checks_bind_everyone(self):
-        # docs/specs/sealed-review-ceremony, Owner Veto and Lane Independence: the
-        # three required checks sit where no actor bypasses them, and the
-        # owner bypass covers the review rule alone.
+        # docs/specs/sealed-review-ceremony, Owner Veto and Lane Independence,
+        # and docs/specs/owner-release-ceremony, Owner Direct Push: the three
+        # required checks bind every pull request; the repository admin
+        # role, the owner, bypasses both rulesets for a direct push, and the
+        # guarded push requires the owner's signature on every commit such
+        # a push adds. The same bypass on both files matches the live
+        # rulesets, so the drift report stays quiet.
         required = {"quality", "owner-seal", "review/correctness"}
+        admin = [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]
         for root in COPIES:
             with self.subTest(root=root):
                 base = read_json(root / ".github/rulesets/ceremony-base.json")
                 veto = read_json(root / ".github/rulesets/owner-veto.json")
-                self.assertEqual(base["bypass_actors"], [])
+                self.assertEqual(base["bypass_actors"], admin)
                 checks = rule(base, "required_status_checks")["parameters"]["required_status_checks"]
                 self.assertEqual({check["context"] for check in checks}, required)
                 self.assertTrue(all(check["integration_id"] == 15368 for check in checks))
                 self.assertEqual([r["type"] for r in veto["rules"]], ["pull_request"])
                 self.assertIs(rule(veto, "pull_request")["parameters"]["require_code_owner_review"], True)
-                self.assertEqual(
-                    veto["bypass_actors"],
-                    [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}],
-                )
+                self.assertEqual(veto["bypass_actors"], admin)
         for name in ("ceremony-base.json", "owner-veto.json"):
             with self.subTest(name=name):
                 self.assertEqual(

@@ -41,6 +41,9 @@ jobs:
             - name: Test the seal verifier
               run: bash tests/verify-seal
 
+            - name: Test the direct-push signature verifier
+              run: bash tests/verify-range-signatures
+
             - name: Test the trusted-key resolver
               run: bash tests/trusted-keys
 

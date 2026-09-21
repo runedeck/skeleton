@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# Exercise scripts/verify-range-signatures against a throwaway repository,
+# with the same fake gpg tests/verify-seal uses: it signs, verifies, and
+# reports fingerprints without a gpg-agent.
+set -euo pipefail
+
+repository_root=$(cd "$(dirname "$0")/.." && pwd -P)
+verifier=$repository_root/scripts/verify-range-signatures
+for copy in "$verifier" "$repository_root/templates/base/scripts/verify-range-signatures"; do
+    [ -x "$copy" ] || { printf 'missing or not executable: %s\n' "$copy" >&2; exit 1; }
+done
+cmp -s "$verifier" "$repository_root/templates/base/scripts/verify-range-signatures" \
+    || { printf 'root and template copies of verify-range-signatures differ\n' >&2; exit 1; }
+
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/verify-range-test.XXXXXX")
+trap 'command rm -rf "$scratch"' EXIT
+export TMPDIR=$scratch
+
+owner_fingerprint=29DD2145CE7A818929459B2649F08103D3DA399E
+other_fingerprint=0000000000000000000000000000000000000BAD
+fake_gpg=$scratch/gpg
+cat > "$fake_gpg" <<'FAKE'
+#!/bin/sh
+key=${FAKE_GPG_KEY:-29DD2145CE7A818929459B2649F08103D3DA399E}
+case " $* " in
+  *" --import "*) cat >/dev/null 2>&1; exit 0 ;;
+  *" --export "*) printf 'fake-key-bytes\n' ;;
+  *" --fingerprint "*) printf '%s:::::::::%s:\n' "fpr" "$key" ;;
+  *" -bsau "*)
+    cat >/dev/null
+    printf '[GNUPG:] SIG_CREATED D 1 8 00 1789482678 %s\n' "$key" >&2
+    printf -- '-----BEGIN PGP SIGNATURE-----\nfake %s\n-----END PGP SIGNATURE-----\n' "$key" ;;
+  *" --verify "*)
+    cat >/dev/null
+    signer=${FAKE_GPG_SIGNER:-$key}
+    printf '[GNUPG:] NEWSIG\n[GNUPG:] GOODSIG %s Owner Test <owner@example.com>\n[GNUPG:] VALIDSIG %s 2026-09-15 1789482678 0 4 0 1 10 00 %s\n' "$signer" "$signer" "$signer" ;;
+  *) exit 3 ;;
+esac
+FAKE
+chmod +x "$fake_gpg"
+export VERIFY_SEAL_GPG=$fake_gpg
+export TRUSTED_KEYS_OFFLINE=1
+export TRUSTED_KEYS_CACHE=$scratch/keycache
+mkdir -p "$TRUSTED_KEYS_CACHE"
+printf 'fake armor\n' > "$TRUSTED_KEYS_CACHE/$owner_fingerprint.asc"
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+export GIT_AUTHOR_NAME=Model GIT_AUTHOR_EMAIL=model@example.com
+export GIT_COMMITTER_NAME=Model GIT_COMMITTER_EMAIL=model@example.com
+
+repo=$scratch/repo
+git() { command git -C "$repo" "$@"; }
+command git init -q -b main "$repo"
+keys=$repository_root/KEYS
+checks=0
+
+commit() {
+    git commit -q --allow-empty -m "$1"
+}
+
+signed_commit() {
+    git -c gpg.program="$fake_gpg" -c user.signingkey="$owner_fingerprint" \
+        commit -q -S --allow-empty -m "$1"
+}
+
+expect() {
+    local outcome=$1 needle=$2 output status=0
+    shift 2
+    output=$(cd "$repo" && "$verifier" "$@" 2>&1) || status=$?
+    if [ "$outcome" = pass ] && [ "$status" -ne 0 ]; then
+        printf 'expected success, got exit %s:\n%s\n' "$status" "$output" >&2
+        exit 1
+    fi
+    if [ "$outcome" = fail ] && [ "$status" -eq 0 ]; then
+        printf 'expected failure matching %q, got success:\n%s\n' "$needle" "$output" >&2
+        exit 1
+    fi
+    if ! printf '%s\n' "$output" | grep -Fq -- "$needle"; then
+        printf 'expected output matching %q, got:\n%s\n' "$needle" "$output" >&2
+        exit 1
+    fi
+    checks=$((checks + 1))
+}
+
+# The base the remote already holds: unsigned model work merged earlier.
+commit 'feat: base'
+base=$(git rev-parse HEAD)
+
+# An empty range passes without touching gpg.
+expect pass 'no commits in' --head "$base" --from "$base" --keys "$keys"
+
+# A direct push that adds one signed commit passes.
+signed_commit 'fix: owner change'
+signed_one=$(git rev-parse HEAD)
+expect pass 'owner signatures ok: 1 commit(s)' --head "$signed_one" --from "$base" --keys "$keys"
+
+# Two signed commits, the whole range counted.
+signed_commit 'fix: second owner change'
+signed_two=$(git rev-parse HEAD)
+expect pass 'owner signatures ok: 2 commit(s)' --head "$signed_two" --from "$base" --keys "$keys"
+
+# An unsigned commit anywhere in the added range is the refusal, and the
+# message names the two ways out.
+commit 'feat: model change, unsigned'
+unsigned=$(git rev-parse HEAD)
+expect fail "commit $unsigned has no valid signature" --head "$unsigned" --from "$base" --keys "$keys"
+expect fail 'jj sign -r <rev>' --head "$unsigned" --from "$base" --keys "$keys"
+expect fail 'open a pull request' --head "$unsigned" --from "$base" --keys "$keys"
+
+# Commits the base already reaches are outside the range: the unsigned
+# base itself is never judged.
+expect pass 'owner signatures ok: 2 commit(s)' --head "$signed_two" --from "$base" --keys "$keys"
+
+# The zero id and an empty --from mean a new branch: every reachable
+# commit is judged, so the unsigned base fails it.
+git checkout -q -b fresh "$signed_two"
+expect fail "commit $base has no valid signature" --head "$signed_two" --from 0000000000000000000000000000000000000000 --keys "$keys"
+expect fail "commit $base has no valid signature" --head "$signed_two" --from "" --keys "$keys"
+
+# A signature from a key KEYS does not carry is refused.
+git checkout -q main
+git reset -q --hard "$base"
+FAKE_GPG_SIGNER=$other_fingerprint signed_commit 'fix: signed by a stranger'
+stranger=$(git rev-parse HEAD)
+FAKE_GPG_SIGNER=$other_fingerprint expect fail "which KEYS does not carry" --head "$stranger" --from "$base" --keys "$keys"
+
+# Usage errors.
+expect fail 'usage:' --head "$base"
+expect fail 'unknown option' --head "$base" --keys "$keys" --bogus 1
+
+printf 'Range signature tests passed (%s checks).\n' "$checks"
