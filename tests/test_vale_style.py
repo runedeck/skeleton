@@ -101,11 +101,22 @@ class ProseBehaviorTests(unittest.TestCase):
                 code, output = self.lint(f"valid/{fixture.name}")
                 self.assertEqual(code, 0, output)
 
-    def test_invalid_fixtures_fail(self):
+    def test_invalid_fixtures_report(self):
+        # STE advises: a semicolon or contraction is a warning that is
+        # reported, not an error that fails the run. Only Core.NoEmDash
+        # is an error. The error/ fixtures cover that exit code.
         for fixture in sorted((FIXTURES / "invalid").glob("*.md")):
             with self.subTest(fixture=fixture.name):
                 code, output = self.lint(f"invalid/{fixture.name}")
+                self.assertEqual(code, 0, output)
+                self.assertIn(":STE.", output)
+
+    def test_error_fixtures_fail(self):
+        for fixture in sorted((FIXTURES / "error").glob("*.md")):
+            with self.subTest(fixture=fixture.name):
+                code, output = self.lint(f"error/{fixture.name}")
                 self.assertNotEqual(code, 0, output)
+                self.assertIn(":Core.", output)
 
     def test_blockquote_is_prose(self):
         _code, output = self.lint("invalid/blockquote-semicolon.md")
