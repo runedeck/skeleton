@@ -6,6 +6,8 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Added
 
+- Add `scripts/trusted-keys`, which resolves the signers `KEYS` pins through the owner's Web Key Directory, then GitHub, then a cache, admitting only bytes that carry the pin.
+- Add `tests/trusted-keys` and the owner's public key as its fixture, a recorded proof under `docs/proofs/trusted-key-anchor/`, and a gitleaks allowance for bare OpenPGP fingerprints.
 - Add the `.gitignore` baseline check to the parity audit, which reports a consumer whose file lacks a template pattern.
 - Add SKEL-0007: the checks that judge a pull request run from the base ref, and the machinery canary runs every probe and ends as failed.
 - Add the six-linter row from the deck (rumdl, typos, Vale, lychee, zizmor, actionlint), pinned with four digests each and run through guarded prek hooks.
@@ -35,6 +37,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Changed
 
+- Change `KEYS` from an armored key block to `signer <fingerprint> <address>...` lines, and `verify-seal` and `verify-release-tag` to build their keyring through `scripts/trusted-keys`.
 - Change every capability and change id to three hyphenated words, and split every requirement over 100 words, as the rune prose caps require.
 - Change every specification to MUST wording under 150 lines, with terms defined in `docs/specs/glossary.md`.
 - Change the review-ceremony capability into review-lanes, review-requests, lane-configuration, merge-checks, and release-ceremony.

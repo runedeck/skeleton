@@ -43,7 +43,7 @@ The *merge-seal* is an empty signed commit whose sole parent is the ledger's `re
 
 ### Requirement: Signed Tags and Trust Anchor
 
-Release and checkpoint tags MUST be annotated and owner-signed, and a signed tag vouches for every commit reachable beneath it. The root `KEYS` file, read from the protected default branch, and the tag ruleset carry the trust anchor.
+Release and checkpoint tags MUST be annotated and owner-signed, and a signed tag vouches for every commit reachable beneath it. The root `KEYS` file, read from the protected default branch and resolved as `trusted-key-anchor` specifies, and the tag ruleset carry the trust anchor.
 
 #### Scenario: Signed tag vouches for merged history
 
@@ -109,7 +109,7 @@ Approved work MUST enter `main` as a GitHub merge commit, and release tags MUST 
 #### Scenario: Release verification
 
 - **WHEN** the release workflow runs for a `v*` tag
-- **THEN** it verifies the tag signature against the committed `KEYS` file before building, and fails on an unsigned or unknown signature
+- **THEN** it verifies the tag signature against the signers the committed `KEYS` file pins before building, and fails on an unsigned or unknown signature
 
 #### Scenario: Tag creation restricted
 

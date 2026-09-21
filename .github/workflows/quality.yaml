@@ -41,6 +41,9 @@ jobs:
             - name: Test the seal verifier
               run: bash tests/verify-seal
 
+            - name: Test the trusted-key resolver
+              run: bash tests/trusted-keys
+
             - name: Test model attribution
               run: python3 -m unittest discover -s tests -p 'test_auth*.py' -v
 

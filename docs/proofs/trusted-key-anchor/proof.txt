@@ -1,0 +1,44 @@
+
+# Scenario: KEYS names signers by fingerprint
+# The trust anchor is one readable line: a pin and the addresses the bytes come from. No key block.
+❯ cat KEYS
+# Trusted signers for this repository (docs/specs/trusted-key-anchor).
+# One line per signer: the pinned fingerprint, then the addresses whose Web
+# Key Directory (or GitHub key list) supplies the bytes, tried in order.
+# scripts/trusted-keys resolves this file; nothing is trusted but the pin.
+#
+# The YubiKey signing subkey of Martin Zeman (primary 786F851F8AE345F5A98B822EC92F47D08BCD9F72).
+signer 29DD2145CE7A818929459B2649F08103D3DA399E git@martinzeman.net N4M3Z@users.noreply.github.com
+
+# Scenario: The pin admits the key that carries it
+# The pinned fingerprint is a signing subkey; the resolver imports its primary and reports the source.
+❯ scripts/trusted-keys --keys KEYS --homedir home1
+29DD2145CE7A818929459B2649F08103D3DA399E cache:/tmp/claude-501/trusted-key-anchor.P7jO5w/cache/29DD2145CE7A818929459B2649F08103D3DA399E.asc
+❯ gpg --homedir home1 --no-autostart --with-colons --fingerprint --list-keys | awk -F: '$1=="fpr"{print $10}'
+786F851F8AE345F5A98B822EC92F47D08BCD9F72
+29DD2145CE7A818929459B2649F08103D3DA399E
+9D1F3D0480BEE39DB6F9C0C1817F85F84B222929
+F2D200A57783845D77442661B44ED0316F2106FB
+
+# Scenario: Fetched bytes that do not carry the pin are dropped
+# The cache answers with a real key, but not the pinned one: nothing is imported and the line fails.
+❯ scripts/trusted-keys --keys KEYS --homedir home2 || echo "exit $?"
+trusted-keys: could not resolve 0000000000000000000000000000000000000000 from git@martinzeman.net (WKD, GitHub, cache)
+exit 1
+❯ gpg --homedir home2 --no-autostart --with-colons --fingerprint --list-keys 2>/dev/null | grep -c '^fpr:' || true
+0
+
+# Scenario: Malformed lines fail closed
+# A keyword typo, a short fingerprint, or a missing address is an error, never an empty trusted set.
+❯ scripts/trusted-keys --keys KEYS --homedir home3 || echo "exit $?"
+trusted-keys: KEYS: a line is "signer <fingerprint> <address>...", found trusted
+exit 1
+❯ scripts/trusted-keys --keys KEYS --homedir home3 || echo "exit $?"
+trusted-keys: 29DD2145CE7A818929459B2649F08103D3DA399E has no address to fetch it from
+exit 1
+
+# Scenario: verify-seal builds its keyring through the resolver
+# The seal verifier no longer imports KEYS itself: one resolver, one rule, for seals, tags, and rune sign.
+❯ grep -n 'trusted-keys' scripts/verify-seal
+100:# fingerprint; scripts/trusted-keys fetches each one's bytes (WKD, GitHub,
+106:    TRUSTED_KEYS_GPG=$gpg_program bash "$(dirname "$0")/trusted-keys" --keys "$keys" --homedir "$gnupg_home" >/dev/null \

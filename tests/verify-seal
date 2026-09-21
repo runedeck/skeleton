@@ -27,6 +27,7 @@ cat > "$fake_gpg" <<'FAKE'
 key=${FAKE_GPG_KEY:-29DD2145CE7A818929459B2649F08103D3DA399E}
 case " $* " in
   *" --import "*) cat >/dev/null 2>&1; exit 0 ;;
+  *" --export "*) printf 'fake-key-bytes\n' ;;
   *" --fingerprint "*) printf '%s:::::::::%s:\n' "fpr" "$key" ;;
   *" -bsau "*)
     cat >/dev/null
@@ -41,6 +42,12 @@ esac
 FAKE
 chmod +x "$fake_gpg"
 export VERIFY_SEAL_GPG=$fake_gpg
+# KEYS names signers by fingerprint and trusted-keys fetches their bytes; the
+# tests stay offline and feed the resolver from a cache the fake gpg accepts.
+export TRUSTED_KEYS_OFFLINE=1
+export TRUSTED_KEYS_CACHE=$scratch/keycache
+mkdir -p "$TRUSTED_KEYS_CACHE"
+printf 'fake armor\n' > "$TRUSTED_KEYS_CACHE/29DD2145CE7A818929459B2649F08103D3DA399E.asc"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=Model GIT_AUTHOR_EMAIL=model@example.com
 export GIT_COMMITTER_NAME=Model GIT_COMMITTER_EMAIL=model@example.com

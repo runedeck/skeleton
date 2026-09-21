@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Exercise scripts/trusted-keys offline with the owner's public key: the pin
+# admits the key that carries it (as a subkey or the primary), refuses one
+# that does not, and refuses malformed lines. No network: TRUSTED_KEYS_OFFLINE
+# plus a cache directory.
+set -euo pipefail
+repository_root=$(cd "$(dirname "$0")/.." && pwd)
+scratch=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:?TMPDIR must be set}}/trusted-keys-test.XXXXXX")
+trap 'command rm -rf "$scratch"' EXIT
+resolver=$repository_root/scripts/trusted-keys
+export TRUSTED_KEYS_OFFLINE=1
+export TRUSTED_KEYS_CACHE=$scratch/cache
+mkdir -p "$TRUSTED_KEYS_CACHE"
+checks=0
+pass() { checks=$((checks + 1)); }
+fail() { printf 'trusted-keys test: %s\n' "$1" >&2; exit 1; }
+
+# The owner's public key as the fixture: a primary with a signing subkey,
+# the shape the ceremony pins. Public material, read with --show-keys, so
+# no agent and no keyring generation is needed.
+fixture=$repository_root/tests/fixtures/owner-public-key.asc
+showhome=$scratch/show; mkdir -p "$showhome"; chmod 0700 "$showhome"
+mapfile -t fingerprints < <(gpg --homedir "$showhome" --batch --no-autostart --with-colons --with-subkey-fingerprint --show-keys "$fixture" | awk -F: '$1=="fpr"{print $10}')
+primary=${fingerprints[0]}; subkey=${fingerprints[1]}
+[ -n "$subkey" ] || fail "fixture has no subkey fingerprint"
+rsync -a "$fixture" "$TRUSTED_KEYS_CACHE/$subkey.asc"
+rsync -a "$fixture" "$TRUSTED_KEYS_CACHE/$primary.asc"
+
+# The subkey pin resolves from the cache and the keyring holds the primary.
+printf 'signer %s owner@example.com\n' "$subkey" > "$scratch/KEYS"
+out=$(bash "$resolver" --keys "$scratch/KEYS" --homedir "$scratch/home1")
+[[ "$out" == "$subkey cache:"* ]] || fail "subkey pin: $out"
+gpg --homedir "$scratch/home1" --batch --no-autostart --with-colons --fingerprint --list-keys | grep -q "$primary" || fail "primary not imported"
+pass
+
+# The primary pin resolves too.
+printf 'signer %s owner@example.com\n' "$primary" > "$scratch/KEYS"
+bash "$resolver" --keys "$scratch/KEYS" --homedir "$scratch/home2" >/dev/null || fail "primary pin"
+pass
+
+# A pin no cached key carries is refused, and nothing is imported.
+wrong=0000000000000000000000000000000000000000
+printf 'signer %s owner@example.com\n' "$wrong" > "$scratch/KEYS"
+rsync -a "$TRUSTED_KEYS_CACHE/$primary.asc" "$TRUSTED_KEYS_CACHE/$wrong.asc"
+if bash "$resolver" --keys "$scratch/KEYS" --homedir "$scratch/home3" >/dev/null 2>&1; then fail "wrong pin accepted"; fi
+if gpg --homedir "$scratch/home3" --batch --no-autostart --with-colons --fingerprint --list-keys 2>/dev/null | grep -q '^fpr:'; then fail "wrong pin imported a key"; fi
+pass
+
+# Malformed lines are refused: a bad keyword, a short fingerprint, no address.
+for line in "trusted $subkey owner@example.com" "signer ABC owner@example.com" "signer $subkey"; do
+    printf '%s\n' "$line" > "$scratch/KEYS"
+    if bash "$resolver" --keys "$scratch/KEYS" --homedir "$scratch/home4" >/dev/null 2>&1; then fail "accepted: $line"; fi
+    pass
+done
+
+# Comments and blank lines are ignored; two signers both resolve.
+printf '# comment\n\nsigner %s owner@example.com\nsigner %s owner@example.com # trailing\n' "$subkey" "$primary" > "$scratch/KEYS"
+[ "$(bash "$resolver" --keys "$scratch/KEYS" --homedir "$scratch/home5" | wc -l | tr -d ' ')" = 2 ] || fail "two signers"
+pass
+
+printf 'Trusted-keys tests passed (%s checks).\n' "$checks"
