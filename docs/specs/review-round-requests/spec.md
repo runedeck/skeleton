@@ -2,33 +2,33 @@
 
 ## Purpose
 
-How a review round starts and how a maintainer stands a lane down: the ready event as the automatic request, the controller's triage, the request labels the owner may still apply to force a round, and the `skip:` and `ignore:` overrides that stand a lane down or withdraw its hold on the merge.
+How a review round starts and how a maintainer stands a lane down: the green draft as the automatic request, the controller's triage, the request labels the owner may still apply to force a round, and the `skip:` and `ignore:` overrides that stand a lane down or withdraw its hold on the merge.
 
 ## Requirements
 
-### Requirement: Ready Starts the Funnel
+### Requirement: Green Draft Starts the Funnel
 
-A review lane MUST NOT run on drafts.
-Draft iteration MUST remain free of paid review.
-The free lanes and the deterministic checks MUST run on every push to a draft and record their results in the ledger.
-The ready event MUST be the automatic review request.
-The controller MUST start the funnel when a pull request becomes ready with a valid open-seal, and on each later green head, after its triage admits the head.
+The paid review MUST run before the owner's first key touch.
+The free lanes and the deterministic checks MUST run on every push to a same-repository pull request, draft or ready, and record their results in the ledger.
+The controller MUST triage every green head of a same-repository pull request from the first push, and MUST start the funnel when its triage admits the head.
+A fork pull request MUST reach the controller through an owner label only.
+The ready flip MUST follow the clean verdict: `rune sign open` seals a reviewed head.
 An agent MUST NOT apply a review label.
 
 #### Scenario: Draft iteration
 
-- **WHEN** an agent pushes repeatedly to a draft pull request
-- **THEN** the free lanes and deterministic checks run and fill the ledger, and no paid lane runs
+- **WHEN** an agent pushes to a same-repository draft and quality is green
+- **THEN** the controller triages the head and, when admitted, runs the paid round without an owner action
 
-#### Scenario: Marked ready with a seal
+#### Scenario: Marked ready after the verdict
 
-- **WHEN** `rune sign open` flips a draft ready with a valid open-seal
-- **THEN** the controller triages the head and, when admitted, runs the cascade once in escalation order
+- **WHEN** `rune sign open` flips a draft ready with a valid open-seal over a clean verdict
+- **THEN** the controller rebuilds the ledger and starts no new round on the unchanged head
 
 #### Scenario: Marked ready without a seal
 
 - **WHEN** a draft is marked ready by any path other than `rune sign open`
-- **THEN** no paid lane starts and `owner-seal` fails on the head
+- **THEN** `owner-seal` fails on the head and the review state is unchanged
 
 #### Scenario: Reopened pull request
 
@@ -39,7 +39,6 @@ An agent MUST NOT apply a review label.
 
 The owner MAY apply `review`, `review:runeseer`, `review:cursor`, or `review:autofix` to force a round the triage would have stood down.
 A forced round MUST still count against the work item's paid budget.
-These labels MUST wait while the pull request remains a draft and MUST start when it becomes ready.
 Removing a pending request MUST prevent dispatch.
 Removing a dispatched `review` or `review:cursor` label MUST preserve the active round.
 
@@ -55,7 +54,7 @@ Removing a dispatched `review` or `review:cursor` label MUST preserve the active
 
 #### Scenario: Owner forces a round
 
-- **WHEN** the owner applies `review:runeseer` to a ready head the triage stood down
+- **WHEN** the owner applies `review:runeseer` to a head the triage stood down
 - **THEN** the lane runs on that head and the work item's paid budget decreases by one
 
 ### Requirement: App-Controlled Lane Labels
