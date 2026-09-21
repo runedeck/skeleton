@@ -175,6 +175,18 @@ repos:
             pass_filenames: false
             stages: [pre-push]
 
+          # Every dcg pack validates and each fixture in .dcg/fixtures.txt keeps
+          # its decision and its rule, so a pack edit cannot silently admit
+          # what it used to deny. In the skeleton the trigger also covers the
+          # template copies and tests/test_dcg_policy.py checks root and
+          # template parity, so a template-only edit is replayed too.
+          - id: check-dcg-packs
+            name: dcg packs validate and fixtures hold
+            entry: sh -c 'python3 -m unittest tests.test_dcg_policy && if command -v dcg >/dev/null 2>&1; then for p in .dcg/packs/*.yaml; do dcg pack validate "$p" >/dev/null || { dcg pack validate "$p"; exit 1; }; done && python3 scripts/test-dcg-packs; elif [ -n "${REQUIRE_GATES:-}" ]; then echo "REQUIRE_GATES set and dcg is absent"; exit 1; else echo "dcg is absent, pack fixtures not replayed"; fi'
+            language: system
+            files: ^(templates/base/)?(\.dcg/|\.dcg\.toml$|scripts/test-dcg-packs$|scripts/tool-versions$)|^tests/test_dcg_policy\.py$
+            pass_filenames: false
+
           - id: check-authorship
             name: authorship (push range)
             entry: bash scripts/check-authorship

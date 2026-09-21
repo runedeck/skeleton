@@ -6,6 +6,11 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Added
 
+- Add seven dcg packs under `.dcg/packs/`, one per rule (`search`, `parsers`, `secrets`, `push`, `provenance`, `rtk`, `homebrew`), ids `rune.<segment>`, in the template and the root (SKEL-0009).
+- Add `.dcg/fixtures.txt`, `.dcg/test-config.toml`, and `scripts/test-dcg-packs`: a denied command per rule and a permitted one per exemption, replayed through `dcg test` under an isolated config.
+- Add the `check-dcg-packs` hook, which validates every pack and replays the fixtures on each pack edit, and `tests/test_dcg_policy.py` for parity, ids, coverage, and policy entries.
+- Add `.dcg.toml` at the repository root: a per-rule `deny` for every rule that needs no external tool, applied by dcg as enforcement only.
+- Add pinned `rg`, `fd`, `yq`, `jq`, and `dcg` to `install-tools` and `tool-versions`, with reviewed digests for darwin and linux on amd64 and arm64.
 - Add `scripts/verify-range-signatures`: the guarded push requires a `KEYS` signature on every commit a direct push adds to `main` (Owner Direct Push spec).
 - Add `scripts/trusted-keys`, which resolves the signers `KEYS` pins through the owner's Web Key Directory, then GitHub, then a cache, admitting only bytes that carry the pin.
 - Add `tests/trusted-keys` and the owner's public key as its fixture, a recorded proof under `docs/proofs/trusted-key-anchor/`, and a gitleaks allowance for bare OpenPGP fingerprints.

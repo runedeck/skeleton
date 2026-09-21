@@ -1,0 +1,94 @@
+
+# Scenario: Pack validates
+# Seven packs, one per rule family. Each id is rune.<file name>.
+❯ for p in .dcg/packs/*.yaml; do printf '%s ' "$p"; dcg pack validate "$p" | grep -o 'Pack ID: .*'; done
+.dcg/packs/homebrew.yaml Pack ID: rune.homebrew
+.dcg/packs/parsers.yaml Pack ID: rune.parsers
+.dcg/packs/provenance.yaml Pack ID: rune.provenance
+.dcg/packs/push.yaml Pack ID: rune.push
+.dcg/packs/rtk.yaml Pack ID: rune.rtk
+.dcg/packs/search.yaml Pack ID: rune.search
+.dcg/packs/secrets.yaml Pack ID: rune.secrets
+
+# Scenario: Denial states the replacement
+# The rule names itself and the denial text names rg.
+❯ dcg test 'grep -r pattern .'
+Command: grep -r pattern .
+         ^^^^
+         └── Matched: rune.search:grep-use-rg
+
+Pack: rune.search
+Pattern: grep-use-rg
+Reason: Use rg (ripgrep) instead of grep.
+Explanation: rg is faster, respects .gitignore, and prints file and line by
+  default. Replace grep -r pattern . with rg pattern.
+  git grep stays allowed.
+Source: pack
+[dcg] Interactive mode not available: interactive mode is disabled in configuration
+Result: BLOCKED
+
+# Scenario: Pack edit admits a denied command
+# Break the secret-read rule so it matches nothing. The fixtures name every line that moved.
+❯ python3 scripts/test-dcg-packs | tail -n 1
+64 cases, 0 wrong
+❯ sed -i.bak 's/^    pattern: .*Keychains.*/    pattern: never-matches-anything-zzz/' .dcg/packs/secrets.yaml; python3 scripts/test-dcg-packs | tail -n 3; mv -f .dcg/packs/secrets.yaml.bak .dcg/packs/secrets.yaml
+ALLOW -                                             cat .env .env.example  <-- expected DENY rune.secrets:casual-secret-read
+ALLOW -                                             cat .env.template.production  <-- expected DENY rune.secrets:casual-secret-read
+64 cases, 8 wrong
+
+# Scenario: Exemption removed
+# Drop the example-file exemption; the ALLOW fixture for .env.example turns into a denial.
+❯ sed -i.bak '/^safe_patterns:/,$d' .dcg/packs/secrets.yaml; python3 scripts/test-dcg-packs | tail -n 3; mv -f .dcg/packs/secrets.yaml.bak .dcg/packs/secrets.yaml
+DENY  rune.secrets:casual-secret-read               cat .env.example  <-- expected ALLOW -
+DENY  rune.secrets:casual-secret-read               head -n 20 .env.example .env.sample  <-- expected ALLOW -
+64 cases, 2 wrong
+
+# Scenario: Host without dcg
+# The hook prints its skip and exits 0 when dcg is absent and REQUIRE_GATES is unset.
+❯ PATH=/usr/bin:/bin sh -c 'if command -v dcg >/dev/null 2>&1; then echo has-dcg; elif [ -n "${REQUIRE_GATES:-}" ]; then echo "REQUIRE_GATES set and dcg is absent"; exit 1; else echo "dcg is absent, pack fixtures not replayed"; fi'; echo "exit=$?"
+dcg is absent, pack fixtures not replayed
+exit=0
+
+# Scenario: Continuous integration without dcg
+# The same hook fails under REQUIRE_GATES.
+❯ REQUIRE_GATES=1 PATH=/usr/bin:/bin sh -c 'if command -v dcg >/dev/null 2>&1; then echo has-dcg; elif [ -n "${REQUIRE_GATES:-}" ]; then echo "REQUIRE_GATES set and dcg is absent"; exit 1; fi'; echo "exit=$?"
+REQUIRE_GATES set and dcg is absent
+exit=1
+
+# Scenario: Host relaxes a tool-free pack
+# The host relaxes the whole push pack to warn. The repository .dcg.toml pins the rule to deny. The more specific entry wins.
+❯ DCG_CONFIG=host.toml dcg explain --format json 'git push origin main' | jq -c '{decision, mode, outcome}'
+{"decision":"deny","mode":"deny","outcome":"deny"}
+# A host entry for the same rule key is not overridden by the repository on dcg 0.14.4. The host guard is the host's.
+❯ DCG_CONFIG=host.toml dcg explain --format json 'git push origin main' | jq -c '{decision, mode, outcome}'
+{"decision":"deny","mode":"warn","outcome":"warn"}
+
+# Scenario: Host without rg
+# The host relaxes the grep rule; no repository entry pins it; the command runs with a warning.
+❯ DCG_CONFIG=host.toml dcg explain --format json 'grep -r pattern .' | jq -c '{decision, mode, outcome}'
+{"decision":"deny","mode":"warn","outcome":"warn"}
+
+# Scenario: Host without fd but with rg
+# Only the find rules relax; grep stays denied.
+❯ DCG_CONFIG=host.toml dcg explain --format json 'grep -r pattern .' | jq -c .outcome; DCG_CONFIG=host.toml dcg explain --format json 'find . -name x' | jq -c .outcome
+"deny"
+"warn"
+
+# Scenario: Fresh machine
+# The installer refuses an archive whose digest differs; the pinned versions live in tool-versions.
+❯ grep -E '^(RG|FD|YQ|JQ|DCG)_VERSION=' scripts/tool-versions
+RG_VERSION="15.2.0"
+FD_VERSION="10.5.0"
+YQ_VERSION="4.53.6"
+JQ_VERSION="1.8.2"
+DCG_VERSION="0.14.4"
+❯ python3 -m unittest tests.test_tool_install 2>&1 | tail -n 1
+OK
+
+# Scenario: Continuous integration
+# quality.yaml installs the tools first, then runs the hooks under REQUIRE_GATES.
+❯ grep -n -E 'install-tools|REQUIRE_GATES: "1"|test_dcg_policy' .github/workflows/quality.yaml
+68:              run: python3 -m unittest discover -s tests -p 'test_dcg_policy.py' -v
+126:              run: bash scripts/install-tools
+139:                  REQUIRE_GATES: "1"
+149:                  REQUIRE_GATES: "1"

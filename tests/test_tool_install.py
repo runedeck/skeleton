@@ -18,7 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "templates" / "base"
 VERSIONS = (BASE / "scripts" / "tool-versions").read_text(encoding="utf-8")
 INSTALLER = (BASE / "scripts" / "install-tools").read_text(encoding="utf-8")
-ARCHIVE_TOOLS = ("gitleaks", "mdschema", "rumdl", "typos", "vale", "lychee", "zizmor", "actionlint")
+ARCHIVE_TOOLS = (
+    "gitleaks", "mdschema", "rumdl", "typos", "vale", "lychee", "zizmor", "actionlint",
+    "rg", "fd", "yq", "jq", "dcg",
+)
 PLATFORMS = ("DARWIN_AMD64", "DARWIN_ARM64", "LINUX_AMD64", "LINUX_ARM64")
 
 

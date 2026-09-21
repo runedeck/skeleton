@@ -64,6 +64,9 @@ jobs:
             - name: Test the tool installer contract
               run: python3 -m unittest discover -s tests -p 'test_tool_install.py' -v
 
+            - name: Test the dcg command policy contract
+              run: python3 -m unittest discover -s tests -p 'test_dcg_policy.py' -v
+
             - name: Test the consumer parity audit
               run: python3 -m unittest discover -s tests -p 'test_consumer_parity.py' -v
 
