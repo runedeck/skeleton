@@ -534,5 +534,6 @@ class BootstrapSignatureTests(ProtectedBranchSignatureTests):
         result = self.push("--bookmark", "main")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("carries no scripts/verify-range-signatures; using the pushed head's copy", result.stdout)
+        self.assertNotIn("fatal:", result.stderr)
         self.assertIn("owner signatures ok: 1 commit(s)", result.stdout)
         self.assertEqual(self.remote_target("main"), signed)

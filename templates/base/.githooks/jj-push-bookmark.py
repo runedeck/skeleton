@@ -93,11 +93,13 @@ def require_owner_signatures(snapshot, bookmark, head, old):
         # Until the verifier reaches the default branch, the push that
         # carries it is judged by its own copy: there is no trusted rule yet,
         # and the copy still demands the owner's signature on that push.
-        try:
-            return run("git", "show", f"{trusted}:{path}", cwd=snapshot)
-        except subprocess.CalledProcessError:
-            print(f"owner signatures: {trusted} carries no {path}; using the pushed head's copy")
-            return run("git", "show", f"{head}:{path}", cwd=snapshot)
+        probe = subprocess.run(
+            ["git", "show", f"{trusted}:{path}"], cwd=snapshot, text=True, capture_output=True, check=False,
+        )
+        if probe.returncode == 0:
+            return probe.stdout.strip()
+        print(f"owner signatures: {trusted} carries no {path}; using the pushed head's copy")
+        return run("git", "show", f"{head}:{path}", cwd=snapshot)
 
     for name in ("verify-range-signatures", "trusted-keys"):
         script = tools / name
