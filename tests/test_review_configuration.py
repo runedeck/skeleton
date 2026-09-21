@@ -145,6 +145,28 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
                 self.assertIn("synchronize", job["if"])
                 self.assertIn("github.event.pull_request.draft == false", job["if"])
 
+    def test_correctness_caller_reaches_the_controller_without_a_label(self):
+        # docs/specs/review-round-requests, Ready Starts the Funnel: the
+        # correctness caller, not only the cascade, forwards the ready event
+        # and every later push to the controller, whose triage decides the
+        # spend. A label-gated caller here left the controller unreachable
+        # on every consumer while the seer body carried it (cli #67).
+        for root in COPIES:
+            with self.subTest(root=root):
+                workflow = read_yaml(root / ".github/workflows/review-correctness.yaml")
+                types = triggers(workflow)["pull_request_target"]["types"]
+                self.assertTrue(
+                    {"ready_for_review", "synchronize", "reopened", "edited", "labeled"}.issubset(types)
+                )
+                review = workflow["jobs"]["review"]
+                self.assertIn("uses", review)
+                self.assertIn("synchronize", review["if"])
+                self.assertIn("reopened", review["if"])
+                self.assertIn("ready_for_review", review["if"])
+                self.assertNotIn("contains(github.event.pull_request.labels.*.name, 'review:runeseer')", review["if"])
+                release = workflow["jobs"]["release"]
+                self.assertNotIn("review:runeseer", release["if"])
+
     def test_required_checks_bind_everyone(self):
         # docs/specs/sealed-review-ceremony, Owner Veto and Lane Independence: the
         # three required checks sit where no actor bypasses them, and the
