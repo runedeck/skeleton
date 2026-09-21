@@ -3,6 +3,9 @@ _answers_file: answers.yaml
 # Seeded once, then owned by the consumer: a changelog, agent brief, and
 # contributor guide describe that repository, not the ceremony. Copier
 # never rewrites them on update, and the parity audit does not compare them.
+# The spelling and Markdown lint configs join them: every consumer adds its
+# own excluded fixtures and accepted words, on the same lines the template
+# would edit, so a template-owned copy conflicts on each update.
 _skip_if_exists:
     - CHANGELOG.md
     - AGENTS.md
@@ -10,6 +13,8 @@ _skip_if_exists:
     - INSTALL.md
     - CODEOWNERS
     - .gitignore
+    - typos.toml
+    - .rumdl.toml
 _envops:
     variable_start_string: "${"
     variable_end_string: "}"

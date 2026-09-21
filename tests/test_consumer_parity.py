@@ -85,6 +85,9 @@ class SeededPathTests(unittest.TestCase):
         seeded = parity.seeded_paths(ROOT)
         self.assertIn("CHANGELOG.md", seeded)
         self.assertIn(".gitignore", seeded)
+        # Consumers add their own fixtures and words to the lint configs.
+        self.assertIn("typos.toml", seeded)
+        self.assertIn(".rumdl.toml", seeded)
         self.assertNotIn(".pre-commit-config.yaml", seeded)
 
     def test_local_caches_and_quarantine_are_not_compared(self):
