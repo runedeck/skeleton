@@ -77,7 +77,7 @@ The ceremony MUST keep one ledger per pull request, owned by the controller work
 
 ### Requirement: Ledger Thread Sources
 
-Threads MUST be read from the platform API by lane login. The platform's resolved flag MUST NOT be a source. A thread from a login the lane table does not name MUST be kept for disposition and MUST grant no approval authority. Any new thread or lane status change MUST increment the generation. The lane table, `KEYS`, and the verifier MUST be read from the protected default branch, never from the candidate tree.
+Threads MUST be read from the platform API by lane login. The platform's resolved flag MUST NOT be a source. A thread from a login the lane table does not name MUST be kept for disposition and MUST grant no approval authority. Any new thread or lane status change MUST increment the generation. The lane table, `KEYS`, and the verifier MUST be read from the protected default branch, never from the candidate tree. The template MUST carry the lane table as `.github/lanes.json`, and a consumer without one MUST be served the controller revision's own copy.
 
 #### Scenario: Late thread
 
