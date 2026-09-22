@@ -12,7 +12,7 @@ Nine heads of the 2026-09-21 landing round were authored `Claude Fable 5 (claude
 
 ## What Changes
 
-- `scripts/author-identity.py` (root and `templates/base`): `resolve` derives the display name from the model ID the way the roster spells it. `claude-fable-5-1` under `claude` is `Claude Fable 5.1`, `gpt-6-astra` under `codex` is `Codex Gpt 6 Astra`. Words title-case, a run of version segments joins with dots, the harness leads unless the model names it.
+- `scripts/author-identity.py` (root and `templates/base`): `resolve` derives the display name from the model ID the way the roster spells it. `claude-fable-5-1` under `claude` is `Claude Fable 5.1`, `gpt-6-astra` under `codex` is `Codex GPT 6 Astra`. Words title-case, a run of version segments joins with dots, the harness leads unless the model names it.
 - `tests/test_author_identity.py`, `tests/test_authorship_integration.py`: the generated names carry the version. Every existing roster line reproduces from its model ID.
 
 ## Capabilities

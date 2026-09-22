@@ -12,7 +12,7 @@ When the policy formats an identity for a model with no roster line, the display
 #### Scenario: Vendor model under another harness
 
 - **WHEN** `resolve` runs for model `gpt-6-astra` and harness `codex`
-- **THEN** the identity is `Codex Gpt 6 Astra (gpt-6-astra) <gpt-6-astra@codex.noreply.nexus.local>`
+- **THEN** the identity is `Codex GPT 6 Astra (gpt-6-astra) <gpt-6-astra@codex.noreply.nexus.local>`
 
 #### Scenario: Roster line reproduces
 

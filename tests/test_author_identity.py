@@ -235,7 +235,7 @@ class IdentityTests(unittest.TestCase):
     def test_resolve_generates_future_model_identity(self):
         self.assertEqual(
             identity.resolve_identity(self.policy, "gpt-6-astra[1m]", "codex"),
-            model_identity(name="Codex Gpt 6 Astra"),
+            model_identity(name="Codex GPT 6 Astra"),
         )
 
     def test_resolve_keeps_the_version_in_the_display_name(self):
@@ -250,8 +250,8 @@ class IdentityTests(unittest.TestCase):
     def test_display_name_matches_the_roster_spelling(self):
         for model, harness, expected in (
             ("claude-opus-4-8", "claude", "Claude Opus 4.8"),
-            ("gpt-5.6-sol", "codex", "Codex Gpt 5.6 Sol"),
-            ("gpt-5.6-sol", "claude", "Claude Gpt 5.6 Sol"),
+            ("gpt-5.6-sol", "codex", "Codex GPT 5.6 Sol"),
+            ("gpt-5.6-sol", "claude", "Claude GPT 5.6 Sol"),
             ("grok-4.6", "grok", "Grok 4.6"),
             ("lumo-max", "lumo", "Lumo Max"),
             ("kimi-k3", "kimi", "Kimi K3"),
@@ -416,7 +416,7 @@ class IdentityTests(unittest.TestCase):
                 invoke("resolve", "--model", "gpt-6-astra", "--harness", "codex")[
                     1
                 ].strip(),
-                model_identity(name="Codex Gpt 6 Astra"),
+                model_identity(name="Codex GPT 6 Astra"),
             )
             path.write_text("authors: []\n", encoding="utf-8")
             self.assertEqual(invoke("check-policy")[0], 2)
