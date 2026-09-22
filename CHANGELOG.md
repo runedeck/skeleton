@@ -6,6 +6,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Added
 
+- Add `scripts/trash` to the template and the root: a recoverable delete on macOS and Linux through the FreeDesktop trash layout, no Finder, with `tests/test_trash.py`.
 - Add seven dcg packs under `.dcg/packs/`, one per rule (`search`, `parsers`, `secrets`, `push`, `provenance`, `rtk`, `homebrew`), ids `rune.<segment>`, in the template and the root (SKEL-0009).
 - Add `.dcg/fixtures.txt`, `.dcg/test-config.toml`, and `scripts/test-dcg-packs`: a denied command per rule and a permitted one per exemption, replayed through `dcg test` under an isolated config.
 - Add the `check-dcg-packs` hook, which validates every pack and replays the fixtures on each pack edit, and `tests/test_dcg_policy.py` for parity, ids, coverage, and policy entries.
