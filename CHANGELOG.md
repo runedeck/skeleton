@@ -44,6 +44,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Changed
 
+- Change the guarded push to refuse a head that does not descend from the remote bookmark. A sideways move would drop what landed there.
 - Spell the GPT acronym in upper case in derived display names and the roster: `Codex GPT 5.6 Sol`, not `Codex Gpt 5.6 Sol`.
 - Change the ruleset bypass from the owner's user id to the repository admin role, mode always, so the owner's direct push is the one path around the review rules.
 - Change `typos.toml` and `.rumdl.toml` to seeded-once files: consumers own their excluded fixtures and accepted words, and the parity audit no longer compares them.
