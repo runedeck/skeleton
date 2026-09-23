@@ -178,6 +178,10 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
         # guarded push requires the owner's signature on every commit such
         # a push adds. The same bypass on both files matches the live
         # rulesets, so the drift report stays quiet.
+        # docs/specs/deterministic-merge-checks, Deterministic Checks
+        # Independent of Review: the merge queue is on, so `quality` is
+        # reported twice, on the head by the push run and on the merge by
+        # the merge_group run, and the ruleset requires the context.
         required = {"quality", "owner-seal", "review/correctness"}
         admin = [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]
         for root in COPIES:
@@ -188,6 +192,10 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
                 checks = rule(base, "required_status_checks")["parameters"]["required_status_checks"]
                 self.assertEqual({check["context"] for check in checks}, required)
                 self.assertTrue(all(check["integration_id"] == 15368 for check in checks))
+                queue = rule(base, "merge_queue")["parameters"]
+                self.assertEqual(queue["merge_method"], "MERGE")
+                self.assertEqual(queue["grouping_strategy"], "ALLGREEN")
+                self.assertGreaterEqual(queue["check_response_timeout_minutes"], 60)
                 self.assertEqual([r["type"] for r in veto["rules"]], ["pull_request"])
                 self.assertIs(rule(veto, "pull_request")["parameters"]["require_code_owner_review"], True)
                 self.assertEqual(veto["bypass_actors"], admin)
@@ -227,19 +235,50 @@ class OptionalReviewConfigurationTests(unittest.TestCase):
             read_yaml(COPIES[1] / ".github/workflows/owner-seal.yaml"),
         )
 
+    def test_quality_proves_the_head_on_push_and_the_merge_in_the_queue(self):
+        # docs/specs/deterministic-merge-checks: quality runs on push (the
+        # head commit, the receipt source) and on merge_group (the queue's
+        # merge). It never runs on pull_request, whose merge commit GitHub
+        # pins at first run and never rebuilds on a base move.
+        for root in COPIES:
+            with self.subTest(root=root):
+                quality = read_yaml(root / ".github/workflows/quality.yaml")
+                events = triggers(quality)
+                self.assertEqual(set(events), {"push", "merge_group"})
+                self.assertNotIn("pull_request", events)
+                self.assertEqual(events["merge_group"]["types"], ["checks_requested"])
+                self.assertIn("gh-readonly-queue/**", events["push"]["branches-ignore"])
+                steps = {step.get("name"): step for step in quality["jobs"]["quality"]["steps"]}
+                # The event values reach the shell through env, never through
+                # `${{ }}` inside `run:` (zizmor template-injection).
+                pre_push = steps["Pre-push-stage checks"]
+                self.assertEqual(pre_push["env"]["MERGE_BASE"], "${{ github.event.merge_group.base_sha }}")
+                self.assertEqual(pre_push["env"]["MERGE_HEAD"], "${{ github.event.merge_group.head_sha }}")
+                self.assertNotIn("${{", pre_push["run"])
+                self.assertIn("merge_group", steps["Release notes attestation"]["if"])
+                self.assertNotIn("pull_request", steps["Release notes attestation"]["if"])
+
     def test_draft_opens_after_the_deterministic_checks(self):
         # docs/specs/sealed-review-ceremony, First push opens a draft: the draft
-        # waits for quality on the pushed head.
+        # re-enters on the completed Quality push run of the same repository,
+        # so one push builds once, and it reads the proven head for one file.
         for root in COPIES:
             with self.subTest(root=root):
                 workflow = read_yaml(root / ".github/workflows/draft-open.yaml")
-                quality = read_yaml(root / ".github/workflows/quality.yaml")
-                self.assertIn("workflow_call", triggers(quality))
+                events = triggers(workflow)
+                self.assertEqual(list(events), ["workflow_run"])
+                self.assertEqual(events["workflow_run"]["workflows"], ["Quality"])
+                self.assertEqual(events["workflow_run"]["types"], ["completed"])
+                self.assertEqual(workflow["permissions"], {})
                 jobs = workflow["jobs"]
-                self.assertEqual(jobs["checks"]["uses"], "./.github/workflows/quality.yaml")
-                self.assertEqual(jobs["checks"]["needs"], "existing")
-                self.assertEqual(jobs["open"]["needs"], ["existing", "checks"])
-                self.assertIn("needs.checks.result == 'success'", jobs["open"]["if"])
+                self.assertNotIn("checks", jobs)
+                self.assertIn("workflow_run.conclusion == 'success'", jobs["existing"]["if"])
+                self.assertIn("workflow_run.event == 'push'", jobs["existing"]["if"])
+                self.assertIn("head_repository.full_name == github.repository", jobs["existing"]["if"])
+                self.assertEqual(jobs["open"]["needs"], "existing")
+                checkout = next(step for step in jobs["open"]["steps"] if "uses" in step and step["uses"].startswith("actions/checkout@"))
+                self.assertEqual(checkout["with"]["ref"], "${{ github.event.workflow_run.head_sha }}")
+                self.assertIs(checkout["with"]["persist-credentials"], False)
                 create = next(step for step in jobs["open"]["steps"] if step.get("name") == "Open the draft")
                 self.assertIn("--draft", create["run"])
                 self.assertEqual(create["env"]["GH_TOKEN"], "${{ steps.runewright.outputs.token }}")

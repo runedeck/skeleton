@@ -1,0 +1,25 @@
+# Review funnel bound to the head: design
+
+## Approach
+
+The review is a fact about the head. The integration is a fact about the merge. The funnel keeps the two apart: the paid round, the ledger, and the seals bind to `(reviewed_sha, generation)`, and the merge queue proves the merge once, with a `merge_group` run the ruleset requires. The first draft of this change bound the required `quality` check to the head alone. Three adversarial reviews refuted that: no consumer has a merge queue today, so a green head would have certified a tree GitHub never merges. The first draft also counted only verdicts against the budget, which lets attempts run free. Both are corrected here.
+
+## Structure
+
+- `templates/base/.github/workflows/quality.yaml` (and the root copy). `on:` becomes `push` (branches other than `main`, plus `main` as today) and `merge_group`. `pull_request` is removed: its merge commit is pinned at the first run and GitHub never rebuilds it on a base move, so the check stayed red on #67 after `main` was repaired. The push job checks out the pushed head with `persist-credentials: false` and read-only permissions. The `merge_group` job checks out the merge commit GitHub builds for the queue. The release-notes step finds its pull request by branch on `push` (a first push with no pull request attests nothing) and from the `gh-readonly-queue/<base>/pr-<n>-<sha>` ref on `merge_group`. The queue's temporary branches are ignored by the push trigger. The pre-push range stays `base.sha..head.sha` on pull requests and `before..sha` on `main`. A `Swatinem/rust-cache` step pinned by digest sits after tool install, keyed on `Cargo.lock`, `save-if: github.event_name != 'merge_group'`, skipped when `Cargo.toml` is absent.
+- `templates/base/.github/rulesets/*.json`. The `main` ruleset requires `quality` from both event kinds and enables the merge queue. `tests/test_review_configuration.py` reads the ruleset and fails when the queue is off or the `merge_group` context is missing.
+- `templates/base/.github/workflows/review-correctness.yaml`. `on:` gains `workflow_run: workflows: [Quality], types: [completed]`. A `green-head` job runs on `conclusion == 'success'`, maps `workflow_run.head_sha` to its open pull request through the API, and calls the seer body with the pull request number and head as a green-head event. The `uses:` line pins the seer tag and passes `protocol: 2`.
+- `templates/base/.github/workflows/draft-open.yaml`. `on:` becomes `workflow_run` of `Quality` completed, filtered to the ceremony branch prefixes. The draft opens on a green push run of the same repository, reads the proven head for `docs/changes/<id>/pull-request.md` with credentials off, and builds nothing itself. The controller's `workflow_run` trigger names the same run.
+- `docs/specs/paid-review-economy/spec.md`. Round Binding drops the base. Budget counts model calls with an attempt cap. Base-reset continues into triage. Green-head re-entry through `workflow_run`.
+- `docs/specs/deterministic-merge-checks/spec.md`. Head-bound checks prove the head, the `merge_group` run proves the merge, both required.
+- `docs/specs/sealed-review-ceremony/spec.md`. Controller pinned by tag with a protocol version. Ceremony contract published by the writer. Lane-named notices. `rune sign open` body-before-touch and verified resume.
+- `tests/fixtures/ceremony-contract/`. Golden files the cli emits: `open-seal.txt`, `merge-seal.txt`, `ledger-line.txt`, `receipt.log`, `staleness.json`, each with a `-bad-*` sibling for the negative case (wrong key, short nonce, moved base, missing exit line). `tests/test_ceremony_contract.py` feeds each through `scripts/verify-seal`, the `owner-seal.yaml` jq path, the receipt rule, and the staleness check.
+- Companion edits, tracked in `tasks.md`: seer body (staleness on head only, model-call accounting, attempt cap, base-reset continuation, `workflow_run` entry, protocol version, release tag, notice wording), cli (`rune sign --emit-contract`, `sign open` body and resume, `sign submit` message order).
+
+## Risks
+
+- A consumer whose merge queue is off keeps the old merge-commit `quality` as its required check until the queue is on. The configuration test names the repository. No consumer silently loses integration proof.
+- Pinning the controller means a seer fix waits for a tag and a sync. That is the point: no consumer changes behavior under an open pull request without a visible step.
+- The attempt cap can stop a work item that hit vendor outages. The owner resets it by label, as with the round budget today.
+- Golden files from the cli can encode a wrong shape on both sides. The negative siblings and the canary pull request (SKEL-0006) cover the cases the fixtures cannot: absent configuration, mixed versions, unauthorized signer.
+- Two required `quality` contexts add one queue run per merged pull request. One integration build per merge is the price of not rebuilding on every base move. Removing the `pull_request` run gives that minute back on every push.
