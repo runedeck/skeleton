@@ -85,4 +85,5 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Fixed
 
+- Fix `tests/test_jj_push.py` on the runner: the signing fixture sets the git author as well as the committer, because a runner account has no name for git to fall back on.
 - Fix `scripts/trash` on Linux: a missing path gets the script's own message and exit code before the rest is handed to `gio trash`, so `tests/test_trash.py` passes on the runner.

@@ -474,7 +474,10 @@ class ProtectedBranchSignatureTests(BookmarkFixture):
         # need the owner's signing configuration this fixture does not carry.
         backend = self.jj("git", "root", cwd=self.workspace)
         commit = self.jj("log", "--no-graph", "-r", self.head_change, "-T", "commit_id", cwd=self.workspace)
+        # Both identities, explicitly: a runner account has no gecos name for
+        # git to fall back on, so a missing author fails with "empty ident".
         env = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+               "GIT_AUTHOR_NAME": "Owner", "GIT_AUTHOR_EMAIL": "o@example.com",
                "GIT_COMMITTER_NAME": "Owner", "GIT_COMMITTER_EMAIL": "o@example.com"}
         tree = self.checked([self.git_binary, "--git-dir", backend, "rev-parse", f"{commit}^{{tree}}"], environment=env)
         parent = self.checked([self.git_binary, "--git-dir", backend, "rev-parse", f"{commit}^"], environment=env)
