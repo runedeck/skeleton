@@ -21,15 +21,30 @@ if [ $# -eq 0 ]; then
     exit 64
 fi
 
+missing() {
+    [ ! -e "$1" ] && [ ! -L "$1" ]
+}
+
 if command -v gio >/dev/null 2>&1 && [ "$(uname -s)" = Linux ]; then
-    exec gio trash -- "$@"
+    # gio prints its own text for a missing path. Keep this script's message
+    # and exit code on both systems, and hand gio only what exists.
+    status=0
+    for path in "$@"; do
+        if missing "$path"; then
+            echo "trash: no such file or directory: $path" >&2
+            status=1
+        else
+            gio trash -- "$path" || status=1
+        fi
+    done
+    exit "$status"
 fi
 
 trash="${XDG_DATA_HOME:-$HOME/.local/share}/Trash"
 mkdir -p "$trash/files" "$trash/info" || exit 1
 status=0
 for path in "$@"; do
-    if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+    if missing "$path"; then
         echo "trash: no such file or directory: $path" >&2
         status=1
         continue

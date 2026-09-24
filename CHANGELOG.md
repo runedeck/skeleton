@@ -82,3 +82,7 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 - Remove `CLAUDE.md` from the template payload, so `AGENTS.md` is the only instruction file a consumer receives.
 - Remove consumer byte comparisons against the moving skeleton branch.
 - Remove the `spec:none` label from every repository through the label synchronization.
+
+### Fixed
+
+- Fix `scripts/trash` on Linux: a missing path gets the script's own message and exit code before the rest is handed to `gio trash`, so `tests/test_trash.py` passes on the runner.
