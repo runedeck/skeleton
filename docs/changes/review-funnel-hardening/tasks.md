@@ -4,13 +4,13 @@ Owner review in small groups: group 1, key touch, group 2, key touch. Companion 
 
 ## 1. Integration in the queue, review on the head (skeleton)
 
-- [x] 1.1 `quality.yaml`: `on: push` (head commit, `gh-readonly-queue/**` ignored) and `on: merge_group` (queue merge commit), `pull_request` removed, root and `templates/base`. The release-notes step finds the pull request by branch on push and by queue ref on `merge_group`; the pre-push range uses `merge_group.base_sha`
+- [x] 1.1 `quality.yaml`: `on: push` (head commit, `gh-readonly-queue/**` ignored) and `on: merge_group` (queue merge commit), `pull_request` removed, root and `templates/base`. The release-notes step finds the pull request by branch on push and by queue ref on `merge_group`. The pre-push range uses `merge_group.base_sha`
 - [x] 1.1a root `quality.yaml` keeps the `test_dcg_policy.py` unittest step that `fable/dcg-command-policy` (skeleton `20fec5f8`) adds after the tool-installer test, in the job that runs the unittest block
 - [ ] 1.2 (deferred to a follow-up, not on the merge path) `quality.yaml`: `Swatinem/rust-cache` pinned by digest, keyed on `Cargo.lock`, `save-if` off on `merge_group`, skipped without `Cargo.toml`
-- [x] 1.3 rulesets: `merge_queue` rule (MERGE, ALLGREEN, 60 min check timeout, 5 entries) in `ceremony-base.json`, root and `templates/base`; the `quality` context stays required and is reported by both runs
+- [x] 1.3 rulesets: `merge_queue` rule (MERGE, ALLGREEN, 60 min check timeout, 5 entries) in `ceremony-base.json`, root and `templates/base`. The `quality` context stays required and both runs report it
 - [ ] 1.4 `review-correctness.yaml` caller: `workflow_run` on `Quality` completed, `green-head` job maps `head_sha` to its open pull request and calls the body as a green-head event
 - [ ] 1.5 `review-correctness.yaml` caller: `uses:` pins a seer tag and passes `protocol: 2`
-- [x] 1.6 `draft-open.yaml`: `on: workflow_run` of `Quality` completed on `change/**`, `codex/**`, `fable/**`; opens on a green same-repository push run, checks out the proven head for the body file only, no second build
+- [x] 1.6 `draft-open.yaml`: `on: workflow_run` of `Quality` completed on `change/**`, `codex/**`, `fable/**`. Opens on a green same-repository push run, checks out the proven head for the body file only, no second build
 - [x] 1.7 `tests/test_review_configuration.py`: quality on push and merge_group only, merge queue rule present, Draft Open on `workflow_run` (seer tag and controller `workflow_run` land with 1.4 and 1.5)
 
 ## 2. Specs (deltas in this change)
