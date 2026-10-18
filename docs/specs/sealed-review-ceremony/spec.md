@@ -2,9 +2,7 @@
 
 ## Purpose
 
-Nothing reaches `main` on one model's opinion, and nothing carries the owner's name without the owner's key. Free *agentic review lanes* examine every push and fill a *ledger* the ceremony owns. The paid adjudicator, Runeseer, runs only after the owner marks the pull request ready with an *open-seal*, and only when a deterministic triage says a second opinion is worth its cost. Every thread from every lane ends in a recorded disposition. The owner's second key touch, the *merge-seal*, is what the ruleset requires before merge. Every lane is a vendor product that can be switched off on any day. The ledger, the seals, and the ruleset are not.
-
-This capability holds the ceremony's shape: who opens and who readies, how a verdict earns approval, and how the ledger tracks coverage. The paid-review budget and triage are in `paid-review-economy`, the lanes in `agentic-review-lanes`, their request labels and the triage in `review-round-requests`, their dashboard state in `external-lane-configuration`, the deterministic checks in `deterministic-merge-checks`, and the seals and the signed release path in `owner-release-ceremony`. After code merges, the drift review compares the canonical documents under `docs/specs/` with the merged tree and reports any requirement that now describes behavior the tree no longer has.
+Nothing reaches `main` on one model's opinion, and nothing carries the owner's name without the owner's key. Free *[agentic review lanes][AGENTICREVIEWLANE]* examine every push and fill a *[ledger][REVIEWSCORECARD]* the ceremony owns. The paid adjudicator, Runeseer, runs only after the owner marks the pull request ready with an *[open-seal][OPENSEAL]*, and only when a deterministic triage says a second opinion is worth its cost. Every thread from every lane ends in a recorded disposition. The owner's second key touch, the *[merge-seal][MERGESEAL]*, is what the ruleset requires before merge. Every lane is a vendor product that can be switched off on any day. The ledger, the seals, and the ruleset are not. This capability holds the ceremony's shape: who opens and who readies, how a verdict earns approval, and how the ledger tracks coverage. The paid-review budget and triage are in `paid-review-economy`, the lanes in `agentic-review-lanes`, their request labels and the triage in `review-round-requests`, their dashboard state in `external-lane-configuration`, the deterministic checks in `deterministic-merge-checks`, and the seals and the signed release path in `owner-release-ceremony`. After code merges, the drift review compares the canonical documents under `docs/specs/` with the merged tree and reports any requirement that now describes behavior the tree no longer has.
 
 ## Requirements
 
@@ -144,3 +142,8 @@ No vendor lane MUST be named as required in the ruleset. The required checks are
 
 - **WHEN** a lane's row is removed from the lane table
 - **THEN** the ledger stops expecting it and no requirement elsewhere changes
+
+[AGENTICREVIEWLANE]: ../glossary/agentic-review-lane.md
+[REVIEWSCORECARD]: ../glossary/review-scorecard.md
+[OPENSEAL]: ../glossary/open-seal.md
+[MERGESEAL]: ../glossary/merge-seal.md

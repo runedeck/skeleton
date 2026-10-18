@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Every commit in a runedeck repository says who authored it from the commit object alone: a human, or an AI model, and for a model, which harness and which model. Author identities are allowlisted, work by several models is attributed through *trailers*, and a required check applies the same rules to every pull request without a model-version catalog.
+Every commit in a runedeck repository says who authored it from the commit object alone: a human, or an AI model, and for a model, which harness and which model. Author identities are allowlisted, work by several models is attributed through *[trailers][COMMITTRAILER]*, and a required check applies the same rules to every pull request without a model-version catalog.
 
 ## Requirements
 
@@ -107,3 +107,5 @@ Commits authored by models MUST be unsigned, and no branch rule MUST require com
 
 - **WHEN** an allowlisted model pushes an unsigned commit to a pull request branch
 - **THEN** no check rejects the commit for lacking a signature
+
+[COMMITTRAILER]: ../glossary/commit-trailer.md

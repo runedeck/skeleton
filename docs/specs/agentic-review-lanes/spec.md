@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Which *agentic review lanes* exist, which of them the default *review funnel* runs, in what order, and what evidence each round reuses. A lane that bills per run spends only inside a requested round.
+Which *[agentic review lanes][AGENTICREVIEWLANE]* exist, which of them the default *[review funnel][REVIEWFUNNEL]* runs, in what order, and what evidence each round reuses. A lane that bills per run spends only inside a requested round.
 
 ## Requirements
 
@@ -92,3 +92,6 @@ Fork pull requests MUST use the owner's Repository-admin bypass after the availa
 - **THEN** no paid lane runs for that push
 - **AND** the previous head's verdict remains behind
 - **AND** the current head's required checks stay unsatisfied until a maintainer applies a review label, holding the merge closed
+
+[AGENTICREVIEWLANE]: ../glossary/agentic-review-lane.md
+[REVIEWFUNNEL]: ../glossary/review-funnel.md

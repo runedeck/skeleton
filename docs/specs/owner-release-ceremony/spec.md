@@ -8,7 +8,7 @@ How the owner's hardware key enters the ceremony and how approved work enters `m
 
 ### Requirement: Owner Attestation on Seals and Tags
 
-The owner's hardware key MUST enter the ceremony at three points. The *open-seal* is an empty signed commit beneath the pull request head whose subject line carries the repository, the base ref, the pull request number, the head tree, and a single-use nonce of 64 lowercase hex characters, 32 random bytes. `rune sign open` MUST write that nonce into the pull request body when it flips the draft ready. The session agent MAY invoke `rune sign open`, `submit`, and `next`. The touch is the owner's, and nothing signs without it.
+The owner's hardware key MUST enter the ceremony at three points. The *[open-seal][OPENSEAL]* is an empty signed commit beneath the pull request head whose subject line carries the repository, the base ref, the pull request number, the head tree, and a single-use nonce of 64 lowercase hex characters, 32 random bytes. `rune sign open` MUST write that nonce into the pull request body when it flips the draft ready. The session agent MAY invoke `rune sign open`, `submit`, and `next`. The touch is the owner's, and nothing signs without it.
 
 #### Scenario: Open-seal binds one pull request
 
@@ -24,7 +24,7 @@ The owner's hardware key MUST enter the ceremony at three points. The *open-seal
 
 ### Requirement: Merge-Seal Shape
 
-The *merge-seal* is an empty signed commit whose sole parent is the ledger's `reviewed_sha` and whose tree equals that parent's tree. It MUST name `reviewed_sha`, the ledger generation, and the sha256 digest of the ledger artifact in its subject line.
+The *[merge-seal][MERGESEAL]* is an empty signed commit whose sole parent is the ledger's `reviewed_sha` and whose tree equals that parent's tree. It MUST name `reviewed_sha`, the ledger generation, and the sha256 digest of the ledger artifact in its subject line.
 
 #### Scenario: Merge-seal is an empty child
 
@@ -118,9 +118,7 @@ Approved work MUST enter `main` as a GitHub merge commit, and release tags MUST 
 
 ### Requirement: Owner Direct Push
 
-The owner MAY push to the protected branch outside a pull request, as a fast-forward or a force push, through the repository admin bypass on both branch rulesets.
-Every commit such a push adds to the branch MUST carry a signature that verifies against `KEYS`.
-Commits the branch already reaches are outside the range: work that entered through a pull request stays unsigned.
+The owner MAY push to the protected branch outside a pull request, as a fast-forward or a force push, through the repository admin bypass on both branch rulesets. Every commit such a push adds to the branch MUST carry a signature that verifies against `KEYS`. Commits the branch already reaches are outside the range: work that entered through a pull request stays unsigned.
 
 #### Scenario: Signed direct push
 
@@ -139,12 +137,12 @@ Commits the branch already reaches are outside the range: work that entered thro
 
 ### Requirement: Direct Push Enforcement
 
-The guarded push MUST refuse a direct push when any added commit is unsigned or signed by a key `KEYS` does not name, and MUST name the first such commit.
-The platform MUST NOT require signatures on the branch, because model commits are unsigned by design.
-The guarded push is the enforcement point, and a push that goes around it is the owner's own act.
-The guarded push takes the verifier and `KEYS` from the default branch, and only until the default branch carries them from the pushed head.
+The guarded push MUST refuse a direct push when any added commit is unsigned or signed by a key `KEYS` does not name, and MUST name the first such commit. The platform MUST NOT require signatures on the branch, because model commits are unsigned by design. The guarded push is the enforcement point, and a push that goes around it is the owner's own act. The guarded push takes the verifier and `KEYS` from the default branch, and only until the default branch carries them from the pushed head.
 
 #### Scenario: Stranger's signature
 
 - **WHEN** a direct push adds a commit signed by a key `KEYS` does not name
 - **THEN** the guarded push refuses and names the fingerprint
+
+[OPENSEAL]: ../glossary/open-seal.md
+[MERGESEAL]: ../glossary/merge-seal.md
