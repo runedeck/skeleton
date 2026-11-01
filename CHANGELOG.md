@@ -6,6 +6,8 @@ All notable changes to Skeleton are documented here, following [Keep a Changelog
 
 ### Added
 
+- Add `secretspec.toml` to the template and the root: the secrets a repository reads, with a `ci` profile on the job environment, seeded once through `_skip_if_exists`.
+- Add the `secretspec-manifest` hook, which checks the declaration without reading a value and skips when `secretspec` is absent.
 - Add `scripts/trash` to the template and the root: a recoverable delete on macOS and Linux through the FreeDesktop trash layout, no Finder, with `tests/test_trash.py`.
 - Add seven dcg packs under `.dcg/packs/`, one per rule (`search`, `parsers`, `secrets`, `push`, `provenance`, `rtk`, `homebrew`), ids `rune.<segment>`, in the template and the root (SKEL-0009).
 - Add `.dcg/fixtures.txt`, `.dcg/test-config.toml`, and `scripts/test-dcg-packs`: a denied command per rule and a permitted one per exemption, replayed through `dcg test` under an isolated config.
