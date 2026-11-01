@@ -5,7 +5,8 @@ _answers_file: answers.yaml
 # never rewrites them on update, and the parity audit does not compare them.
 # The spelling and Markdown lint configs join them: every consumer adds its
 # own excluded fixtures and accepted words, on the same lines the template
-# would edit, so a template-owned copy conflicts on each update.
+# would edit, so a template-owned copy conflicts on each update. The secret
+# declarations are seeded the same way: each consumer lists its own secrets.
 _skip_if_exists:
     - CHANGELOG.md
     - AGENTS.md
@@ -15,6 +16,7 @@ _skip_if_exists:
     - .gitignore
     - typos.toml
     - .rumdl.toml
+    - secretspec.toml
 _envops:
     variable_start_string: "${"
     variable_end_string: "}"

@@ -42,7 +42,9 @@ class PinCoverageTests(unittest.TestCase):
         config = (BASE / ".pre-commit-config.yaml").read_text(encoding="utf-8")
         guarded = set(re.findall(r"command -v ([a-z]+) >/dev/null", config))
         pins = variables()
-        for tool in sorted(guarded - {"rune"}):
+        # rune has no release to pin yet, and secretspec comes from the
+        # owner's Brewfile. Both hooks skip when the binary is absent.
+        for tool in sorted(guarded - {"rune", "secretspec"}):
             with self.subTest(tool=tool):
                 self.assertIn(f"{tool.upper()}_VERSION", pins)
 
