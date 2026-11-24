@@ -17,6 +17,8 @@ Both paths MUST use the same parser and identity validator.
 - **WHEN** both entrypoints receive the same commit range and trusted policy
 - **THEN** both report the same attribution result
 
+## MODIFIED Requirements
+
 ### Requirement: Attribution Policy Parser
 
 The parser MUST accept only the documented plain block-list policy format.

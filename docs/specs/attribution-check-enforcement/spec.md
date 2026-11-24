@@ -8,16 +8,16 @@ How the attribution rules are applied: the commit range the `ci/authorship` chec
 
 ### Requirement: Attribution Check Range
 
-The `ci/authorship` check MUST read the commits from the *merge base* of the pull request to its head, the range the pull request introduces, and MUST fail when the merge base cannot be resolved.
+The `ci/authorship` check MUST read the commits from the *[merge base][MERGEBASE]* of the pull request to its head, the range the pull request introduces, and MUST fail when the [merge base][MERGEBASE] cannot be resolved.
 
 #### Scenario: Range resolved
 
-- **WHEN** the check runs on a pull request whose merge base resolves
+- **WHEN** the check runs on a pull request whose [merge base][MERGEBASE] resolves
 - **THEN** it examines every commit in that range and no commit outside it
 
 #### Scenario: Unresolvable merge base
 
-- **WHEN** the merge base cannot be resolved from the fetched history
+- **WHEN** the [merge base][MERGEBASE] cannot be resolved from the fetched history
 - **THEN** the check fails rather than examining a partial range
 
 ### Requirement: Local Pre-Push Attribution Check
@@ -32,7 +32,7 @@ Every repository built from this template MUST contain `scripts/check-authorship
 #### Scenario: New branch push
 
 - **WHEN** the push creates the remote branch and prek reports the zero object id as the from-ref
-- **THEN** the check falls back to the merge base with `origin/main` and examines that range
+- **THEN** the check falls back to the [merge base][MERGEBASE] with `origin/main` and examines that range
 
 ### Requirement: Trusted Attribution Inputs
 
@@ -62,3 +62,5 @@ Attribution validation MUST describe syntax and policy compliance, not proof tha
 
 - **WHEN** the selected range is empty and policy is malformed
 - **THEN** the check fails instead of reporting compliance
+
+[MERGEBASE]: ../glossary/merge-base.md

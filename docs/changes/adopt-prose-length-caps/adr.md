@@ -41,7 +41,7 @@ Option 2. The caps exist because a 400-word requirement hides its MUST clauses, 
 The tree MUST keep these rules:
 
 - Every capability and change id MUST carry three or more hyphen-separated words.
-- A requirement that outgrows 100 words MUST split into one requirement per MUST cluster, never shrink by dropping a clause.
+- A requirement that outgrows 100 words MUST split into one requirement per MUST cluster. The author MUST NOT shrink it by dropping a clause.
 - A canonical specification that outgrows 150 lines MUST split into a second capability with its own purpose.
 
 ## Consequences

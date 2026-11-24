@@ -19,7 +19,7 @@ The nightly canary reported green while a probe failed (skeleton#45). The byte-c
 - A weekly consumer-parity workflow compares every consumer with the template and posts to the deck audit issue.
 - `template-update.yaml` targets skeleton main when no newer tag exists and publishes a patch instead of a pull request.
 - The worktree-identity and template-composition specs describe the jj workspace path and the install-versus-validate Copier split.
-- Every specification uses MUST, stays under 150 lines, and defines its terms in `docs/specs/glossary.md`. review-ceremony splits into review-lanes, review-requests, lane-configuration, merge-checks, and release-ceremony. commit-attribution splits off attribution-check and worktree-identity.
+- Every specification uses MUST, stays under 150 lines, and defines its terms in `docs/specs/glossary.md`. `review-ceremony` splits into `review-lanes`, `review-requests`, `lane-configuration`, `merge-checks`, and `release-ceremony`. `commit-attribution` splits off `attribution-check` and `worktree-identity`.
 - `DECK-0001` becomes `SKEL-0001`. Three forge-core decisions enter as SKEL-0004 to SKEL-0006 through reviewed adoption.
 
 ## Capabilities

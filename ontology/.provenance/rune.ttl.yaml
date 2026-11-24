@@ -1,0 +1,23 @@
+provenance:
+  _type: https://in-toto.io/Statement/v1
+  predicateType: https://slsa.dev/provenance/v1
+  subject:
+  - name: ontology/rune.ttl
+    digest:
+      sha256: 4646b29f0316cbe4c17a9108b942c5eceef444f98109bd269e27d6a9b58d360a
+  predicate:
+    buildDefinition:
+      buildType: https://github.com/runedeck/cli/copy/v1
+      externalParameters:
+        source: https://github.com/runedeck/deck
+      resolvedDependencies:
+      - uri: ontology/rune.ttl
+        digest:
+          sha256: 4646b29f0316cbe4c17a9108b942c5eceef444f98109bd269e27d6a9b58d360a
+    runDetails:
+      builder:
+        id: https://github.com/runedeck/cli
+        version:
+          rune: 0.6.0
+      metadata:
+        startedOn: 2026-10-18T23:30:36.617257+00:00
